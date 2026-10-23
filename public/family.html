@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Saathi Family Circle</title>
+  <meta name="description" content="How Aaji is today, her memory book, and alerts for her care circle.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2248%22 fill=%22%23c2410c%22/%3E%3Ctext x=%2250%22 y=%2268%22 font-size=%2256%22 text-anchor=%22middle%22 fill=%22white%22%3E%E0%A4%B8%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">स</span>
+      <span>Saathi Family Circle <small>Everyone who loves Aaji, in their own language</small></span>
+    </div>
+    <div class="controls">
+      <label class="muted" for="member">Viewing as</label>
+      <select id="member"></select>
+      <button class="toggle" id="t-large" type="button" aria-pressed="false">Large text</button>
+      <button class="toggle" id="t-contrast" type="button" aria-pressed="false">High contrast</button>
+      <a class="btn secondary" href="/" target="_blank" rel="noopener">Aaji's Alexa ↗</a>
+    </div>
+  </header>
+
+  <main class="family">
+    <section class="card span-12" aria-labelledby="today-h">
+      <div class="hero">
+        <div class="avatar" aria-hidden="true">आ</div>
+        <div class="hero-text">
+          <h1 id="today-h" style="margin:0; font-size:1.5rem">Aaji today</h1>
+          <p id="summary" aria-live="polite">Loading…</p>
+          <p class="muted" id="summary-en" style="font-size:0.9rem"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="span-12" id="alerts" aria-live="assertive" aria-label="Alerts" style="display:grid; gap:12px"></section>
+
+    <section class="card span-4" aria-labelledby="meds-h">
+      <h2 id="meds-h">Tablets today</h2>
+      <div class="meds" id="meds"></div>
+    </section>
+
+    <section class="card span-4" aria-labelledby="door-h">
+      <h2 id="door-h">Front door <span class="muted">(Ring)</span></h2>
+      <div class="meds" id="door"></div>
+    </section>
+
+    <section class="card span-4" aria-labelledby="mood-h">
+      <h2 id="mood-h">How she's been feeling</h2>
+      <div class="mood" id="mood"></div>
+    </section>
+
+    <section class="card span-12" aria-labelledby="stories-h">
+      <h2 id="stories-h">Aaji's memory book</h2>
+      <p class="muted" style="margin-top:-4px">Stories she tells Alexa, kept in her words and translated into yours.</p>
+      <div class="stories" id="stories"></div>
+    </section>
+
+    <section class="card span-12" aria-labelledby="thread-h">
+      <h2 id="thread-h">Messages with Aaji</h2>
+      <div class="thread" id="thread"></div>
+      <form class="compose" id="compose">
+        <label class="skip" for="compose-text">Message to Aaji</label>
+        <input id="compose-text" type="text" autocomplete="off" placeholder="Write in your language. She'll hear it in hers.">
+        <button class="btn" type="submit">Send to Aaji</button>
+      </form>
+    </section>
+  </main>
+
+  <script type="module" src="family.js"></script>
+</body>
+</html>

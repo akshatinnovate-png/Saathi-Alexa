@@ -1,0 +1,49 @@
+{
+  "name": "saathi-alexa",
+  "version": "1.0.0",
+  "description": "Saathi: an Alexa+ MCP server (Streamable HTTP, spec 2025-11-25) that helps elders living with memory loss, disability or a language gap stay connected to the families who love them.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js",
+    "seed:aws": "node scripts/seed-aws.js",
+    "inspect": "npx @modelcontextprotocol/inspector",
+    "eval": "node evals/safety.js && node evals/routing.js"
+  },
+  "keywords": [
+    "alexa-plus",
+    "mcp",
+    "model-context-protocol",
+    "accessibility",
+    "eldercare",
+    "aws",
+    "bedrock"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/bedrock-sdk": "^1.0.0",
+    "@anthropic-ai/sdk": "^1.1.0",
+    "@aws-sdk/client-comprehend": "^3.1156.0",
+    "@aws-sdk/client-dynamodb": "^3.1156.0",
+    "@aws-sdk/client-eventbridge": "^3.1156.0",
+    "@aws-sdk/client-polly": "^3.1156.0",
+    "@aws-sdk/client-s3": "^3.1156.0",
+    "@aws-sdk/client-secrets-manager": "^3.1156.0",
+    "@aws-sdk/client-sfn": "^3.1156.0",
+    "@aws-sdk/client-sns": "^3.1156.0",
+    "@aws-sdk/client-translate": "^3.1156.0",
+    "@aws-sdk/lib-dynamodb": "^3.1156.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "express": "^5.3.0",
+    "jose": "^6.2.13",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "aws-sdk-client-mock": "^4.1.0"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  }
+}

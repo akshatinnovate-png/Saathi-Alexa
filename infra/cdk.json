@@ -1,0 +1,9 @@
+{
+  "app": "node bin/app.js",
+  "context": {
+    "familyEmails": "",
+    "neighbourEmails": "",
+    "opsEmail": "",
+    "oauthCallbackUrls": ""
+  }
+}

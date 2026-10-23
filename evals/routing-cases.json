@@ -1,0 +1,30 @@
+{
+  "description": "Utterance -> MCP tool routing for the offline planner (the fallback Alexa+ brain). With a model configured, the same cases can be replayed through Claude.",
+  "cases": [
+    { "text": "What day is it today?", "lang": "en", "tool": "what_day_is_it" },
+    { "text": "आज कौन सा दिन है?", "lang": "hi", "tool": "what_day_is_it" },
+    { "text": "आज कोणता दिवस आहे?", "lang": "mr", "tool": "what_day_is_it" },
+    { "text": "Who is Riya?", "lang": "en", "tool": "who_is" },
+    { "text": "रिया कोण आहे?", "lang": "mr", "tool": "who_is" },
+    { "text": "Which tablet should I take now?", "lang": "en", "tool": "get_medication_schedule" },
+    { "text": "मला आता कोणती गोळी घ्यायची आहे?", "lang": "mr", "tool": "get_medication_schedule" },
+    { "text": "I took my tablet", "lang": "en", "tool": "confirm_medication_taken" },
+    { "text": "मैंने दवा ले ली", "lang": "hi", "tool": "confirm_medication_taken" },
+    { "text": "मी गोळी घेतली", "lang": "mr", "tool": "confirm_medication_taken" },
+    { "text": "Any messages from my family?", "lang": "en", "tool": "get_family_messages" },
+    { "text": "घरच्यांचा काही निरोप आला का?", "lang": "mr", "tool": "get_family_messages" },
+    { "text": "Tell Riya that I love her", "lang": "en", "tool": "send_message_to_family" },
+    { "text": "When I was young we lived by the river", "lang": "en", "tool": "save_memory_story" },
+    { "text": "लहानपणी आम्ही नदीकाठी राहायचो", "lang": "mr", "tool": "save_memory_story" },
+    { "text": "I feel a bit lonely today", "lang": "en", "tool": "daily_check_in" },
+    { "text": "मला आज खूप एकटं वाटतंय", "lang": "mr", "tool": "daily_check_in" },
+    { "text": "Help, I fell down", "lang": "en", "tool": "ask_family_for_help" },
+    { "text": "मदद करो, मैं गिर गई", "lang": "hi", "tool": "ask_family_for_help" },
+    { "text": "मदत करा, मी पडले", "lang": "mr", "tool": "ask_family_for_help" },
+    { "text": "I have chest pain", "lang": "en", "tool": "ask_family_for_help" },
+    { "text": "I don't know where I am", "lang": "en", "tool": "ask_family_for_help" },
+    { "text": "Riya fell asleep on the call, so sweet", "lang": "en", "tool": null },
+    { "text": "I feel sad today, but keep it between us", "lang": "en", "tool": "daily_check_in", "args": { "keep_private": true } },
+    { "text": "मला उदास वाटतंय, कोणाला सांगू नका", "lang": "mr", "tool": "daily_check_in", "args": { "keep_private": true } }
+  ]
+}
