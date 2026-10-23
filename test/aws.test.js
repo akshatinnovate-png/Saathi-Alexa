@@ -106,3 +106,14 @@ test('CloudWatch Embedded Metric Format output', () => {
   assert.deepEqual(lines[0]._aws.CloudWatchMetrics[0].Dimensions, [['severity']]);
   assert.equal(lines[0].HelpRequested, 1);
 });
+
+test('Amazon S3: story narrations get time-limited signed playback URLs', async () => {
+  const { createAwsMedia } = await import('../src/aws/platform.js');
+  const media = createAwsMedia({ bucket: 'saathi-media', client: new (await import('@aws-sdk/client-s3')).S3Client({ region: 'us-east-1', credentials: { accessKeyId: 'AKIDEXAMPLE', secretAccessKey: 'secret' } }) });
+  const url = new URL(await media.playbackUrl('s3://saathi-media/stories/s1/en.mp3', 900));
+  assert.equal(url.hostname, 'saathi-media.s3.us-east-1.amazonaws.com');
+  assert.equal(url.pathname, '/stories/s1/en.mp3');
+  assert.equal(url.searchParams.get('X-Amz-Expires'), '900');
+  assert.ok(url.searchParams.get('X-Amz-Signature'));
+  assert.equal(await media.playbackUrl('/media/local.mp3'), '/media/local.mp3');
+});

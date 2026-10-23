@@ -1,8 +1,10 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { buildSync } from 'esbuild';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
-  Stack, Duration, RemovalPolicy, CfnOutput,
+  Stack, Duration, RemovalPolicy, CfnOutput, AssetHashType, DockerImage,
   aws_dynamodb as dynamodb, aws_s3 as s3, aws_sns as sns, aws_sns_subscriptions as subs,
   aws_events as events, aws_events_targets as targets, aws_stepfunctions as sfn,
   aws_lambda as lambda, aws_iam as iam, aws_logs as logs, aws_secretsmanager as secrets,
@@ -13,6 +15,41 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..', '..');
+
+function filesUnder(dir) {
+  return readdirSync(dir).sort().flatMap((name) => {
+    const path = join(dir, name);
+    return statSync(path).isDirectory() ? filesUnder(path) : [path];
+  });
+}
+
+export function serverSourceHash() {
+  const hash = createHash('sha256');
+  for (const file of [...filesUnder(join(repoRoot, 'src')), join(repoRoot, 'package.json'), join(repoRoot, 'package-lock.json')]) {
+    hash.update(file.slice(repoRoot.length)).update(readFileSync(file));
+  }
+  return hash.digest('hex');
+}
+
+export const LAMBDA_ENTRIES = { mcp: 'src/lambda/mcp.js', ring: 'src/lambda/ring.js', sweep: 'src/lambda/sweep.js' };
+
+export function bundleServer(outputDir) {
+  buildSync({
+    entryPoints: Object.fromEntries(Object.entries(LAMBDA_ENTRIES).map(([name, path]) => [name, join(repoRoot, path)])),
+    outdir: outputDir,
+    outExtension: { '.js': '.mjs' },
+    bundle: true,
+    platform: 'node',
+    target: 'node22',
+    format: 'esm',
+    minify: true,
+    sourcemap: true,
+    legalComments: 'none',
+    logLevel: 'error',
+    banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" },
+  });
+  return true;
+}
 
 export class SaathiStack extends Stack {
   constructor(scope, id, props) {
@@ -121,8 +158,13 @@ export class SaathiStack extends Stack {
       generateSecretString: { passwordLength: 48, excludePunctuation: true },
     });
 
-    const code = lambda.Code.fromAsset(repoRoot, {
-      exclude: ['infra', 'data', 'test', 'public', 'docs', 'scripts', '.git', '*.md', 'node_modules/aws-sdk-client-mock*', 'node_modules/sinon', 'node_modules/@sinonjs', 'node_modules/@anthropic-ai'],
+    const code = lambda.Code.fromAsset(join(repoRoot, 'src'), {
+      assetHashType: AssetHashType.CUSTOM,
+      assetHash: serverSourceHash(),
+      bundling: {
+        image: DockerImage.fromRegistry('public.ecr.aws/sam/build-nodejs22.x'),
+        local: { tryBundle: (outputDir) => bundleServer(outputDir) },
+      },
     });
     const environment = {
       SAATHI_USE_AWS: 'true',
@@ -147,12 +189,11 @@ export class SaathiStack extends Stack {
       code,
       environment,
       tracing: lambda.Tracing.ACTIVE,
-      loggingFormat: lambda.LoggingFormat.JSON,
     };
 
     const mcpFn = new lambda.Function(this, 'McpServer', {
       ...common,
-      handler: 'src/lambda/mcp.handler',
+      handler: 'mcp.handler',
       memorySize: 1024,
       timeout: Duration.seconds(29),
       description: 'Saathi MCP server (Streamable HTTP, stateless, spec 2025-11-25)',
@@ -160,7 +201,7 @@ export class SaathiStack extends Stack {
     });
     const sweepFn = new lambda.Function(this, 'MissedDoseSweep', {
       ...common,
-      handler: 'src/lambda/sweep.handler',
+      handler: 'sweep.handler',
       memorySize: 512,
       timeout: Duration.seconds(60),
       description: 'Raises gentle reminders for tablets not confirmed',
@@ -169,7 +210,7 @@ export class SaathiStack extends Stack {
 
     const ringFn = new lambda.Function(this, 'RingEvents', {
       ...common,
-      handler: 'src/lambda/ring.handler',
+      handler: 'ring.handler',
       memorySize: 512,
       timeout: Duration.seconds(15),
       description: 'Verifies and processes Ring doorbell events',

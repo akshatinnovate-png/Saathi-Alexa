@@ -4,7 +4,7 @@ import { App } from 'aws-cdk-lib';
 import { Template, Match } from 'aws-cdk-lib/assertions';
 import { SaathiStack } from '../lib/saathi-stack.js';
 
-const app = new App({ context: { familyEmails: 'riya@example.com', neighbourEmails: 'meera@example.com' } });
+const app = new App({ context: { familyEmails: 'riya@example.com', neighbourEmails: 'meera@example.com', 'aws:cdk:bundling-stacks': [] } });
 const template = Template.fromStack(new SaathiStack(app, 'Test', { env: { region: 'us-east-1' } }));
 
 test('HelpRequested events start the escalation state machine with the escalation payload', () => {
@@ -31,7 +31,7 @@ test('neighbours are filtered to escalations only', () => {
 
 test('MCP Lambda is ARM64 Node 22 with X-Ray and least-privilege AI service access', () => {
   template.hasResourceProperties('AWS::Lambda::Function', {
-    Handler: 'src/lambda/mcp.handler', Runtime: 'nodejs22.x', Architectures: ['arm64'], TracingConfig: { Mode: 'Active' },
+    Handler: 'mcp.handler', Runtime: 'nodejs22.x', Architectures: ['arm64'], TracingConfig: { Mode: 'Active' },
   });
   template.hasResourceProperties('AWS::IAM::Policy', {
     PolicyDocument: { Statement: Match.arrayWith([Match.objectLike({ Action: ['translate:TranslateText', 'comprehend:DetectSentiment', 'comprehend:DetectDominantLanguage', 'polly:SynthesizeSpeech'] })]) },
@@ -53,7 +53,7 @@ test('Cognito is the OAuth server: saathi/elder and saathi/family scopes, per-de
   });
   template.resourceCountIs('AWS::Cognito::UserPoolClient', 3);
   template.hasResourceProperties('AWS::Lambda::Function', {
-    Handler: 'src/lambda/mcp.handler',
+    Handler: 'mcp.handler',
     Environment: { Variables: Match.objectLike({ SAATHI_AUTH_MODE: 'cognito' }) },
   });
 });
@@ -61,5 +61,5 @@ test('Cognito is the OAuth server: saathi/elder and saathi/family scopes, per-de
 test('Ring doorbell webhook has its own Lambda, route and signing secret', () => {
   template.hasResourceProperties('AWS::ApiGatewayV2::Route', { RouteKey: 'POST /ring/events' });
   template.hasResourceProperties('AWS::ApiGatewayV2::Route', { RouteKey: 'GET /.well-known/oauth-protected-resource/{proxy+}' });
-  template.hasResourceProperties('AWS::Lambda::Function', { Handler: 'src/lambda/ring.handler' });
+  template.hasResourceProperties('AWS::Lambda::Function', { Handler: 'ring.handler' });
 });

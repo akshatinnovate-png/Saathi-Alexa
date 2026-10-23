@@ -1,6 +1,7 @@
 import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn';
 
 export const EVENT_SOURCE = 'saathi.companion';
@@ -48,6 +49,11 @@ export function createAwsMedia({ region, bucket, client } = {}) {
     async save(key, body, contentType) {
       await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType }));
       return `s3://${bucket}/${key}`;
+    },
+    async playbackUrl(ref, expiresIn = 3600) {
+      const match = /^s3:\/\/([^/]+)\/(.+)$/.exec(ref ?? '');
+      if (!match) return ref;
+      return getSignedUrl(s3, new GetObjectCommand({ Bucket: match[1], Key: match[2] }), { expiresIn });
     },
   };
 }

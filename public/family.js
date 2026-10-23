@@ -66,7 +66,7 @@ function renderStories(stories) {
       el('h3', {}, s.title),
       el('div', { lang }, mine.text),
       lang !== s.language && mine.text !== s.text ? el('div', { class: 'orig', lang: s.language }, `In her words: ${s.text}`) : null,
-      s.audio[lang] && !s.audio[lang].startsWith('s3://') ? el('audio', { controls: true, src: s.audio[lang], preload: 'none' }) : null,
+      s.audio[lang] ? el('audio', { controls: true, src: s.audio[lang], preload: 'none' }) : null,
       el('div', { class: 'muted', style: 'font-size:0.8rem' }, `${new Date(s.createdAt).toLocaleDateString()} · ${Object.keys(s.translations).map((l) => languages[l]?.name ?? l).join(' · ')}`));
   }));
 }
@@ -127,4 +127,5 @@ async function init() {
 
 let pending;
 onEvents(() => { clearTimeout(pending); pending = setTimeout(refresh, 250); });
+setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, 15000);
 init();

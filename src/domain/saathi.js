@@ -337,6 +337,11 @@ export function createSaathi(deps) {
     return (await store.list('stories')).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
+  async function withPlayableAudio(story) {
+    const entries = await Promise.all(Object.entries(story.audio ?? {}).map(async ([l, ref]) => [l, await (media.playbackUrl?.(ref) ?? ref)]));
+    return { ...story, audio: Object.fromEntries(entries) };
+  }
+
   async function notifyCircle({ audience, severity, subject, english, perMember }) {
     const circle = await store.list('circle');
     for (const p of circle.filter((m) => audience === 'everyone' || m.role === audience)) {
@@ -405,7 +410,7 @@ export function createSaathi(deps) {
       alerts.some((a) => !a.acknowledged) ? `${alerts.filter((a) => !a.acknowledged).length} alert(s) waiting for someone to respond.` : 'No open alerts.',
     ].join(' ');
     const translated = member ? await translateTo(english, member.language, 'en') : { text: english };
-    return { english, text: translated.text, language: member?.language ?? 'en', medications: meds, checkins: checkins.slice(0, 10), alerts: alerts.slice(0, 10), stories: (await listStories()).slice(0, 10) };
+    return { english, text: translated.text, language: member?.language ?? 'en', medications: meds, checkins: checkins.slice(0, 10), alerts: alerts.slice(0, 10), stories: await Promise.all((await listStories()).slice(0, 10).map(withPlayableAudio)) };
   }
 
   return {

@@ -1,7 +1,7 @@
-import { readFileSync } from 'node:fs';
+import definition from './escalation.asl.json' with { type: 'json' };
 
 export function loadDefinition(substitutions = {}) {
-  const raw = readFileSync(new URL('./escalation.asl.json', import.meta.url), 'utf8');
+  const raw = JSON.stringify(definition);
   return JSON.parse(raw.replace(/\$\{(\w+)\}/g, (_, k) => substitutions[k] ?? `\${${k}}`));
 }
 

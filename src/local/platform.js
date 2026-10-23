@@ -43,5 +43,8 @@ export function createLocalMedia({ dir }) {
       await writeFile(path, body);
       return `/media/${key}`;
     },
+    async playbackUrl(ref) {
+      return ref;
+    },
   };
 }
