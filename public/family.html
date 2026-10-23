@@ -55,6 +55,17 @@
       <div class="mood" id="mood"></div>
     </section>
 
+    <section class="card span-6" aria-labelledby="appts-h">
+      <h2 id="appts-h">Doctor visits</h2>
+      <div class="meds" id="appointments"></div>
+    </section>
+
+    <section class="card span-6" aria-labelledby="letter-h">
+      <h2 id="letter-h">This week's letter</h2>
+      <p class="letter" id="letter"></p>
+      <button class="btn secondary" id="letter-preview" type="button">Preview this week's letter</button>
+    </section>
+
     <section class="card span-12" aria-labelledby="stories-h">
       <h2 id="stories-h">Aaji's memory book</h2>
       <p class="muted" style="margin-top:-4px">Stories she tells Alexa, kept in her words and translated into yours.</p>
@@ -69,6 +80,10 @@
         <input id="compose-text" type="text" autocomplete="off" placeholder="Write in your language. She'll hear it in hers.">
         <button class="btn" type="submit">Send to Aaji</button>
       </form>
+      <div class="voice-row">
+        <button class="btn secondary" id="record" type="button" aria-pressed="false">🎤 Record a voice note</button>
+        <span class="muted" id="record-status" aria-live="polite">She hears your actual voice, not a translation.</span>
+      </div>
     </section>
   </main>
 

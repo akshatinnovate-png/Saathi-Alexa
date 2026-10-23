@@ -10,6 +10,12 @@ const AND = { en: ' and ', hi: ' और ', mr: ' आणि ' };
 
 const MESSAGES = {
   en: {
+    voiceNote: ({ from }) => `${from} sent you a voice message. Here it is.`,
+    refillArranged: ({ name, short }) => `${name} has arranged more of your ${short}. You don't need to worry about it.`,
+    apptWhen: ({ kind, date, lower }) => (kind === 'today' ? (lower ? 'today' : 'Today') : kind === 'tomorrow' ? (lower ? 'tomorrow' : 'Tomorrow') : `${lower ? 'on' : 'On'} ${date}`),
+    apptLine: ({ when, time, with: who, place, escort }) => `${when} at ${time} you see ${who} at ${place}.${escort ? ` ${escort} will take you.` : ''}`,
+    apptNone: () => 'There are no doctor visits in the next two weeks.',
+    escortComing: ({ name, title, when }) => `${name} will take you to your ${title.toLowerCase()} ${when}.`,
     orient: ({ date, time, part, home }) => `Today is ${date}. It is ${time} in the ${part}. You are at home, in ${home}.`,
     orientNext: ({ activity, time }) => ` Next is ${activity.toLowerCase()} at ${time}.`,
     orientRest: () => ' There is nothing else planned today. You can rest.',
@@ -41,6 +47,12 @@ const MESSAGES = {
     idle: () => "I'm here. You can ask me what day it is, about your tablets, for messages from your family, or tell me a story.",
   },
   hi: {
+    voiceNote: ({ from }) => `${from} ने आपको आवाज़ में संदेश भेजा है। सुनिए।`,
+    refillArranged: ({ name, short }) => `${name} ने आपकी ${short} और मँगवा दी है। आपको चिंता करने की ज़रूरत नहीं।`,
+    apptWhen: ({ kind, date }) => (kind === 'today' ? 'आज' : kind === 'tomorrow' ? 'कल' : `${date} को`),
+    apptLine: ({ when, time, with: who, place, escort }) => `${when} ${time} बजे आपको ${place} में ${who} से मिलना है।${escort ? ` ${escort} आपको ले जाएँगे।` : ''}`,
+    apptNone: () => 'अगले दो हफ़्तों में डॉक्टर के पास जाना नहीं है।',
+    escortComing: ({ name, title, when }) => `${name} ${when} आपको ${title} के लिए ले जाएँगे।`,
     orient: ({ date, time, part, home }) => `आज ${date} है। ${part} के ${time} बजे हैं। आप अपने घर पर हैं, ${home} में।`,
     orientNext: ({ activity, time }) => ` अगला काम है ${activity}, ${time} बजे।`,
     orientRest: () => ' आज और कुछ तय नहीं है। आप आराम कर सकती हैं।',
@@ -72,6 +84,12 @@ const MESSAGES = {
     idle: () => 'मैं यहीं हूँ। आप पूछ सकती हैं कि आज कौन सा दिन है, अपनी दवा के बारे में, परिवार के संदेश, या कोई कहानी सुना सकती हैं।',
   },
   mr: {
+    voiceNote: ({ from }) => `${from} यांनी तुम्हाला आवाजात निरोप पाठवला आहे. ऐका.`,
+    refillArranged: ({ name, short }) => `${name} यांनी तुमची ${short} आणखी मागवली आहे. काळजी करू नका.`,
+    apptWhen: ({ kind, date }) => (kind === 'today' ? 'आज' : kind === 'tomorrow' ? 'उद्या' : `${date} रोजी`),
+    apptLine: ({ when, time, with: who, place, escort }) => `${when} ${time} वाजता तुम्हाला ${place} इथे ${who} यांना भेटायचं आहे.${escort ? ` ${escort} तुम्हाला घेऊन जातील.` : ''}`,
+    apptNone: () => 'पुढच्या दोन आठवड्यांत डॉक्टरकडे जायचं नाही.',
+    escortComing: ({ name, title, when }) => `${name} ${when} तुम्हाला ${title}साठी घेऊन जातील.`,
     orient: ({ date, time, part, home }) => `आज ${date} आहे. ${part}चे ${time} वाजले आहेत. तुम्ही तुमच्या घरी आहात, ${home} इथे.`,
     orientNext: ({ activity, time }) => ` पुढे ${time} वाजता ${activity}.`,
     orientRest: () => ' आज आणखी काही ठरलेलं नाही. तुम्ही आराम करू शकता.',

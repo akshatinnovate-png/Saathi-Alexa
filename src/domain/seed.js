@@ -1,6 +1,12 @@
-export const SEED_VERSION = 3;
+export const SEED_VERSION = 5;
 
-export function seedData() {
+function localDateTime(now, daysAhead, hhmm, timeZone = 'Asia/Kolkata') {
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' })
+    .format(new Date(now.getTime() + daysAhead * 86400e3));
+  return `${day}T${hhmm}`;
+}
+
+export function seedData(now = new Date()) {
   return {
     meta: [{ id: 'schema', version: SEED_VERSION }],
     profile: [
@@ -24,6 +30,7 @@ export function seedData() {
           largeText: true,
         },
         privacy: { shareMoodWords: true },
+        pharmacy: { name: 'Kothrud Medicals', phone: '+91 20 0000 0000', note: 'Delivers within two hours' },
         devices: [{ id: 'front-door', kind: 'ring-video-doorbell', location: 'front door' }],
         routine: [
           { time: '07:00', activity: 'Morning tea and prayers', i18n: { hi: { activity: 'सुबह की चाय और पूजा' }, mr: { activity: 'सकाळचा चहा आणि पूजा' } } },
@@ -71,6 +78,7 @@ export function seedData() {
       {
         id: 'amlodipine', name: 'Amlodipine 5 mg', purpose: 'blood pressure', time: '09:00', withFood: true, description: 'small white round tablet',
         phrase: 'small white round tablet for blood pressure', short: 'blood pressure tablet',
+        supply: { remaining: 5, perDay: 1, lowAtDays: 5 },
         i18n: {
           hi: { phrase: 'ब्लड प्रेशर की छोटी सफ़ेद गोल गोली', short: 'ब्लड प्रेशर की गोली' },
           mr: { phrase: 'रक्तदाबाची छोटी पांढरी गोल गोळी', short: 'रक्तदाबाची गोळी' },
@@ -79,6 +87,7 @@ export function seedData() {
       {
         id: 'calcium', name: 'Calcium + Vitamin D', purpose: 'bones', time: '13:30', withFood: true, description: 'large white oval tablet',
         phrase: 'large white oval tablet for your bones', short: 'calcium tablet',
+        supply: { remaining: 42, perDay: 1, lowAtDays: 5 },
         i18n: {
           hi: { phrase: 'हड्डियों की बड़ी सफ़ेद अंडाकार गोली', short: 'कैल्शियम की गोली' },
           mr: { phrase: 'हाडांची मोठी पांढरी लंबगोल गोळी', short: 'कॅल्शियमची गोळी' },
@@ -87,6 +96,7 @@ export function seedData() {
       {
         id: 'donepezil', name: 'Donepezil 5 mg', purpose: 'memory', time: '21:00', withFood: false, description: 'small yellow tablet',
         phrase: 'small yellow tablet for memory', short: 'memory tablet',
+        supply: { remaining: 25, perDay: 1, lowAtDays: 5 },
         i18n: {
           hi: { phrase: 'याददाश्त की छोटी पीली गोली', short: 'याददाश्त की गोली' },
           mr: { phrase: 'स्मरणशक्तीची छोटी पिवळी गोळी', short: 'स्मरणशक्तीची गोळी' },
@@ -109,5 +119,24 @@ export function seedData() {
     ],
     alerts: [],
     door: [],
+    appointments: [
+      {
+        id: 'appt-memory-clinic', title: 'Memory clinic check-up', with: 'Dr. Kulkarni', place: 'Sahyadri Hospital, Deccan',
+        at: localDateTime(now, 1, '11:00'), escort: null,
+        i18n: {
+          hi: { title: 'मेमोरी क्लिनिक में जाँच', with: 'डॉ. कुलकर्णी', place: 'सह्याद्रि अस्पताल, डेक्कन' },
+          mr: { title: 'मेमरी क्लिनिकमध्ये तपासणी', with: 'डॉ. कुलकर्णी', place: 'सह्याद्री हॉस्पिटल, डेक्कन' },
+        },
+      },
+      {
+        id: 'appt-eye', title: 'Eye check-up', with: 'Dr. Joshi', place: 'Joshi Eye Clinic, Kothrud',
+        at: localDateTime(now, 9, '16:30'), escort: 'meera',
+        i18n: {
+          hi: { title: 'आँखों की जाँच', with: 'डॉ. जोशी', place: 'जोशी आई क्लिनिक, कोथरूड' },
+          mr: { title: 'डोळ्यांची तपासणी', with: 'डॉ. जोशी', place: 'जोशी आय क्लिनिक, कोथरूड' },
+        },
+      },
+    ],
+    letters: [],
   };
 }

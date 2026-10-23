@@ -39,6 +39,8 @@ setInterval(async () => {
   try {
     await services.saathi.sweepMissedDoses();
     await services.saathi.sweepQuietDay();
+    await services.saathi.sweepSupplies();
+    await services.saathi.sweepAppointments();
   } catch (err) {
     console.error('sweep failed', err);
   }

@@ -11,7 +11,7 @@
   --teal-soft: #d6efec;
   --danger: #b42318;
   --danger-soft: #fde4e1;
-  --ok: #1a7f37;
+  --ok: #146c2e;
   --ok-soft: #dcf3e2;
   --ring-idle: #2b6cb0;
   --ring-listen: #00a8e8;
@@ -321,6 +321,15 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .compose input { flex: 1; min-width: 0; }
 
 .empty { color: var(--ink-soft); font-style: italic; }
+
+.nudge { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-left: 6px solid var(--accent); }
+.nudge > span:nth-child(2) { flex: 1; min-width: 200px; }
+.med-pills { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.letter { white-space: pre-wrap; background: var(--surface-2); border-radius: 12px; padding: 12px 14px; margin: 0 0 12px; font-size: 0.95rem; }
+.voice-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+.notice { align-self: center; text-align: center; max-width: 90%; color: var(--ink-soft); font-size: 0.9rem; }
+.notice small { display: block; font-size: 0.75rem; }
+.bubble audio { display: block; margin-top: 6px; max-width: 100%; }
 
 @media (max-width: 960px) {
   .sim { grid-template-columns: minmax(0, 1fr); padding: 16px; }

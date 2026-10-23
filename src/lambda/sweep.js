@@ -6,5 +6,7 @@ export async function handler() {
   services ??= createServices(config);
   const raised = await services.saathi.sweepMissedDoses();
   const quietDay = await services.saathi.sweepQuietDay();
-  return { raised, quietDay };
+  const refills = await services.saathi.sweepSupplies();
+  const escorts = await services.saathi.sweepAppointments();
+  return { raised, quietDay, refills, escorts };
 }

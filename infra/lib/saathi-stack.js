@@ -4,7 +4,7 @@ import { buildSync } from 'esbuild';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
-  Stack, Duration, RemovalPolicy, CfnOutput, AssetHashType, DockerImage,
+  Stack, Duration, RemovalPolicy, CfnOutput, AssetHashType, DockerImage, TimeZone,
   aws_dynamodb as dynamodb, aws_s3 as s3, aws_sns as sns, aws_sns_subscriptions as subs,
   aws_events as events, aws_events_targets as targets, aws_stepfunctions as sfn,
   aws_lambda as lambda, aws_iam as iam, aws_logs as logs, aws_secretsmanager as secrets,
@@ -31,7 +31,7 @@ export function serverSourceHash() {
   return hash.digest('hex');
 }
 
-export const LAMBDA_ENTRIES = { mcp: 'src/lambda/mcp.js', ring: 'src/lambda/ring.js', sweep: 'src/lambda/sweep.js' };
+export const LAMBDA_ENTRIES = { mcp: 'src/lambda/mcp.js', ring: 'src/lambda/ring.js', sweep: 'src/lambda/sweep.js', digest: 'src/lambda/digest.js' };
 
 export function bundleServer(outputDir) {
   buildSync({
@@ -218,7 +218,16 @@ export class SaathiStack extends Stack {
     });
     ringSecret.grantRead(ringFn);
 
-    for (const fn of [mcpFn, sweepFn, ringFn]) {
+    const digestFn = new lambda.Function(this, 'WeeklyLetters', {
+      ...common,
+      handler: 'digest.handler',
+      memorySize: 512,
+      timeout: Duration.minutes(2),
+      description: 'Sunday letter to each family member, in their language',
+      logGroup: new logs.LogGroup(this, 'DigestLogs', { retention: logs.RetentionDays.ONE_MONTH, removalPolicy: RemovalPolicy.DESTROY }),
+    });
+
+    for (const fn of [mcpFn, sweepFn, ringFn, digestFn]) {
       table.grantReadWriteData(fn);
       bus.grantPutEventsTo(fn);
       circleTopic.grantPublish(fn);
@@ -233,7 +242,12 @@ export class SaathiStack extends Stack {
     new scheduler.Schedule(this, 'SweepSchedule', {
       schedule: scheduler.ScheduleExpression.rate(Duration.minutes(15)),
       target: new schedulerTargets.LambdaInvoke(sweepFn, {}),
-      description: 'Missed-dose sweep',
+      description: 'Missed-dose, refill, appointment and quiet-day sweep',
+    });
+    new scheduler.Schedule(this, 'WeeklyLetterSchedule', {
+      schedule: scheduler.ScheduleExpression.cron({ minute: '0', hour: '18', weekDay: 'SUN', timeZone: TimeZone.ASIA_KOLKATA }),
+      target: new schedulerTargets.LambdaInvoke(digestFn, {}),
+      description: 'Weekly family letter, Sunday 18:00 India time',
     });
 
     const httpApi = new apigw.HttpApi(this, 'McpApi', {
@@ -270,6 +284,7 @@ export class SaathiStack extends Stack {
       new cloudwatch.GraphWidget({ title: 'Care signals', left: [metric('CheckIn'), metric('HelpRequested'), metric('DoseMissed'), metric('DoseTaken')], width: 12 }),
       new cloudwatch.GraphWidget({ title: 'Connection', left: [metric('MessageSent'), metric('StorySaved'), metric('TranslationFailure')], width: 12 }),
       new cloudwatch.GraphWidget({ title: 'Front door (Ring)', left: [metric('DoorActivity'), metric('HelpRequestDeduplicated')], width: 12 }),
+      new cloudwatch.GraphWidget({ title: 'Care logistics', left: [metric('RefillNeeded'), metric('VoiceNote'), metric('WeeklyLetter')], width: 12 }),
       new cloudwatch.GraphWidget({ title: 'Escalations', left: [escalation.metricStarted(), escalation.metricSucceeded(), failedEscalations], width: 12 }),
       new cloudwatch.GraphWidget({ title: 'MCP Lambda', left: [mcpFn.metricInvocations(), mcpFn.metricErrors()], right: [mcpFn.metricDuration({ statistic: 'p95' })], width: 12 }),
     );

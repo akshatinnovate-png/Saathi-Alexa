@@ -13,25 +13,25 @@ const PHRASES = {
     day: 'What day is it today?', tablets: 'Which tablet should I take now?', took: 'I took my tablet',
     messages: 'Any messages from my family?', who: 'Who is Riya?', feel: 'I feel a bit lonely today',
     story: 'When I was young, we made puran poli for every festival in our old wada in Satara.', help: 'Help, I fell down',
-    send: 'Tell Riya that I am so proud of her', private: 'I feel sad today, but keep it between us',
+    send: 'Tell Riya that I am so proud of her', private: 'I feel sad today, but keep it between us', doctor: 'When do I see the doctor?',
   },
   hi: {
     day: 'आज कौन सा दिन है?', tablets: 'मुझे अभी कौन सी दवा लेनी है?', took: 'मैंने दवा ले ली',
     messages: 'परिवार से कोई संदेश आया?', who: 'रिया कौन है?', feel: 'आज मुझे अकेला लग रहा है',
     story: 'बचपन में हम सातारा के पुराने वाड़े में हर त्योहार पर पूरनपोली बनाते थे।', help: 'मदद करो, मैं गिर गई',
-    send: 'Tell Riya मुझे उस पर बहुत गर्व है', private: 'आज मन उदास है, किसी को मत बताना',
+    send: 'Tell Riya मुझे उस पर बहुत गर्व है', private: 'आज मन उदास है, किसी को मत बताना', doctor: 'डॉक्टर के पास कब जाना है?',
   },
   mr: {
     day: 'आज कोणता दिवस आहे?', tablets: 'मला आता कोणती गोळी घ्यायची आहे?', took: 'मी गोळी घेतली',
     messages: 'घरच्यांचा काही निरोप आला का?', who: 'रिया कोण आहे?', feel: 'मला आज खूप एकटं वाटतंय',
     story: 'लहानपणी आम्ही साताऱ्याच्या जुन्या वाड्यात प्रत्येक सणाला पुरणपोळी करायचो.', help: 'मदत करा, मी पडले',
-    send: 'Tell Riya मला तिचा खूप अभिमान वाटतो', private: 'मला उदास वाटतंय, कोणाला सांगू नका',
+    send: 'Tell Riya मला तिचा खूप अभिमान वाटतो', private: 'मला उदास वाटतंय, कोणाला सांगू नका', doctor: 'मला डॉक्टरकडे कधी जायचं आहे?',
   },
 };
 const LABELS = {
-  en: { day: '📅 What day is it?', tablets: '💊 My tablets', took: '✅ I took it', messages: '💌 Messages', who: '👧 Who is Riya?', feel: '💛 How I feel', story: '📖 Tell a story', send: '📨 Message Riya', private: '🤫 Just between us', help: '🆘 Help' },
-  hi: { day: '📅 आज क्या दिन है?', tablets: '💊 मेरी दवा', took: '✅ दवा ले ली', messages: '💌 संदेश', who: '👧 रिया कौन है?', feel: '💛 मेरा मन', story: '📖 एक कहानी', send: '📨 रिया को संदेश', private: '🤫 सिर्फ़ हमारे बीच', help: '🆘 मदद' },
-  mr: { day: '📅 आज कोणता दिवस?', tablets: '💊 माझ्या गोळ्या', took: '✅ गोळी घेतली', messages: '💌 निरोप', who: '👧 रिया कोण?', feel: '💛 माझं मन', story: '📖 एक गोष्ट', send: '📨 रियाला निरोप', private: '🤫 आपल्यातच ठेवा', help: '🆘 मदत' },
+  en: { day: '📅 What day is it?', tablets: '💊 My tablets', took: '✅ I took it', messages: '💌 Messages', who: '👧 Who is Riya?', feel: '💛 How I feel', story: '📖 Tell a story', send: '📨 Message Riya', private: '🤫 Just between us', doctor: '🩺 Doctor visits', help: '🆘 Help' },
+  hi: { day: '📅 आज क्या दिन है?', tablets: '💊 मेरी दवा', took: '✅ दवा ले ली', messages: '💌 संदेश', who: '👧 रिया कौन है?', feel: '💛 मेरा मन', story: '📖 एक कहानी', send: '📨 रिया को संदेश', private: '🤫 सिर्फ़ हमारे बीच', doctor: '🩺 डॉक्टर', help: '🆘 मदद' },
+  mr: { day: '📅 आज कोणता दिवस?', tablets: '💊 माझ्या गोळ्या', took: '✅ गोळी घेतली', messages: '💌 निरोप', who: '👧 रिया कोण?', feel: '💛 माझं मन', story: '📖 एक गोष्ट', send: '📨 रियाला निरोप', private: '🤫 आपल्यातच ठेवा', doctor: '🩺 डॉक्टर', help: '🆘 मदत' },
 };
 const YES_NO = { en: ['Yes, send it', 'No, not now'], hi: ['हाँ, भेज दो', 'नहीं, अभी नहीं'], mr: ['हो, पाठवा', 'नको, आत्ता नको'] };
 
@@ -127,6 +127,20 @@ async function askToConfirm({ id, message }) {
   return api('/alexa/answer', { id, accept });
 }
 
+async function playVoiceNotes(notes) {
+  for (const note of notes) {
+    setRing('speaking', `Playing a voice message from ${note.from}`);
+    $('progress').textContent = `🎤 ${note.from}`;
+    await new Promise((resolve) => {
+      const audio = new Audio(note.url);
+      audio.onended = resolve;
+      audio.onerror = resolve;
+      audio.play().catch(resolve);
+    });
+    $('progress').textContent = '';
+  }
+}
+
 async function handleResult(result) {
   while (result.elicitation) result = await askToConfirm(result.elicitation);
   {
@@ -136,6 +150,7 @@ async function handleResult(result) {
     renderTrace(result);
     const alarm = result.trace.some((t) => t.tool === 'ask_family_for_help');
     await speak(result.reply);
+    await playVoiceNotes(result.trace.flatMap((t) => t.result?.voiceNotes ?? []));
     setRing(alarm ? 'alert' : 'idle', alarm ? 'Help is on the way' : 'Alexa is idle');
     refreshNext();
   }

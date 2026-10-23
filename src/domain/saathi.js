@@ -54,6 +54,7 @@ export function createSaathi(deps) {
     const spokenDate = lang === 'en' ? longDate
       : new Intl.DateTimeFormat(LANGUAGES[lang].bcp47, { timeZone: tz, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(clock());
     const next = upcoming[0];
+    const soon = await upcomingAppointments({ language: lang, days: 1 });
     return {
       greetingName: me.preferredName,
       today: longDate,
@@ -64,7 +65,8 @@ export function createSaathi(deps) {
       laterToday: upcoming.slice(1, 4),
       sayLanguage: lang,
       say: localDigits(lang, t(lang, 'orient', { date: spokenDate, time: now.time, part: partOfDayName(lang, partOfDay(now.minutes)), home: localized(me, 'home', lang) })
-        + (next ? t(lang, 'orientNext', { activity: localized(next, 'activity', lang), time: next.time }) : t(lang, 'orientRest'))),
+        + (next ? t(lang, 'orientNext', { activity: localized(next, 'activity', lang), time: next.time }) : t(lang, 'orientRest')))
+        + (soon.appointments.some((a) => a.daysAway <= 1) ? ` ${soon.say}` : ''),
     };
   }
 
@@ -96,7 +98,8 @@ export function createSaathi(deps) {
       const taken = doses.find((d) => d.medicationId === m.id);
       const diff = now.minutes - toMinutes(m.time);
       const status = taken ? 'taken' : diff > 90 ? 'missed' : diff >= -30 ? 'due' : 'upcoming';
-      return { ...m, status, takenAt: taken?.takenAt ?? null };
+      const daysLeft = m.supply ? Math.floor(m.supply.remaining / (m.supply.perDay || 1)) : null;
+      return { ...m, status, takenAt: taken?.takenAt ?? null, daysLeft };
     });
   }
 
@@ -126,6 +129,11 @@ export function createSaathi(deps) {
     const now = localParts();
     const dose = { id: `${med.id}-${now.date}`, medicationId: med.id, date: now.date, takenAt: `${now.date}T${now.time}`, late: med.status === 'missed' };
     await store.put('doses', dose);
+    if (med.supply) {
+      const supply = { ...med.supply, remaining: Math.max(0, med.supply.remaining - 1) };
+      await store.update('medications', med.id, { supply });
+      await checkSupply({ ...med, supply });
+    }
     await events.publish('DoseTaken', { medicationId: med.id, medication: med.name, late: dose.late });
     metrics.emit('DoseTaken', 1, { late: String(dose.late) });
     return { recorded: true, medication: med.name, sayLanguage: lang, say: t(lang, 'medRecorded', { short: localized(med, 'short', lang) }) };
@@ -234,8 +242,8 @@ export function createSaathi(deps) {
     return alert;
   }
 
-  async function deliverToElder({ fromId, text, language, system = false }) {
-    const msg = { id: id('msg'), from: fromId, to: 'elder', language, text, createdAt: clock().toISOString(), read: false, system };
+  async function deliverToElder({ fromId, text, language, system = false, extra = {} }) {
+    const msg = { id: id('msg'), from: fromId, to: 'elder', language, text, createdAt: clock().toISOString(), read: false, system, ...extra };
     await store.put('messages', msg);
     await events.publish('MessageForElder', { id: msg.id, from: fromId });
     return msg;
@@ -247,8 +255,14 @@ export function createSaathi(deps) {
     const all = (await store.list('messages')).filter((m) => m.to === 'elder' && (!unreadOnly || !m.read))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     const out = [];
+    const voiceNotes = [];
     for (const m of all) {
       const sender = circle.find((p) => p.id === m.from);
+      if (m.kind === 'voice') {
+        voiceNotes.push({ id: m.id, from: localized(sender, 'name', lang) ?? m.from, url: await (media.playbackUrl?.(m.audio) ?? m.audio), durationSec: m.durationSec, at: m.createdAt });
+        if (markRead && !m.read) await store.update('messages', m.id, { read: true });
+        continue;
+      }
       const cached = m.language === lang ? m.text : m.translations?.[lang];
       const tr = cached ? { text: cached, engine: m.language === lang ? 'none' : 'cache' } : await translateTo(m.text, lang, m.language);
       if (!cached && tr.engine !== 'passthrough' && tr.engine !== 'error' && tr.engine !== 'none') {
@@ -257,16 +271,19 @@ export function createSaathi(deps) {
       out.push({
         id: m.id, from: sender?.name ?? m.from, relationship: sender?.relationship,
         spokenFrom: localized(sender, 'name', lang) ?? m.from, spokenRelationship: localized(sender, 'relationship', lang),
-        original: m.text, originalLanguage: languageName(m.language), translated: tr.text, translatedTo: languageName(lang), translationEngine: tr.engine, at: m.createdAt,
+        original: m.text, originalLanguage: languageName(m.language), translated: tr.text, translatedTo: languageName(lang), translationEngine: tr.engine, at: m.createdAt, system: Boolean(m.system),
       });
       if (markRead && !m.read) await store.update('messages', m.id, { read: true });
     }
+    const lines = [
+      ...out.map((m) => (m.system ? m.translated : t(lang, 'messageLine', { from: m.spokenFrom, relationship: m.spokenRelationship, text: m.translated }))),
+      ...voiceNotes.map((v) => t(lang, 'voiceNote', { from: v.from })),
+    ];
     return {
       messages: out,
+      voiceNotes,
       sayLanguage: lang,
-      say: out.length
-        ? out.map((m) => t(lang, 'messageLine', { from: m.spokenFrom, relationship: m.spokenRelationship, text: m.translated })).join(' ')
-        : t(lang, 'noMessages'),
+      say: lines.length ? lines.join(' ') : t(lang, 'noMessages'),
     };
   }
 
@@ -391,6 +408,162 @@ export function createSaathi(deps) {
     return alertId;
   }
 
+  async function checkSupply(med) {
+    if (!med.supply) return null;
+    const daysLeft = Math.floor(med.supply.remaining / (med.supply.perDay || 1));
+    if (daysLeft > (med.supply.lowAtDays ?? 5)) return null;
+    const alertId = `refill-${med.id}-${med.supply.cycle ?? 0}`;
+    if (await store.get('alerts', alertId)) return null;
+    const me = await elder();
+    const pharmacy = me.pharmacy ? ` ${me.pharmacy.name} (${me.pharmacy.phone}) can deliver.` : '';
+    await store.put('alerts', {
+      id: alertId, type: 'refill', severity: 'info', medicationId: med.id, daysLeft, createdAt: clock().toISOString(), acknowledged: false,
+      summary: `${me.preferredName} has ${daysLeft} day${daysLeft === 1 ? '' : 's'} of ${med.name} left.`,
+    });
+    await events.publish('RefillNeeded', { alertId, medicationId: med.id, daysLeft });
+    await notifyCircle({ audience: 'family', severity: 'info', subject: `${me.preferredName} is running low on ${med.name}`, english: `${me.preferredName} has ${daysLeft} day${daysLeft === 1 ? '' : 's'} of ${med.name} (${med.purpose}) left.${pharmacy} Tap "Refilled" in the Saathi app once it's sorted.` });
+    metrics.emit('RefillNeeded', 1);
+    return alertId;
+  }
+
+  async function sweepSupplies() {
+    const raised = [];
+    for (const med of await store.list('medications')) {
+      const alertId = await checkSupply(med);
+      if (alertId) raised.push(alertId);
+    }
+    return raised;
+  }
+
+  async function recordRefill({ medicationId, quantity = 30, by }) {
+    const med = await store.get('medications', medicationId);
+    if (!med?.supply) return null;
+    const cycle = med.supply.cycle ?? 0;
+    const supply = { ...med.supply, remaining: med.supply.remaining + quantity, cycle: cycle + 1, refilledAt: clock().toISOString(), refilledBy: by };
+    await store.update('medications', medicationId, { supply });
+    await store.update('alerts', `refill-${medicationId}-${cycle}`, { acknowledged: true, acknowledgedBy: by, acknowledgedAt: clock().toISOString() });
+    const member = (await store.list('circle')).find((p) => p.id === by);
+    const { lang } = await voice();
+    if (member) await deliverToElder({ fromId: member.id, text: t(lang, 'refillArranged', { name: localized(member, 'name', lang), short: localized(med, 'short', lang) }), language: lang, system: true });
+    await events.publish('RefillRecorded', { medicationId, by, quantity });
+    return { medicationId, remaining: supply.remaining, daysLeft: Math.floor(supply.remaining / (supply.perDay || 1)) };
+  }
+
+  const dayDiff = (from, to) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400e3);
+
+  async function upcomingAppointments({ language, days = 14 } = {}) {
+    const { lang } = await voice(language);
+    const today = localParts().date;
+    const circle = await store.list('circle');
+    const items = (await store.list('appointments'))
+      .map((a) => ({ ...a, daysAway: dayDiff(today, a.at.slice(0, 10)) }))
+      .filter((a) => a.daysAway >= 0 && a.daysAway <= days)
+      .sort((a, b) => a.at.localeCompare(b.at));
+    const describe = (a) => {
+      const kind = a.daysAway === 0 ? 'today' : a.daysAway === 1 ? 'tomorrow' : 'later';
+      const date = new Intl.DateTimeFormat(LANGUAGES[lang].bcp47, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${a.at.slice(0, 10)}T00:00:00Z`));
+      const escort = a.escort ? localized(circle.find((p) => p.id === a.escort), 'name', lang) ?? a.escort : null;
+      return t(lang, 'apptLine', { when: t(lang, 'apptWhen', { kind, date }), time: a.at.slice(11, 16), with: localized(a, 'with', lang), place: localized(a, 'place', lang), escort });
+    };
+    return {
+      appointments: items.map(({ i18n, ...a }) => ({ ...a, escortName: circle.find((p) => p.id === a.escort)?.name ?? null })),
+      sayLanguage: lang,
+      say: items.length ? localDigits(lang, items.slice(0, 2).map(describe).join(' ')) : t(lang, 'apptNone'),
+    };
+  }
+
+  async function sweepAppointments() {
+    const raised = [];
+    const me = await elder();
+    for (const a of (await upcomingAppointments({ language: 'en', days: 1 })).appointments) {
+      if (a.escort || a.daysAway > 1) continue;
+      const alertId = `escort-${a.id}`;
+      if (await store.get('alerts', alertId)) continue;
+      await store.put('alerts', {
+        id: alertId, type: 'appointment-escort', severity: 'info', appointmentId: a.id, createdAt: clock().toISOString(), acknowledged: false,
+        summary: `${me.preferredName} has her ${a.title.toLowerCase()} with ${a.with} ${a.daysAway === 0 ? 'today' : 'tomorrow'} at ${a.at.slice(11, 16)} (${a.place}). Who can take her?`,
+      });
+      await events.publish('EscortNeeded', { alertId, appointmentId: a.id });
+      await notifyCircle({ audience: 'family', severity: 'info', subject: `Who can take ${me.preferredName} to ${a.with}?`, english: `${me.preferredName} has her ${a.title.toLowerCase()} with ${a.with} ${a.daysAway === 0 ? 'today' : 'tomorrow'} at ${a.at.slice(11, 16)}, at ${a.place}. Tap "I'll take her" in the Saathi app.` });
+      raised.push(alertId);
+    }
+    return raised;
+  }
+
+  async function claimEscort({ appointmentId, member }) {
+    const appt = await store.get('appointments', appointmentId);
+    const person = (await store.list('circle')).find((p) => p.id === member);
+    if (!appt || !person) return null;
+    await store.update('appointments', appointmentId, { escort: member });
+    await store.update('alerts', `escort-${appointmentId}`, { acknowledged: true, acknowledgedBy: member, acknowledgedAt: clock().toISOString() });
+    const { lang } = await voice();
+    const daysAway = dayDiff(localParts().date, appt.at.slice(0, 10));
+    const kind = daysAway === 0 ? 'today' : daysAway === 1 ? 'tomorrow' : 'later';
+    const date = new Intl.DateTimeFormat(LANGUAGES[lang].bcp47, { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${appt.at.slice(0, 10)}T00:00:00Z`));
+    await deliverToElder({
+      fromId: member,
+      text: t(lang, 'escortComing', { name: localized(person, 'name', lang), title: localized(appt, 'title', lang), when: t(lang, 'apptWhen', { kind, date, lower: true }) }),
+      language: lang,
+      system: true,
+    });
+    await events.publish('EscortClaimed', { appointmentId, member });
+    return { ...appt, escort: member };
+  }
+
+  async function addVoiceNote({ fromId, audio, contentType = 'audio/webm', durationSec }) {
+    const sender = (await store.list('circle')).find((p) => p.id === fromId);
+    if (!sender) throw new Error(`Unknown family member ${fromId}`);
+    const ext = { 'audio/webm': 'webm', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a', 'audio/mpeg': 'mp3', 'audio/wav': 'wav' }[contentType.split(';')[0]] ?? 'webm';
+    const noteId = id('voice');
+    const ref = await media.save(`voice/${noteId}.${ext}`, audio, contentType);
+    metrics.emit('VoiceNote', 1);
+    return deliverToElder({ fromId, text: '🎤', language: sender.language, extra: { kind: 'voice', audio: ref, durationSec: durationSec ?? null } });
+  }
+
+  async function weeklyLetters({ send = true } = {}) {
+    const me = await elder();
+    const now = clock();
+    const today = localParts().date;
+    const since = (iso) => iso && dayDiff(localParts(new Date(iso)).date, today) < 7;
+    const [meds, doses, checkins, stories, door, alerts, circle] = await Promise.all([
+      store.list('medications'), store.list('doses'), store.list('checkins'), store.list('stories'), store.list('door'), store.list('alerts'), store.list('circle'),
+    ]);
+    const weekDoses = doses.filter((d) => dayDiff(d.date, today) < 7).length;
+    const expected = meds.length * 7;
+    const week = checkins.filter((c) => since(c.at));
+    const shared = week.filter((c) => !c.private);
+    const mood = ['POSITIVE', 'NEUTRAL', 'MIXED', 'NEGATIVE'].map((k) => [k, shared.filter((c) => c.sentiment === k).length]).sort((a, b) => b[1] - a[1])[0];
+    const newStories = stories.filter((st) => since(st.createdAt));
+    const doorDays = new Set(door.filter((d) => since(d.at)).map((d) => localParts(new Date(d.at)).date)).size;
+    const helpAlerts = alerts.filter((a) => a.type === 'help' && since(a.createdAt));
+    const next = (await upcomingAppointments({ language: 'en', days: 7 })).appointments;
+    const nameOf = (pid) => circle.find((p) => p.id === pid)?.name ?? (pid === 'front-door' ? 'the Ring doorbell' : pid);
+    const lines = [
+      `Tablets: ${weekDoses} of ${expected} taken (${expected ? Math.round((weekDoses / expected) * 100) : 0}%).`,
+      week.length
+        ? `Mood: she checked in ${week.length} time${week.length === 1 ? '' : 's'}${shared.length && mood[1] ? `, mostly ${mood[0].toLowerCase()}` : ''}${week.length - shared.length ? ` (${week.length - shared.length} kept private, by her choice)` : ''}.`
+        : 'Mood: she did not check in this week. A call might be welcome.',
+      newStories.length ? `Memory book: ${newStories.length} new ${newStories.length === 1 ? 'story' : 'stories'}: ${newStories.map((st) => `"${st.title}"`).join(', ')}.` : 'Memory book: no new stories this week.',
+      `Front door: activity on ${doorDays} of 7 days.`,
+      helpAlerts.length
+        ? `Alerts: ${helpAlerts.length} call${helpAlerts.length === 1 ? '' : 's'} for help, ${helpAlerts.filter((a) => a.acknowledged).length} answered${helpAlerts.filter((a) => a.acknowledgedBy).map((a) => ` by ${nameOf(a.acknowledgedBy)}`).join(',')}.`
+        : 'Alerts: none this week.',
+      next.length ? `Coming up: ${next.map((a) => `${a.title} with ${a.with} on ${a.at.slice(0, 10)} at ${a.at.slice(11, 16)} (${a.escortName ? `${a.escortName} is taking her` : 'nobody is taking her yet'})`).join('; ')}.` : 'Coming up: no appointments in the next week.',
+    ];
+    const letters = [];
+    for (const p of circle.filter((m) => m.role === 'family')) {
+      const english = `Dear ${p.name},\n\nHere is ${me.preferredName}'s week.\n\n${lines.map((l) => `- ${l}`).join('\n')}\n\nWith love,\nSaathi`;
+      const tr = await translateTo(english, p.language, 'en');
+      const letter = { id: `letter-${today}-${p.id}`, memberId: p.id, language: p.language, english, text: tr.text, createdAt: now.toISOString() };
+      await store.put('letters', letter);
+      if (send) await notifier.notify({ audience: 'family', recipientId: p.id, severity: 'info', subject: `${me.preferredName}'s week`, message: tr.text });
+      letters.push(letter);
+    }
+    await events.publish('WeeklyLetter', { count: letters.length });
+    metrics.emit('WeeklyLetter', letters.length);
+    return letters;
+  }
+
   async function familySummary({ forMemberId } = {}) {
     const me = await elder();
     const circle = await store.list('circle');
@@ -410,12 +583,21 @@ export function createSaathi(deps) {
       alerts.some((a) => !a.acknowledged) ? `${alerts.filter((a) => !a.acknowledged).length} alert(s) waiting for someone to respond.` : 'No open alerts.',
     ].join(' ');
     const translated = member ? await translateTo(english, member.language, 'en') : { text: english };
-    return { english, text: translated.text, language: member?.language ?? 'en', medications: meds, checkins: checkins.slice(0, 10), alerts: alerts.slice(0, 10), stories: await Promise.all((await listStories()).slice(0, 10).map(withPlayableAudio)) };
+    return {
+      english, text: translated.text, language: member?.language ?? 'en',
+      medications: meds.map(({ i18n, ...m }) => m),
+      checkins: checkins.slice(0, 10),
+      alerts: alerts.slice(0, 10),
+      stories: await Promise.all((await listStories()).slice(0, 10).map(withPlayableAudio)),
+      appointments: (await upcomingAppointments({ language: 'en' })).appointments,
+      letter: (await store.list('letters')).filter((l) => l.memberId === forMemberId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null,
+    };
   }
 
   return {
     elder, orientation, whoIs,
     medicationSchedule, medicationStatus, confirmMedication, sweepMissedDoses, sweepQuietDay, doorEvent,
+    sweepSupplies, recordRefill, upcomingAppointments, sweepAppointments, claimEscort, addVoiceNote, weeklyLetters,
     checkIn, requestHelp, acknowledgeAlert,
     familyMessages, sendToFamily, messageFromFamily,
     saveStory, listStories, familySummary,

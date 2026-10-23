@@ -66,7 +66,7 @@ test('typed outputs: tools advertise outputSchema and return conforming structur
   const client = await connect(ELDER);
   const { tools } = await client.listTools();
   const withSchemas = tools.filter((t) => t.outputSchema).map((t) => t.name).sort();
-  assert.deepEqual(withSchemas, ['ask_family_for_help', 'confirm_medication_taken', 'family_summary', 'get_medication_schedule', 'what_day_is_it']);
+  assert.deepEqual(withSchemas, ['ask_family_for_help', 'confirm_medication_taken', 'family_summary', 'get_medication_schedule', 'get_upcoming_appointments', 'what_day_is_it']);
   const meds = await client.callTool({ name: 'get_medication_schedule', arguments: {} });
   assert.ok(meds.structuredContent.medications.every((m) => ['taken', 'due', 'missed', 'upcoming'].includes(m.status)));
   await client.close();

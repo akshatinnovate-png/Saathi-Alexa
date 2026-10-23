@@ -16,7 +16,11 @@ export const TOOL_SCOPES = {
   send_message_to_family: SCOPES.elder,
   save_memory_story: SCOPES.elder,
   list_memory_stories: SCOPES.elder,
+  get_upcoming_appointments: SCOPES.elder,
   family_summary: SCOPES.family,
+  record_refill: SCOPES.family,
+  claim_appointment_escort: SCOPES.family,
+  weekly_family_letter: SCOPES.family,
   acknowledge_alert: SCOPES.family,
 };
 

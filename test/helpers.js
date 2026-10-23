@@ -1,6 +1,7 @@
 import { config as baseConfig } from '../src/config.js';
 import { createServices } from '../src/services.js';
 import { createFileStore } from '../src/local/fileStore.js';
+import { seedData } from '../src/domain/seed.js';
 
 export const quiet = { emit() {} };
 
@@ -18,7 +19,7 @@ export const fixedClock = () => new Date('2026-10-23T05:30:00Z');
 export function testServices(overrides = {}) {
   const sleeps = [];
   const services = createServices(testConfig(), {
-    store: createFileStore({ persist: false }),
+    store: createFileStore({ persist: false, seed: () => seedData(fixedClock()) }),
     metrics: quiet,
     clock: fixedClock,
     sleep: async (ms) => { sleeps.push(ms); },

@@ -16,10 +16,17 @@ jobs:
         env:
           SAATHI_METRICS: 'off'
       - run: npm run eval
+      - run: npx asl-validator --json-path src/escalation/escalation.asl.json
       - run: npm run a11y
         env:
           SAATHI_METRICS: 'off'
       - run: npm ci
         working-directory: infra
       - run: npm test
+        working-directory: infra
+      - run: npx cdk synth --quiet
+        working-directory: infra
+        env:
+          CDK_DEFAULT_REGION: us-east-1
+      - run: pipx run cfn-lint -i W3005 -- cdk.out/Saathi.template.json
         working-directory: infra

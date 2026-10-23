@@ -24,6 +24,9 @@
     { "text": "I have chest pain", "lang": "en", "tool": "ask_family_for_help" },
     { "text": "I don't know where I am", "lang": "en", "tool": "ask_family_for_help" },
     { "text": "Riya fell asleep on the call, so sweet", "lang": "en", "tool": null },
+    { "text": "When do I see the doctor?", "lang": "en", "tool": "get_upcoming_appointments" },
+    { "text": "मला डॉक्टरकडे कधी जायचं आहे?", "lang": "mr", "tool": "get_upcoming_appointments" },
+    { "text": "डॉक्टर के पास कब जाना है?", "lang": "hi", "tool": "get_upcoming_appointments" },
     { "text": "I feel sad today, but keep it between us", "lang": "en", "tool": "daily_check_in", "args": { "keep_private": true } },
     { "text": "मला उदास वाटतंय, कोणाला सांगू नका", "lang": "mr", "tool": "daily_check_in", "args": { "keep_private": true } }
   ]

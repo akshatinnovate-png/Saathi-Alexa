@@ -171,6 +171,47 @@ export function buildMcpServer(saathi, { bus } = {}) {
     return reply({ stories, say: stories.length ? t(spoken, 'storyCount', { count: stories.length, title: stories[0].title }) : t(spoken, 'storyNone') });
   });
 
+  tool('get_upcoming_appointments', {
+    title: 'Doctor visits',
+    description: 'Tells her about upcoming doctor visits: when, where, with whom, and who in the family is taking her.',
+    inputSchema: { days: z.number().int().min(0).max(60).default(14), language: lang },
+    outputSchema: {
+      say, sayLanguage,
+      appointments: z.array(z.object({ id: z.string(), title: z.string(), with: z.string(), place: z.string(), at: z.string(), daysAway: z.number(), escort: z.string().nullable(), escortName: z.string().nullable() }).loose()),
+    },
+    annotations: { readOnlyHint: true, openWorldHint: false },
+  }, async ({ days, language }) => reply(await saathi.upcomingAppointments({ days, language })));
+
+  tool('record_refill', {
+    title: 'Tablets refilled (family)',
+    description: 'For a family member: records that a medicine was refilled, which closes the low-supply alert and tells her it is taken care of.',
+    inputSchema: { medication_id: z.string(), quantity: z.number().int().min(1).max(365).default(30), member: z.string().describe('Family member id, e.g. "riya"') },
+    annotations: { readOnlyHint: false, openWorldHint: true },
+  }, async ({ medication_id, quantity, member }) => {
+    const r = await saathi.recordRefill({ medicationId: medication_id, quantity, by: member });
+    return reply(r ? { ...r, say: `Thank you. She now has ${r.daysLeft} days of it, and she has been told.` } : { say: 'I could not find that medicine.' });
+  });
+
+  tool('claim_appointment_escort', {
+    title: "I'll take her (family)",
+    description: 'For a family member: volunteers to take her to a doctor visit. She is told, in her language, who is coming.',
+    inputSchema: { appointment_id: z.string(), member: z.string().describe('Family member id, e.g. "anand"') },
+    annotations: { readOnlyHint: false, idempotentHint: true, openWorldHint: true },
+  }, async ({ appointment_id, member }) => {
+    const appt = await saathi.claimEscort({ appointmentId: appointment_id, member });
+    return reply(appt ? { claimed: true, appointment: appt.id, say: `Thank you. She knows you're taking her to ${appt.with}.` } : { claimed: false, say: 'I could not find that visit.' });
+  });
+
+  tool('weekly_family_letter', {
+    title: "This week's letter (family)",
+    description: "For a family member: this week's letter about her (tablets, mood, stories, front door, alerts, upcoming visits), in the member's language. Private check-ins are only counted, never quoted.",
+    inputSchema: { member: z.string().describe('Family member id, e.g. "riya"') },
+    annotations: { readOnlyHint: true, openWorldHint: false },
+  }, async ({ member }) => {
+    const letter = (await saathi.weeklyLetters({ send: false })).find((l) => l.memberId === member);
+    return reply(letter ? { say: letter.text, english: letter.english } : { say: 'I could not find that family member.' });
+  });
+
   tool('family_summary', {
     title: 'How is she today? (family)',
     description: "For a family member's Alexa+: today's tablets, mood and open alerts, in that member's language. Private check-ins stay private.",

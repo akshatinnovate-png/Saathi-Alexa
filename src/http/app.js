@@ -69,7 +69,31 @@ export function createApp({ config, services, simulator, verifier, allowedHosts,
   }));
 
   api.get('/family/messages', wrap(async (_req, res) => {
-    res.json((await store.list('messages')).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 30));
+    const messages = (await store.list('messages')).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 30);
+    res.json(await Promise.all(messages.map(async (m) => (m.audio ? { ...m, audioUrl: await (services.media.playbackUrl?.(m.audio) ?? m.audio) } : m))));
+  }));
+
+  api.post('/family/voice-note', express.raw({ type: ['audio/*'], limit: '8mb' }), wrap(async (req, res) => {
+    const from = req.query.from;
+    if (!from || !Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'from and an audio body are required' });
+    res.json(await saathi.addVoiceNote({ fromId: String(from), audio: req.body, contentType: req.get('content-type'), durationSec: Number(req.query.duration) || undefined }));
+  }));
+
+  api.post('/family/refill', wrap(async (req, res) => {
+    const r = await saathi.recordRefill({ medicationId: req.body?.medicationId, quantity: Number(req.body?.quantity) || 30, by: req.body?.member ?? 'riya' });
+    if (!r) return res.status(404).json({ error: 'medicine not found' });
+    res.json(r);
+  }));
+
+  api.post('/family/escort', wrap(async (req, res) => {
+    const r = await saathi.claimEscort({ appointmentId: req.body?.appointmentId, member: req.body?.member ?? 'riya' });
+    if (!r) return res.status(404).json({ error: 'appointment or member not found' });
+    res.json(r);
+  }));
+
+  api.post('/family/letter', wrap(async (req, res) => {
+    const letters = await saathi.weeklyLetters({ send: Boolean(req.body?.send) });
+    res.json(letters.find((l) => l.memberId === (req.body?.member ?? 'riya')) ?? null);
   }));
 
   api.get('/family/door', wrap(async (_req, res) => {
@@ -106,7 +130,10 @@ export function createApp({ config, services, simulator, verifier, allowedHosts,
   }));
 
   api.post('/demo/sweep', wrap(async (_req, res) => {
-    res.json({ raised: await saathi.sweepMissedDoses(), quietDay: await saathi.sweepQuietDay() });
+    res.json({
+      raised: await saathi.sweepMissedDoses(), quietDay: await saathi.sweepQuietDay(),
+      refills: await saathi.sweepSupplies(), escorts: await saathi.sweepAppointments(),
+    });
   }));
 
   app.use('/api', api);

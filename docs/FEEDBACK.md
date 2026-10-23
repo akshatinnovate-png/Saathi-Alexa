@@ -3,7 +3,7 @@
 > Pre-filled from the build. Rewrite anything marked [your experience]; judges want your genuine view.
 
 ## Alexa+ / MCP (spec 2025-11-25, Streamable HTTP)
-- **Used for:** The entire Saathi integration: 12 tools, resources, prompts and server instructions.
+- **Used for:** The entire Saathi integration: 16 tools, resources, prompts and server instructions.
 - **Worked well:** Tool annotations (`readOnlyHint`, `idempotentHint`) and server `instructions` are a clean way to shape a voice assistant's behaviour for a vulnerable user. Structured content plus a spoken "say" line suits voice well.
 - **Needs work:** [your experience with the Alexa+ Preview console / testing on device]. Stateless hosting on Lambda needs a documented pattern.
 - **Onboarding:** [your experience]

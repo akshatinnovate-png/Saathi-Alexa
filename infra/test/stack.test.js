@@ -42,8 +42,10 @@ test('Streamable HTTP routes exist for POST, GET and DELETE /mcp', () => {
   for (const verb of ['POST', 'GET', 'DELETE']) template.hasResourceProperties('AWS::ApiGatewayV2::Route', { RouteKey: `${verb} /mcp` });
 });
 
-test('missed-dose sweep runs on EventBridge Scheduler every 15 minutes', () => {
+test('sweeps run every 15 minutes and the family letter every Sunday evening in India', () => {
   template.hasResourceProperties('AWS::Scheduler::Schedule', { ScheduleExpression: 'rate(15 minutes)' });
+  template.hasResourceProperties('AWS::Scheduler::Schedule', { ScheduleExpression: 'cron(0 18 ? * SUN *)', ScheduleExpressionTimezone: 'Asia/Kolkata' });
+  template.hasResourceProperties('AWS::Lambda::Function', { Handler: 'digest.handler' });
 });
 
 test('Cognito is the OAuth server: saathi/elder and saathi/family scopes, per-device clients', () => {

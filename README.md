@@ -13,6 +13,10 @@ Kamala is 78. Everyone calls her **Aaji**. She lives alone in Pune, speaks Marat
 - **Translates in both directions.** Riya writes in English and Aaji hears it in Marathi. Aaji replies in Marathi, and Riya reads it in English while her uncle Anand reads it in Hindi.
 - **Keeps her stories in a memory book.** The stories she tells Alexa are saved in her words, translated into every family language and narrated with Amazon Polly, so a granddaughter who can't read Marathi can still hear her grandmother's childhood.
 - **Watches the front door with a Ring doorbell.** A ring after the neighbour has been sent for closes the emergency: help has physically arrived. A morning with no door activity, no check-in and no tablets earns the family one gentle "a quick call would be kind".
+- **Lets her hear their voices.** Riya records a voice note in the family app, and Aaji's Alexa plays it: her granddaughter's actual voice, not a translation.
+- **Keeps the medicine cabinet stocked.** Every dose counts down the supply. With five days left, the family is told (with the pharmacy's number), and whoever taps "Refilled" is named to Aaji: *"Anand has arranged more of your blood pressure tablets."*
+- **Gets her to the doctor.** Alexa tells her about upcoming visits in her language. The day before, if nobody has volunteered, the family is asked "Who can take Aaji?", and whoever taps "I'll take her" is named to her.
+- **Writes the family a letter every Sunday**, in each person's language: tablets taken, how she has been feeling (private check-ins are counted, never quoted), new stories, front-door activity, alerts and the week ahead.
 - **Respects her choices.** She can say *"keep this between us"* and ordinary sadness stays private. Danger always overrides privacy. Nothing she says leaves the house until she confirms *"yes, send it"*.
 
 Inclusion runs through the whole design, not a single feature. Saathi is built for people with memory loss, hearing loss or low vision, for people who don't read well, for people who speak a language voice assistants rarely support, and for families spread across continents.
@@ -23,19 +27,19 @@ Inclusion runs through the whole design, not a single feature. Saathi is built f
 
 | Piece | What it is | Where |
 |---|---|---|
-| **Saathi MCP server** | 12 tools, 3 resources, 2 prompts. Streamable HTTP, protocol `2025-11-25`, bearer-token auth | `src/mcp/server.js`, `src/http/mcpRoute.js` |
+| **Saathi MCP server** | 16 tools, 3 resources, a resource template, 2 prompts. Streamable HTTP, protocol `2025-11-25`, OAuth 2.1 | `src/mcp/server.js`, `src/http/mcpRoute.js` |
 | **Serverless deployment** | The same server as a stateless AWS Lambda behind API Gateway | `src/lambda/mcp.js` |
 | **Simulated Alexa+ device** | Echo Show-style web app. It is a real MCP client: Claude (on Amazon Bedrock or the Claude API) decides which tools to call. Voice in and out, 8 languages, large text, high contrast, slower speech | `public/index.html`, `src/agent/` |
 | **Family Circle app** | Live dashboard for Riya, Anand and Meera, each in their own language. Alerts with escalation progress, mood timeline, memory book, translated messages | `public/family.html` |
 | **Escalation workflow** | One Amazon States Language definition. It is deployed to AWS Step Functions **and** executed offline by a built-in ASL interpreter | `src/escalation/` |
-| **Infrastructure as code** | AWS CDK stack: 58 resources across 15 AWS services | `infra/` |
+| **Infrastructure as code** | AWS CDK stack: 65 resources across 15 AWS services, four esbuild-bundled Lambdas. The template passes `cfn-lint` and the state machine passes `asl-validator`, both in CI | `infra/` |
 | **Ring doorbell integration** | HMAC-signed, replay-protected webhook (`/ring/events`), a simulated Ring Video Doorbell, and its own Lambda in AWS | `src/ring/`, `src/lambda/ring.js` |
 | **OAuth 2.1 authorization** | Per the MCP authorization spec: Amazon Cognito is the authorization server, Saathi the protected resource (RFC 9728 metadata), with `saathi/elder` and `saathi/family` scopes | `src/auth/` |
 | **Safety and routing evals** | 44 multilingual safety cases (100% emergency recall, zero false alarms required) and 25 routing cases | `evals/` |
 | **Spoken in her language, offline** | Every reply Saathi speaks is written in Marathi, Hindi and English, with her routine, tablets and family described in each. Aaji hears Marathi even with no translation service or model | `src/domain/i18n.js` |
 | **Accessibility audit** | axe-core in a real browser across 5 page states (default, high contrast, confirmation dialog, family app, phone width): 0 violations, enforced in CI | `scripts/a11y.js` |
 | **Deployment smoke test** | One command checks a live endpoint: OAuth token, RFC 9728 metadata, 401 without a token, protocol 2025-11-25, tools, a Marathi reply, scopes | `scripts/smoke.js` |
-| **Tests** | 43 server tests (MCP protocol features, OAuth, Ring, dignity, retry safety, localisation, translation cache, Lambda, escalation, AWS SDK mocks, evals) and 8 CDK assertion tests | `test/`, `infra/test/` |
+| **Tests** | 48 server tests (MCP protocol features, OAuth, Ring, dignity, retry safety, localisation, refills, appointments, voice notes, weekly letters, Lambda, escalation, AWS SDK mocks, evals) and 12 infrastructure tests, 3 of which load the exact production Lambda bundles and drive them with API Gateway, Ring and Scheduler events | `test/`, `infra/test/` |
 
 ## Architecture
 
@@ -133,10 +137,10 @@ npm run inspect      # MCP Inspector; connect to http://127.0.0.1:8787/mcp (Stre
 ### Tests, evals and audits
 
 ```bash
-npm test                    # 43 tests: MCP protocol features, OAuth, Ring, dignity, retry safety, localisation, Lambda, escalation, AWS adapters
+npm test                    # 48 tests: MCP protocol, OAuth, Ring, dignity, retry safety, localisation, care logistics, Lambda, escalation, AWS adapters
 npm run eval                # multilingual safety + routing evals with a per-language report
 npm run a11y                # axe-core accessibility audit in Chromium (CHROME_PATH=... to pick a browser)
-cd infra && npm install && npm test   # 8 CDK assertion tests
+cd infra && npm install && npm test   # 12 tests: CDK assertions + the real Lambda bundles
 ```
 
 CI runs all four on every push.
@@ -211,7 +215,11 @@ Register the `McpEndpoint` URL as a remote MCP server in your Alexa+ Preview int
 | `send_message_to_family` | Aaji | Sends her words, translated per recipient |
 | `save_memory_story` | Aaji | Memory book entry, translated and narrated |
 | `list_memory_stories` | Aaji | Retell her stories |
+| `get_upcoming_appointments` | Aaji | Doctor visits: when, where, with whom, who is taking her |
 | `family_summary` | Family | "How is Aaji today?" in the asker's language |
+| `record_refill` | Family | Closes a low-supply alert and tells her it's handled |
+| `claim_appointment_escort` | Family | "I'll take her": she hears who is coming |
+| `weekly_family_letter` | Family | This week's letter, in the asker's language |
 | `acknowledge_alert` | Family | "I'm on it": stops escalation and reassures her |
 
 **Resources:** `saathi://elder/profile` (accessibility needs that shape how Alexa+ speaks), `saathi://circle`, `saathi://today` (subscribable), and the template `saathi://stories/{storyId}`.
@@ -244,6 +252,7 @@ The server also sends `instructions` on initialize: short, warm sentences, never
 
 ## Honest limitations
 
+- **Not yet deployed to a live AWS account.** The stack is synthesized, linted with `cfn-lint`, its state machine validated with `asl-validator`, and its exact Lambda bundles are loaded and exercised in tests. But it has not run against real AWS services yet. Deploy it and run `npm run smoke` to close that gap.
 - **This is not a medical device.** Saathi supports care and doesn't replace it. Emergency guidance points to 112 (India).
 - The Marathi and Hindi replies were written without a native-speaker review; have someone who speaks them read `src/domain/i18n.js` and `src/domain/seed.js` before a real deployment.
 - Polly has no Marathi or Tamil voice. Marathi falls back to the Hindi voice (Kajal) and Tamil to the browser's voice.

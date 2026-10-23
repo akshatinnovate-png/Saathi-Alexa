@@ -44,7 +44,7 @@ test('the MCP Lambda bundle answers initialize, tools/list and a Marathi tools/c
   `, { SAATHI_AUTH_MODE: 'none' });
   assert.equal(result.init, 200);
   assert.equal(result.version, '2025-11-25');
-  assert.equal(result.tools, 12);
+  assert.equal(result.tools, 16);
   assert.match(result.say, /आज/);
   assert.equal(result.meta, 200);
 });
@@ -61,7 +61,7 @@ test('the MCP Lambda bundle enforces bearer auth', () => {
   assert.equal(result.allowed, 200);
 });
 
-test('the Ring Lambda bundle verifies signatures and the sweep bundle runs', () => {
+test('the Ring, sweep and weekly-letter Lambda bundles run', () => {
   const result = invoke(`
     const { createHmac } = await import('node:crypto');
     const { handler: ring } = await import('./ring.mjs');
@@ -72,7 +72,9 @@ test('the Ring Lambda bundle verifies signatures and the sweep bundle runs', () 
     const ok = await ring({ headers: { 'x-saathi-ring-signature': sig, 'x-saathi-ring-timestamp': ts }, body });
     const bad = await ring({ headers: { 'x-saathi-ring-signature': 'sha256=00', 'x-saathi-ring-timestamp': ts }, body });
     const swept = await sweep();
-    console.log(JSON.stringify({ ok: ok.statusCode, bad: bad.statusCode, swept: Array.isArray(swept.raised) }));
+    const { handler: digest } = await import('./digest.mjs');
+    const letters = await digest();
+    console.log(JSON.stringify({ ok: ok.statusCode, bad: bad.statusCode, swept: Array.isArray(swept.raised) && Array.isArray(swept.refills), letters: letters.sent.map((l) => l.memberId).sort() }));
   `, { SAATHI_RING_WEBHOOK_SECRET: 's3cret' });
-  assert.deepEqual(result, { ok: 200, bad: 401, swept: true });
+  assert.deepEqual(result, { ok: 200, bad: 401, swept: true, letters: ['anand', 'riya'] });
 });
