@@ -39,7 +39,8 @@ Family members get the Family Circle app in their own language, and can also ask
 - **State:** Amazon DynamoDB single table and Amazon S3 for narrated stories. **AWS Secrets Manager** holds the MCP token.
 - **Observability:** CloudWatch Embedded Metric Format, a CloudWatch dashboard and alarms (an alarm fires if an escalation ever fails), and AWS X-Ray tracing.
 - **Simulated Alexa+ device:** a web app that is a real MCP client. **Claude on Amazon Bedrock** chooses tools, with voice in (Web Speech API) and out (Polly).
-- **Everything is AWS CDK** (58 resources), with 48 automated tests.
+- **Everything is AWS CDK** (58 resources), with 51 automated tests and a strict axe-core accessibility audit (0 violations), both run in CI, plus a one-command smoke test for the live endpoint.
+- **Her language by default:** every spoken reply is authored in Marathi, Hindi and English, so even fully offline Aaji is spoken to in Marathi.
 - **Measured safety:** a multilingual eval (English, Hindi, Marathi, romanised) requires 100% emergency recall and zero false alarms in CI. It caught real bugs ("prices have fallen" raised an alarm, a romanised Hindi "chest pain" phrase was missed) that we then fixed.
 - **One escalation definition, two runtimes:** the same Amazon States Language JSON is deployed to Step Functions and run offline by a small ASL interpreter we wrote, so the demo works without a cloud account and the tests exercise the real workflow.
 

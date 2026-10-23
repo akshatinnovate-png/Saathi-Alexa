@@ -5,11 +5,34 @@ import { assessConcerns } from '../src/domain/safety.js';
 
 test('orientation speaks the day, place and next routine item in her time zone', async () => {
   const { saathi } = testServices();
-  const o = await saathi.orientation();
+  const o = await saathi.orientation({ language: 'en' });
   assert.equal(o.today, 'Friday, 23 October 2026');
   assert.equal(o.time, '11:00');
   assert.equal(o.next.time, '13:30');
   assert.match(o.say, /Kothrud/);
+});
+
+test('she hears her own language by default, with no translation service at all', async () => {
+  const { saathi } = testServices();
+  const o = await saathi.orientation();
+  assert.equal(o.sayLanguage, 'mr');
+  assert.match(o.say, /शुक्रवार/);
+  assert.match(o.say, /कोथरूड/);
+  assert.match(o.say, /कॅल्शियमची गोळी/);
+
+  const hi = await saathi.medicationSchedule({ language: 'hi' });
+  assert.match(hi.say, /ब्लड प्रेशर की छोटी सफ़ेद गोल गोली/);
+  const who = await saathi.whoIs('नात');
+  assert.match(who.say, /रिया/);
+  const ta = await saathi.orientation({ language: 'ta' });
+  assert.equal(ta.sayLanguage, 'en', 'unsupported languages fall back to English for the translator');
+});
+
+test('tablets can be named in Marathi or Hindi', async () => {
+  const { saathi } = testServices();
+  const r = await saathi.confirmMedication('रक्तदाबाची गोळी');
+  assert.equal(r.medication, 'Amlodipine 5 mg');
+  assert.match(r.say, /रक्तदाबाची गोळी नोंदवली/);
 });
 
 test('who_is resolves relationships, not just names', async () => {
@@ -69,12 +92,24 @@ test('family messages are delivered to her translated, and her replies go out pe
   };
   const { saathi } = testServices({ translator });
   const inbox = await saathi.familyMessages();
-  assert.equal(inbox.messages[0].translated.startsWith('[mr]'), true);
+  assert.match(inbox.messages[0].translated, /सुप्रभात आजी/);
   assert.equal((await saathi.familyMessages()).messages.length, 0, 'messages are marked as heard');
 
   const out = await saathi.sendToFamily({ text: 'माझी काळजी करू नका', language: 'mr' });
   assert.deepEqual(out.deliveries.map((d) => [d.to, d.language]), [['Riya', 'English'], ['Anand', 'Hindi']]);
   assert.ok(calls.includes('mr->en') && calls.includes('mr->hi'));
+});
+
+test('translations are cached: each message is translated once per language', async () => {
+  let calls = 0;
+  const translator = { kind: 'fake', translate: async (text, { from, to }) => { calls++; return { text: `[${to}] ${text}`, from, to, translated: true, engine: 'fake' }; } };
+  const { saathi } = testServices({ translator });
+  await saathi.messageFromFamily({ fromId: 'riya', text: 'Love you' });
+  const first = await saathi.familyMessages({ unreadOnly: false, markRead: false, language: 'hi' });
+  const second = await saathi.familyMessages({ unreadOnly: false, markRead: false, language: 'hi' });
+  assert.equal(calls, 1, 'the seeded message is pre-translated, the new one is translated once');
+  assert.equal(second.messages.at(-1).translationEngine, 'cache');
+  assert.equal(first.messages[0].translationEngine, 'cache');
 });
 
 test('stories are translated into every family language and narrated where a voice exists', async () => {

@@ -1,5 +1,6 @@
 import { assessConcerns } from './safety.js';
-import { languageName } from './languages.js';
+import { languageName, LANGUAGES } from './languages.js';
+import { t, spokenLanguage, partOfDayName, joinNames, localized, localDigits } from './i18n.js';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -29,6 +30,11 @@ export function createSaathi(deps) {
     return store.get('profile', 'elder');
   }
 
+  async function voice(language) {
+    const me = await elder();
+    return { me, lang: spokenLanguage(language ?? me.language) };
+  }
+
   async function translateTo(text, to, from = 'auto') {
     try {
       return await translator.translate(text, { from, to });
@@ -38,13 +44,16 @@ export function createSaathi(deps) {
     }
   }
 
-  async function orientation() {
-    const me = await elder();
+  async function orientation({ language } = {}) {
+    const { me, lang } = await voice(language);
     const now = localParts();
     const upcoming = me.routine
       .filter((r) => (!r.days || r.days.includes(now.dayIndex)) && toMinutes(r.time) >= now.minutes)
       .sort((a, b) => toMinutes(a.time) - toMinutes(b.time));
     const longDate = new Intl.DateTimeFormat('en-GB', { timeZone: tz, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(clock());
+    const spokenDate = lang === 'en' ? longDate
+      : new Intl.DateTimeFormat(LANGUAGES[lang].bcp47, { timeZone: tz, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(clock());
+    const next = upcoming[0];
     return {
       greetingName: me.preferredName,
       today: longDate,
@@ -53,24 +62,27 @@ export function createSaathi(deps) {
       place: me.home,
       next: upcoming[0] ?? null,
       laterToday: upcoming.slice(1, 4),
-      say: `Today is ${longDate}. It is ${now.time} in the ${partOfDay(now.minutes)}. You are at home, in ${me.home}.`
-        + (upcoming[0] ? ` Next is ${upcoming[0].activity.toLowerCase()} at ${upcoming[0].time}.` : ' There is nothing else planned today. You can rest.'),
+      sayLanguage: lang,
+      say: localDigits(lang, t(lang, 'orient', { date: spokenDate, time: now.time, part: partOfDayName(lang, partOfDay(now.minutes)), home: localized(me, 'home', lang) })
+        + (next ? t(lang, 'orientNext', { activity: localized(next, 'activity', lang), time: next.time }) : t(lang, 'orientRest'))),
     };
   }
 
-  async function whoIs(query) {
+  async function whoIs(query, { language } = {}) {
+    const { lang } = await voice(language);
     const q = query.toLowerCase().trim();
     const circle = await store.list('circle');
     const person = circle.find((p) => [p.name, p.relationship, ...(p.aliases ?? [])].some((n) => q.includes(n.toLowerCase())) || p.name.toLowerCase().includes(q));
     if (!person) {
-      return { found: false, say: `I don't have anyone called ${query} in your family circle yet. That's alright.`, circle: circle.map((p) => `${p.name} (${p.relationship})`) };
+      return { found: false, sayLanguage: lang, say: t(lang, 'whoNotFound', { query }), circle: circle.map((p) => `${p.name} (${p.relationship})`) };
     }
     const messages = (await store.list('messages')).filter((m) => m.from === person.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const routine = (await elder()).routine.filter((r) => r.activity.includes(person.name));
     return {
       found: true,
       person: { name: person.name, relationship: person.relationship, city: person.city },
-      say: person.aboutForElder,
+      sayLanguage: lang,
+      say: localized(person, 'aboutForElder', lang),
       lastMessage: messages[0] ? { text: messages[0].text, at: messages[0].createdAt } : null,
       regularPlans: routine.map((r) => `${r.activity} at ${r.time}${r.days ? ` on ${r.days.map((d) => DAY_NAMES[d]).join(' and ')}` : ''}`),
     };
@@ -88,30 +100,35 @@ export function createSaathi(deps) {
     });
   }
 
-  async function medicationSchedule() {
+  async function medicationSchedule({ language } = {}) {
+    const { lang } = await voice(language);
     const meds = await medicationStatus();
     const due = meds.filter((m) => m.status === 'due' || m.status === 'missed');
+    const upcoming = meds.filter((m) => m.status === 'upcoming').map((m) => ({ short: localized(m, 'short', lang), time: m.time }));
     return {
-      medications: meds,
+      medications: meds.map(({ i18n, ...m }) => m),
+      sayLanguage: lang,
       say: due.length
-        ? `It's time for your ${due.map((m) => `${m.description} for ${m.purpose}`).join(', and your ')}.${due.some((m) => m.withFood) ? ' Please take it with some food.' : ''}`
-        : `You're all caught up. ${meds.filter((m) => m.status === 'upcoming').map((m) => `Your ${m.purpose} tablet is at ${m.time}.`).join(' ')}`.trim(),
+        ? t(lang, 'medsDue', { list: due.map((m) => localized(m, 'phrase', lang)).join(t(lang, 'medsDueJoin')), withFood: due.some((m) => m.withFood) })
+        : t(lang, 'medsCaughtUp', { upcoming }),
     };
   }
 
-  async function confirmMedication(medicationQuery) {
+  async function confirmMedication(medicationQuery, { language } = {}) {
+    const { lang } = await voice(language);
     const meds = await medicationStatus();
     const q = (medicationQuery ?? '').toLowerCase();
-    const med = meds.find((m) => q && (m.id === q || m.name.toLowerCase().includes(q) || m.purpose.includes(q)))
+    const names = (m) => [m.id, m.name.toLowerCase(), m.purpose, ...Object.values(m.i18n ?? {}).flatMap((v) => [v.short, v.phrase])].filter(Boolean);
+    const med = meds.find((m) => q && names(m).some((n) => n.includes(q) || q.includes(n)))
       ?? meds.find((m) => m.status === 'due') ?? meds.find((m) => m.status === 'missed');
-    if (!med) return { recorded: false, say: "I couldn't tell which tablet you mean, and nothing is due right now. That's okay." };
-    if (med.status === 'taken') return { recorded: false, alreadyTaken: true, medication: med.name, say: `You already took your ${med.purpose} tablet today at ${med.takenAt.slice(11, 16)}. No need to take another one.` };
+    if (!med) return { recorded: false, sayLanguage: lang, say: t(lang, 'medNotFound') };
+    if (med.status === 'taken') return { recorded: false, alreadyTaken: true, medication: med.name, sayLanguage: lang, say: t(lang, 'medAlreadyTaken', { short: localized(med, 'short', lang), time: med.takenAt.slice(11, 16) }) };
     const now = localParts();
     const dose = { id: `${med.id}-${now.date}`, medicationId: med.id, date: now.date, takenAt: `${now.date}T${now.time}`, late: med.status === 'missed' };
     await store.put('doses', dose);
     await events.publish('DoseTaken', { medicationId: med.id, medication: med.name, late: dose.late });
     metrics.emit('DoseTaken', 1, { late: String(dose.late) });
-    return { recorded: true, medication: med.name, say: `Thank you. I've noted your ${med.purpose} tablet. Well done.` };
+    return { recorded: true, medication: med.name, sayLanguage: lang, say: t(lang, 'medRecorded', { short: localized(med, 'short', lang) }) };
   }
 
   async function sweepMissedDoses() {
@@ -134,6 +151,7 @@ export function createSaathi(deps) {
   async function checkIn({ text, language, keepPrivate = false }) {
     const me = await elder();
     const lang = language ?? me.language;
+    const say = (key) => ({ sayLanguage: spokenLanguage(lang), say: t(lang, key) });
     const mood = await sentiment.analyze(text, lang);
     const concerns = assessConcerns(text, mood);
     const english = lang === 'en' ? { text } : await translateTo(text, 'en', lang);
@@ -144,10 +162,10 @@ export function createSaathi(deps) {
 
     if (concerns.level === 'urgent') {
       const alert = (await openHelpAlert()) ?? await raiseAlert({ reason: concerns.urgent.join(', '), words: english.text, severity: 'critical', source: 'check-in' });
-      return { ...entry, alertId: alert.id, say: "I'm here with you. I'm letting your family know right now, and I'll stay with you. If you can, please sit down somewhere safe." };
+      return { ...entry, alertId: alert.id, ...say('checkUrgent') };
     }
     if (concerns.level === 'gentle' && keepPrivate) {
-      return { ...entry, say: "Thank you for trusting me with that. I'll keep it between us. I'm here if you want to talk more." };
+      return { ...entry, ...say('checkPrivate') };
     }
     if (concerns.level === 'gentle') {
       await events.publish('WellbeingConcern', { checkinId: entry.id, kinds: concerns.gentle, severity: 'gentle' });
@@ -157,12 +175,10 @@ export function createSaathi(deps) {
         subject: `${me.preferredName} could use a call today`,
         english: `${quote} She may be feeling ${concerns.gentle.join(' and ').replace('-', ' ')}. A call or a voice note from you would mean a lot.`.trim(),
       });
-      const say = concerns.gentle.includes('loneliness') || concerns.gentle.includes('missing-family')
-        ? "Thank you for telling me. You are not alone. I've let your family know you're thinking of them, and I'm sure someone will call soon. Would you like to hear Riya's last message, or tell me a story from when you were young?"
-        : "Thank you for telling me how you feel. I've let your family know, gently. Would you like some water, or to rest for a little while?";
-      return { ...entry, say };
+      const lonely = concerns.gentle.includes('loneliness') || concerns.gentle.includes('missing-family');
+      return { ...entry, ...say(lonely ? 'checkLonely' : 'checkGentle') };
     }
-    return { ...entry, say: "That's lovely to hear. I've saved it so your family can smile about it too." };
+    return { ...entry, ...say('checkFine') };
   }
 
   async function openHelpAlert(withinMs = 10 * 60 * 1000) {
@@ -170,14 +186,15 @@ export function createSaathi(deps) {
     return (await store.list('alerts')).find((a) => a.type === 'help' && !a.acknowledged && now - new Date(a.createdAt).getTime() < withinMs) ?? null;
   }
 
-  async function requestHelp({ reason, urgency = 'high' }) {
+  async function requestHelp({ reason, urgency = 'high', language }) {
+    const { lang } = await voice(language);
     const existing = await openHelpAlert();
     if (existing) {
       metrics.emit('HelpRequestDeduplicated', 1);
-      return { alertId: existing.id, deduplicated: true, say: "I've already called your family and they are on their way. I'm staying right here with you." };
+      return { alertId: existing.id, deduplicated: true, sayLanguage: lang, say: t(lang, 'helpAlready') };
     }
     const alert = await raiseAlert({ reason, words: reason, severity: urgency === 'critical' ? 'critical' : 'high', source: 'asked-for-help' });
-    return { alertId: alert.id, say: "Okay. I'm calling your family now. Stay where you are, I'm right here with you. If nobody answers quickly, I will ask Meera from next door to come." };
+    return { alertId: alert.id, sayLanguage: lang, say: t(lang, 'helpStarted') };
   }
 
   async function raiseAlert({ reason, words, severity, source }) {
@@ -211,7 +228,8 @@ export function createSaathi(deps) {
     if (!alert) return null;
     await events.publish('AlertAcknowledged', { alertId, by });
     if (member && alert.type === 'help') {
-      await deliverToElder({ fromId: member.id, text: `${member.name} has seen your message and is coming to help.`, language: 'en', system: true });
+      const { lang } = await voice();
+      await deliverToElder({ fromId: member.id, text: t(lang, 'helperComing', { name: localized(member, 'name', lang) }), language: lang, system: true });
     }
     return alert;
   }
@@ -223,41 +241,55 @@ export function createSaathi(deps) {
     return msg;
   }
 
-  async function familyMessages({ unreadOnly = true, markRead = true } = {}) {
-    const me = await elder();
+  async function familyMessages({ unreadOnly = true, markRead = true, language } = {}) {
+    const { me, lang } = await voice(language);
     const circle = await store.list('circle');
     const all = (await store.list('messages')).filter((m) => m.to === 'elder' && (!unreadOnly || !m.read))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     const out = [];
     for (const m of all) {
       const sender = circle.find((p) => p.id === m.from);
-      const t = await translateTo(m.text, me.language, m.language);
-      out.push({ id: m.id, from: sender?.name ?? m.from, relationship: sender?.relationship, original: m.text, originalLanguage: languageName(m.language), translated: t.text, translatedTo: languageName(me.language), translationEngine: t.engine, at: m.createdAt });
+      const cached = m.language === lang ? m.text : m.translations?.[lang];
+      const tr = cached ? { text: cached, engine: m.language === lang ? 'none' : 'cache' } : await translateTo(m.text, lang, m.language);
+      if (!cached && tr.engine !== 'passthrough' && tr.engine !== 'error' && tr.engine !== 'none') {
+        await store.update('messages', m.id, { translations: { ...(m.translations ?? {}), [lang]: tr.text } });
+      }
+      out.push({
+        id: m.id, from: sender?.name ?? m.from, relationship: sender?.relationship,
+        spokenFrom: localized(sender, 'name', lang) ?? m.from, spokenRelationship: localized(sender, 'relationship', lang),
+        original: m.text, originalLanguage: languageName(m.language), translated: tr.text, translatedTo: languageName(lang), translationEngine: tr.engine, at: m.createdAt,
+      });
       if (markRead && !m.read) await store.update('messages', m.id, { read: true });
     }
     return {
       messages: out,
-      say: out.length ? out.map((m) => `${m.from}, your ${m.relationship}, says: ${m.original}`).join(' ') : 'There are no new messages. Everyone is well.',
+      sayLanguage: lang,
+      say: out.length
+        ? out.map((m) => t(lang, 'messageLine', { from: m.spokenFrom, relationship: m.spokenRelationship, text: m.translated })).join(' ')
+        : t(lang, 'noMessages'),
     };
   }
 
   async function sendToFamily({ text, language, to }) {
     const me = await elder();
     const lang = language ?? me.language;
+    const speak = spokenLanguage(lang);
     const circle = await store.list('circle');
-    const recipients = to ? circle.filter((p) => to.toLowerCase().includes(p.name.toLowerCase()) || to.toLowerCase().includes(p.relationship)) : circle.filter((p) => p.role === 'family');
-    if (!recipients.length) return { sent: false, say: `I couldn't find ${to} in your family circle.` };
+    const matches = (p) => [p.name, p.relationship, ...(p.aliases ?? [])].some((n) => to.toLowerCase().includes(n.toLowerCase()));
+    const recipients = to ? circle.filter(matches) : circle.filter((p) => p.role === 'family');
+    if (!recipients.length) return { sent: false, sayLanguage: speak, say: t(speak, 'recipientNotFound', { to }) };
     const deliveries = [];
     for (const r of recipients) {
-      const t = await translateTo(text, r.language, lang);
-      const msg = { id: id('msg'), from: 'elder', to: r.id, language: lang, text, translated: t.text, translatedTo: r.language, createdAt: clock().toISOString() };
+      const tr = await translateTo(text, r.language, lang);
+      const msg = { id: id('msg'), from: 'elder', to: r.id, language: lang, text, translated: tr.text, translatedTo: r.language, createdAt: clock().toISOString() };
       await store.put('messages', msg);
-      await notifier.notify({ audience: 'family', recipientId: r.id, severity: 'info', subject: `A message from ${me.preferredName}`, message: t.text });
-      deliveries.push({ to: r.name, language: languageName(r.language), text: t.text, engine: t.engine });
+      await notifier.notify({ audience: 'family', recipientId: r.id, severity: 'info', subject: `A message from ${me.preferredName}`, message: tr.text });
+      deliveries.push({ to: r.name, language: languageName(r.language), text: tr.text, engine: tr.engine });
     }
     await events.publish('MessageFromElder', { recipients: recipients.map((r) => r.id) });
     metrics.emit('MessageSent', deliveries.length);
-    return { sent: true, deliveries, say: `I've sent it to ${recipients.map((r) => r.name).join(' and ')}${deliveries.some((d) => d.engine !== 'none' && d.engine !== 'passthrough') ? ', in their own language' : ''}.` };
+    const translated = deliveries.some((d) => d.engine !== 'none' && d.engine !== 'passthrough');
+    return { sent: true, deliveries, sayLanguage: speak, say: t(speak, 'sent', { names: joinNames(speak, recipients.map((r) => localized(r, 'name', speak))), translated }) };
   }
 
   async function messageFromFamily({ fromId, text, language }) {
@@ -277,15 +309,15 @@ export function createSaathi(deps) {
     let step = 0;
     for (const l of targets) {
       await onProgress(++step, total, `Translating into ${languageName(l)}`);
-      const t = await translateTo(text, l, lang);
-      translations[l] = { text: t.text, engine: t.engine };
+      const tr = await translateTo(text, l, lang);
+      translations[l] = { text: tr.text, engine: tr.engine };
     }
     const storyId = id('story');
     const audio = {};
-    for (const [l, t] of Object.entries(translations)) {
+    for (const [l, version] of Object.entries(translations)) {
       await onProgress(Math.min(++step, total - 1), total, `Narrating in ${languageName(l)}`);
       try {
-        const spoken = await speech.synthesize(t.text, l, { slow: true });
+        const spoken = await speech.synthesize(version.text, l, { slow: true });
         if (spoken) audio[l] = await media.save(`stories/${storyId}/${l}.mp3`, spoken.audio, spoken.contentType);
       } catch (err) {
         metrics.emit('SpeechFailure', 1, { language: l });
@@ -297,7 +329,8 @@ export function createSaathi(deps) {
     await events.publish('StoryShared', { id: story.id, title: story.title });
     await notifyCircle({ audience: 'family', severity: 'info', subject: `${me.preferredName} told a new story: ${story.title}`, english: translations.en?.text ?? text, perMember: (p) => translations[p.language]?.text });
     metrics.emit('StorySaved', 1, { language: lang });
-    return { id: story.id, title: story.title, languages: Object.keys(translations).map(languageName), say: `What a beautiful memory. I've saved "${story.title}" in your memory book, and shared it with your family in their languages.` };
+    const speak = spokenLanguage(lang);
+    return { id: story.id, title: story.title, languages: Object.keys(translations).map(languageName), sayLanguage: speak, say: t(speak, 'storySaved', { title: story.title }) };
   }
 
   async function listStories() {
@@ -332,9 +365,10 @@ export function createSaathi(deps) {
       english: `The Ring doorbell at ${(await elder()).preferredName}'s front door just rang during her alert (${alert.reason}).${neighbourDispatched ? ' Meera was asked to come, so the alert is now marked as answered.' : ' Please confirm someone is with her.'}`,
     });
     if (neighbourDispatched) await events.publish('AlertAcknowledged', { alertId: alert.id, by: 'front-door' });
-    const say = 'Someone is at your front door. It may be Meera coming to help you. Take your time.';
-    await deliverToElder({ fromId: 'meera', text: say, language: 'en', system: true });
-    return { event, alertId: alert.id, resolved: neighbourDispatched, say };
+    const { lang } = await voice();
+    const say = t(lang, 'doorDuringAlert');
+    await deliverToElder({ fromId: 'meera', text: say, language: lang, system: true });
+    return { event, alertId: alert.id, resolved: neighbourDispatched, sayLanguage: lang, say };
   }
 
   async function sweepQuietDay() {

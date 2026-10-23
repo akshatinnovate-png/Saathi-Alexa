@@ -39,5 +39,5 @@ test('family acknowledgement stops the escalation and tells her someone is comin
   assert.deepEqual(audiences, ['family']);
   assert.equal((await store.get('alerts', alertId)).escalationStage, 'resolved');
   const inbox = await saathi.familyMessages();
-  assert.match(inbox.messages.at(-1).original, /Riya has seen your message/);
+  assert.match(inbox.messages.at(-1).original, /रिया यांनी तुमचा निरोप पाहिला/);
 });

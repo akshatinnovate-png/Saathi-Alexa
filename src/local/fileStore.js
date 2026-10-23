@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { seedData } from '../domain/seed.js';
+import { seedData, SEED_VERSION } from '../domain/seed.js';
 
 export function createFileStore({ file, seed = seedData, persist = true } = {}) {
   let data = null;
@@ -10,8 +10,11 @@ export function createFileStore({ file, seed = seedData, persist = true } = {}) 
     if (data) return data;
     if (persist) {
       try {
-        data = JSON.parse(await readFile(file, 'utf8'));
-        return data;
+        const saved = JSON.parse(await readFile(file, 'utf8'));
+        if (seed !== seedData || saved.meta?.[0]?.version === SEED_VERSION) {
+          data = saved;
+          return data;
+        }
       } catch (err) {
         if (err.code !== 'ENOENT') throw err;
       }

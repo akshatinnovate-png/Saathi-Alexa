@@ -79,7 +79,7 @@ test('an MCP client can list and call every kind of capability', async () => {
   ]);
   assert.equal(tools.find((t) => t.name === 'what_day_is_it').annotations.readOnlyHint, true);
 
-  const who = await client.callTool({ name: 'who_is', arguments: { person: 'Meera' } });
+  const who = await client.callTool({ name: 'who_is', arguments: { person: 'Meera', language: 'en' } });
   assert.match(who.content[0].text, /next door/);
   assert.equal(who.structuredContent.person.relationship, 'neighbour');
 

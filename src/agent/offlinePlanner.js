@@ -25,7 +25,7 @@ export function planOffline(text, language) {
   const rule = RULES.find((r) => r.test.test(text));
   if (!rule) return null;
   const args = rule.args(text, language);
-  if (['send_message_to_family', 'save_memory_story', 'daily_check_in'].includes(rule.tool) && language) args.language = language;
+  if (language) args.language = language;
   if (rule.tool === 'daily_check_in' && PRIVATE.test(text)) args.keep_private = true;
   return { tool: rule.tool, args };
 }

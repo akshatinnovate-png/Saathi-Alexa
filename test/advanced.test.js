@@ -194,7 +194,7 @@ test('Ring doorbell closes the loop: a ring after the neighbour is sent for reso
   const alert = await s.store.get('alerts', alertId);
   assert.equal(alert.acknowledgedBy, 'front-door');
   const inbox = await s.saathi.familyMessages();
-  assert.match(inbox.messages.at(-1).original, /front door/);
+  assert.match(inbox.messages.at(-1).original, /दारात कोणीतरी/);
 });
 
 test('quiet day: no door activity, check-in or tablets by late morning nudges the family once', async () => {

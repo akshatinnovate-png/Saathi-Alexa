@@ -32,7 +32,10 @@ Inclusion runs through the whole design, not a single feature. Saathi is built f
 | **Ring doorbell integration** | HMAC-signed, replay-protected webhook (`/ring/events`), a simulated Ring Video Doorbell, and its own Lambda in AWS | `src/ring/`, `src/lambda/ring.js` |
 | **OAuth 2.1 authorization** | Per the MCP authorization spec: Amazon Cognito is the authorization server, Saathi the protected resource (RFC 9728 metadata), with `saathi/elder` and `saathi/family` scopes | `src/auth/` |
 | **Safety and routing evals** | 44 multilingual safety cases (100% emergency recall, zero false alarms required) and 25 routing cases | `evals/` |
-| **Tests** | 40 server tests (MCP protocol features, OAuth, Ring, dignity, retry safety, Lambda, escalation, AWS SDK mocks, evals) and 8 CDK assertion tests | `test/`, `infra/test/` |
+| **Spoken in her language, offline** | Every reply Saathi speaks is written in Marathi, Hindi and English, with her routine, tablets and family described in each. Aaji hears Marathi even with no translation service or model | `src/domain/i18n.js` |
+| **Accessibility audit** | axe-core in a real browser across 5 page states (default, high contrast, confirmation dialog, family app, phone width): 0 violations, enforced in CI | `scripts/a11y.js` |
+| **Deployment smoke test** | One command checks a live endpoint: OAuth token, RFC 9728 metadata, 401 without a token, protocol 2025-11-25, tools, a Marathi reply, scopes | `scripts/smoke.js` |
+| **Tests** | 43 server tests (MCP protocol features, OAuth, Ring, dignity, retry safety, localisation, translation cache, Lambda, escalation, AWS SDK mocks, evals) and 8 CDK assertion tests | `test/`, `infra/test/` |
 
 ## Architecture
 
@@ -90,6 +93,7 @@ Every AWS integration sits behind a small adapter and has an offline stand-in: a
 - **An elder should never hear an error.** If the model is rate-limited or unavailable, the simulator falls back to the offline planner for that turn.
 - **Exactly one escalation per emergency.** Alexa+ may retry a tool call, and a frightened person asks twice. Help requests and urgent check-ins join an open alert instead of starting a second workflow (`openHelpAlert` in `src/domain/saathi.js`).
 - **Measured safety.** The phrase screen is scored by `npm run eval` against multilingual cases. That eval found real bugs: "prices have fallen" and Hindi "leaves are falling" raised false alarms, and romanised "seene mein dard" (chest pain) was missed. Falls are now matched in the first person, and CI fails if recall drops below 100%.
+- **Her language is the default, not an add-on.** Spoken replies are authored in Marathi, Hindi and English (`src/domain/i18n.js`), with Devanagari numerals in Marathi, so the voice never mixes scripts mid-sentence. Translation services are only needed for what people write to each other, and each message is translated once per language and cached.
 - **A ring at the door is evidence, not proof.** It only closes an emergency once the neighbour has been sent for. Before that it could be a delivery, so the family is told but the workflow keeps going.
 
 ---
@@ -111,7 +115,7 @@ Then open:
 
 Try tapping **💛 माझं मन** ("how I feel") in Marathi and watch the family app get a gentle nudge. Then tap **🆘 मदत** ("help") and watch the escalation move from family to neighbour to emergency, and stop the moment you press *"I'm on it"*.
 
-With no model configured, an offline rule-based planner stands in for Alexa+ and replies in English. Add a Claude key to get the full multilingual conversation:
+With no model configured, an offline rule-based planner stands in for Alexa+. It still replies in Marathi, Hindi or English, because every spoken line is localised in the server itself. Add a Claude key for free-form conversation and translation of anything family members write:
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-... npm start          # Claude API
@@ -126,13 +130,16 @@ With a model, Claude also stands in for Amazon Translate when Translate is off, 
 npm run inspect      # MCP Inspector; connect to http://127.0.0.1:8787/mcp (Streamable HTTP)
 ```
 
-### Tests and evals
+### Tests, evals and audits
 
 ```bash
-npm test                    # 40 tests: MCP protocol features, OAuth, Ring, dignity, retry safety, Lambda, escalation, AWS adapters
+npm test                    # 43 tests: MCP protocol features, OAuth, Ring, dignity, retry safety, localisation, Lambda, escalation, AWS adapters
 npm run eval                # multilingual safety + routing evals with a per-language report
+npm run a11y                # axe-core accessibility audit in Chromium (CHROME_PATH=... to pick a browser)
 cd infra && npm install && npm test   # 8 CDK assertion tests
 ```
+
+CI runs all four on every push.
 
 ### Authentication modes
 
@@ -164,6 +171,13 @@ curl -s -u "<ServiceClientId>:<client secret>" -d grant_type=client_credentials 
 ```
 
 Pass `-c oauthCallbackUrls=<Alexa+ redirect URI>` so the elder and family device clients can complete the authorization code flow.
+
+Then check the live deployment end to end:
+
+```bash
+SAATHI_URL=<McpEndpoint> SAATHI_OAUTH_DOMAIN=<OAuthDomain> \
+SAATHI_CLIENT_ID=<ServiceClientId> SAATHI_CLIENT_SECRET=<secret> npm run smoke
+```
 
 Seed the demo household and point the simulator and family app at the deployed resources:
 
@@ -231,6 +245,7 @@ The server also sends `instructions` on initialize: short, warm sentences, never
 ## Honest limitations
 
 - **This is not a medical device.** Saathi supports care and doesn't replace it. Emergency guidance points to 112 (India).
+- The Marathi and Hindi replies were written without a native-speaker review; have someone who speaks them read `src/domain/i18n.js` and `src/domain/seed.js` before a real deployment.
 - Polly has no Marathi or Tamil voice. Marathi falls back to the Hindi voice (Kajal) and Tamil to the browser's voice.
 - The offline sentiment model is a small lexicon. Use Comprehend for real deployments.
 - The safety eval cases were written by the same team as the phrase screen. Real-world phrasing needs clinician- and family-sourced cases before anyone relies on it.

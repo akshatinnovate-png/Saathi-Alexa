@@ -9,7 +9,9 @@
     "test": "node --test --test-concurrency=1 test/*.test.js",
     "seed:aws": "node scripts/seed-aws.js",
     "inspect": "npx @modelcontextprotocol/inspector",
-    "eval": "node evals/safety.js && node evals/routing.js"
+    "eval": "node evals/safety.js && node evals/routing.js",
+    "a11y": "node scripts/a11y.js",
+    "smoke": "node scripts/smoke.js"
   },
   "keywords": [
     "alexa-plus",
@@ -40,7 +42,9 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "aws-sdk-client-mock": "^4.1.0"
+    "aws-sdk-client-mock": "^4.1.0",
+    "axe-core": "^4.14.0",
+    "playwright-core": "1.56"
   },
   "type": "module",
   "engines": {

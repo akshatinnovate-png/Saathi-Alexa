@@ -6,6 +6,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { planOffline } from './offlinePlanner.js';
 import { languageName } from '../domain/languages.js';
+import { t, spokenLanguage } from '../domain/i18n.js';
 
 const TOOL_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -75,14 +76,17 @@ ${instructions}`;
   async function offlineTurn(text, language, trace) {
     const plan = planOffline(text, language);
     let say;
+    let sayLanguage;
     if (!plan) {
-      say = "I'm here. You can ask me what day it is, about your tablets, for messages from your family, or tell me a story.";
+      sayLanguage = spokenLanguage(language);
+      say = t(sayLanguage, 'idle');
     } else {
       const result = await callTool(plan.tool, plan.args);
       trace.push({ tool: plan.tool, args: plan.args, result: result.data });
       say = result.say;
+      sayLanguage = result.data?.sayLanguage ?? 'en';
     }
-    if (language !== 'en') say = (await translator.translate(say, { from: 'en', to: language })).text;
+    if (sayLanguage !== language) say = (await translator.translate(say, { from: sayLanguage, to: language })).text;
     return say;
   }
 

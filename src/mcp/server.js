@@ -4,6 +4,7 @@ import { SubscribeRequestSchema, UnsubscribeRequestSchema } from '@modelcontextp
 import { z } from 'zod';
 import { LANGUAGE_CODES } from '../domain/languages.js';
 import { TOOL_SCOPES, hasScope } from '../auth/scopes.js';
+import { t } from '../domain/i18n.js';
 
 export const SERVER_INFO = { name: 'saathi', title: 'Saathi - a companion for elders and the families who love them', version: '2.0.0' };
 
@@ -21,8 +22,9 @@ const RESOURCE_EVENTS = {
   'saathi://circle': ['DemoReset'],
 };
 
-const lang = z.enum(LANGUAGE_CODES).optional().describe('ISO code of the language she spoke, e.g. "mr" Marathi, "hi" Hindi, "en" English');
+const lang = z.enum(LANGUAGE_CODES).optional().describe('ISO code of the language she spoke, e.g. "mr" Marathi, "hi" Hindi, "en" English. The "say" line comes back in it.');
 const say = z.string().describe('A short, kind sentence to speak to her');
+const sayLanguage = z.string().optional().describe('Language of the say line');
 
 const reply = (data) => ({
   content: [{ type: 'text', text: data.say ?? data.text ?? 'Done.' }, { type: 'text', text: JSON.stringify(data) }],
@@ -46,43 +48,43 @@ export function buildMcpServer(saathi, { bus } = {}) {
   tool('what_day_is_it', {
     title: 'Gentle orientation',
     description: 'Tells her the day, date, time, where she is and what comes next in her routine. Use whenever she seems unsure of the day or time, or asks "what should I do now?".',
-    inputSchema: {},
+    inputSchema: { language: lang },
     outputSchema: {
-      say, today: z.string(), time: z.string(), partOfDay: z.enum(['morning', 'afternoon', 'evening', 'night']), place: z.string(), greetingName: z.string(),
+      say, sayLanguage, today: z.string(), time: z.string(), partOfDay: z.enum(['morning', 'afternoon', 'evening', 'night']), place: z.string(), greetingName: z.string(),
       next: z.object({ time: z.string(), activity: z.string() }).loose().nullable(),
       laterToday: z.array(z.object({ time: z.string(), activity: z.string() }).loose()),
     },
     annotations: { readOnlyHint: true, openWorldHint: false },
-  }, async () => reply(await saathi.orientation()));
+  }, async ({ language }) => reply(await saathi.orientation({ language })));
 
   tool('who_is', {
     title: 'Who is this person?',
     description: 'Explains who someone in her circle is (by name or relationship, in English, Hindi or Marathi, e.g. "Riya", "my granddaughter", "नात"), with their last message and regular plans. A memory aid; never imply she should have remembered.',
-    inputSchema: { person: z.string().min(1).describe('Name or relationship') },
+    inputSchema: { person: z.string().min(1).describe('Name or relationship'), language: lang },
     annotations: { readOnlyHint: true, openWorldHint: false },
-  }, async ({ person }) => reply(await saathi.whoIs(person)));
+  }, async ({ person, language }) => reply(await saathi.whoIs(person, { language })));
 
   tool('get_medication_schedule', {
     title: "Today's tablets",
     description: "Lists today's medications with status (taken, due, missed, upcoming), described by look and purpose so they are easy to identify.",
-    inputSchema: {},
+    inputSchema: { language: lang },
     outputSchema: {
-      say,
+      say, sayLanguage,
       medications: z.array(z.object({
         id: z.string(), name: z.string(), purpose: z.string(), time: z.string(), description: z.string(),
         status: z.enum(['taken', 'due', 'missed', 'upcoming']), takenAt: z.string().nullable(),
       }).loose()),
     },
     annotations: { readOnlyHint: true, openWorldHint: false },
-  }, async () => reply(await saathi.medicationSchedule()));
+  }, async ({ language }) => reply(await saathi.medicationSchedule({ language })));
 
   tool('confirm_medication_taken', {
     title: 'I took my tablet',
     description: 'Records that she took a tablet. If she does not say which, the one currently due is used. Prevents double doses by reporting if it was already taken today.',
-    inputSchema: { medication: z.string().optional().describe('Name, purpose ("blood pressure") or colour of the tablet') },
-    outputSchema: { say, recorded: z.boolean(), alreadyTaken: z.boolean().optional(), medication: z.string().optional() },
+    inputSchema: { medication: z.string().optional().describe('Name, purpose ("blood pressure", "रक्तदाब") or colour of the tablet'), language: lang },
+    outputSchema: { say, sayLanguage, recorded: z.boolean(), alreadyTaken: z.boolean().optional(), medication: z.string().optional() },
     annotations: { readOnlyHint: false, idempotentHint: true, openWorldHint: false },
-  }, async ({ medication }) => reply(await saathi.confirmMedication(medication)));
+  }, async ({ medication, language }) => reply(await saathi.confirmMedication(medication, { language })));
 
   tool('daily_check_in', {
     title: 'How are you feeling?',
@@ -101,17 +103,18 @@ export function buildMcpServer(saathi, { bus } = {}) {
     inputSchema: {
       reason: z.string().min(1).describe('What is happening, in a few words'),
       urgency: z.enum(['high', 'critical']).default('high'),
+      language: lang,
     },
-    outputSchema: { say, alertId: z.string(), deduplicated: z.boolean().optional() },
+    outputSchema: { say, sayLanguage, alertId: z.string(), deduplicated: z.boolean().optional() },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
-  }, async ({ reason, urgency }) => reply(await saathi.requestHelp({ reason, urgency })));
+  }, async ({ reason, urgency, language }) => reply(await saathi.requestHelp({ reason, urgency, language })));
 
   tool('get_family_messages', {
     title: 'Messages from family',
     description: 'Reads new messages from her family, translated into her language whatever language they were written in.',
-    inputSchema: { include_already_heard: z.boolean().default(false) },
+    inputSchema: { include_already_heard: z.boolean().default(false), language: lang },
     annotations: { readOnlyHint: false, openWorldHint: false },
-  }, async ({ include_already_heard }) => reply(await saathi.familyMessages({ unreadOnly: !include_already_heard })));
+  }, async ({ include_already_heard, language }) => reply(await saathi.familyMessages({ unreadOnly: !include_already_heard, language })));
 
   tool('send_message_to_family', {
     title: 'Send a message',
@@ -123,10 +126,11 @@ export function buildMcpServer(saathi, { bus } = {}) {
     },
     annotations: { readOnlyHint: false, openWorldHint: true },
   }, async ({ message, to, language }) => {
+    const spoken = language ?? (await saathi.elder()).language;
     if (server.server.getClientCapabilities()?.elicitation) {
       const answer = await server.server.elicitInput({
         mode: 'form',
-        message: `Shall I send this to ${to ?? 'your family'}? "${message}"`,
+        message: t(spoken, 'confirmSend', { to, message }),
         requestedSchema: {
           type: 'object',
           properties: { send: { type: 'boolean', title: 'Send it?', description: 'Yes to send, no to keep it' } },
@@ -134,7 +138,7 @@ export function buildMcpServer(saathi, { bus } = {}) {
         },
       });
       if (answer.action !== 'accept' || !answer.content?.send) {
-        return reply({ sent: false, say: "Alright, I haven't sent it. You can tell me again whenever you like." });
+        return reply({ sent: false, say: t(spoken, 'notSent') });
       }
     }
     return reply(await saathi.sendToFamily({ text: message, to, language }));
@@ -159,11 +163,12 @@ export function buildMcpServer(saathi, { bus } = {}) {
   tool('list_memory_stories', {
     title: 'Memory book',
     description: 'Lists the stories in her memory book (most recent first) so they can be retold. Each story is also a resource at saathi://stories/{storyId}.',
-    inputSchema: { limit: z.number().int().min(1).max(20).default(5) },
+    inputSchema: { limit: z.number().int().min(1).max(20).default(5), language: lang },
     annotations: { readOnlyHint: true, openWorldHint: false },
-  }, async ({ limit }) => {
+  }, async ({ limit, language }) => {
+    const spoken = language ?? (await saathi.elder()).language;
     const stories = (await saathi.listStories()).slice(0, limit).map((s) => ({ id: s.id, uri: `saathi://stories/${s.id}`, title: s.title, text: s.text, english: s.translations.en?.text, createdAt: s.createdAt }));
-    return reply({ stories, say: stories.length ? `Your memory book has ${stories.length} stories. The latest is "${stories[0].title}".` : 'Your memory book is waiting for its first story.' });
+    return reply({ stories, say: stories.length ? t(spoken, 'storyCount', { count: stories.length, title: stories[0].title }) : t(spoken, 'storyNone') });
   });
 
   tool('family_summary', {
@@ -171,7 +176,7 @@ export function buildMcpServer(saathi, { bus } = {}) {
     description: "For a family member's Alexa+: today's tablets, mood and open alerts, in that member's language. Private check-ins stay private.",
     inputSchema: { member: z.string().optional().describe('Family member id, e.g. "riya"') },
     outputSchema: {
-      say, english: z.string(),
+      say, sayLanguage, english: z.string(),
       alerts: z.array(z.object({ id: z.string(), reason: z.string().optional(), severity: z.string(), escalationStage: z.string().optional() }).loose()),
     },
     annotations: { readOnlyHint: true, openWorldHint: false },
