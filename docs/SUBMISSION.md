@@ -1,11 +1,11 @@
 # Devpost submission (draft)
 
-> Edit anything in [brackets] before submitting.
+> Ready to paste into Devpost. Read it once more before submitting.
 
 ## Track and challenges
 
 - **Primary track:** Alexa+ (self-hosted MCP server, spec 2025-11-25, Streamable HTTP)
-- **Mini challenges:** [AWS Builder: 15 AWS services, see below] [Open Source: MIT-licensed, if the repo is public]
+- **Mini challenges:** AWS Builder (15 AWS services, all defined in AWS CDK; see below) and Open Source (public repository, MIT license)
 
 ## Project name
 
@@ -50,7 +50,10 @@ Family members get the Family Circle app in their own language, and can also ask
 
 ## Challenges
 
-[Fill in from the friction log: e.g. Comprehend language coverage, Polly voice coverage for Indian languages, stateless Streamable HTTP on Lambda.]
+- **Indian languages are second-class in some AWS AI services.** Amazon Comprehend can't detect sentiment in Marathi, Tamil or Bengali, so check-ins in those languages go through Amazon Translate to English first. Amazon Polly has no Marathi voice, so Marathi is read with the Hindi neural voice. We also wrote every spoken reply ourselves in Marathi, Hindi and English, so Aaji is never spoken to in the wrong language, even offline.
+- **Hosting Streamable HTTP on Lambda.** The MCP SDK's Node transport expects long-lived sessions. On Lambda we run the Web-standard transport in stateless JSON mode, converting API Gateway events to `Request` objects. That rules out server-to-client features such as elicitation there, so the confirmation step only runs on the stateful transport.
+- **Safety without false alarms.** A keyword screen raised an alarm for "prices have fallen" and missed the romanised Hindi "seene mein dard" (chest pain). We built a multilingual eval that requires 100% emergency recall and zero false alarms in CI, and rewrote the screen to match falls in the first person.
+- **Testing a workflow that waits for minutes.** The escalation sends an alert, waits for someone to respond, then moves on to the next person. We wrote a small Amazon States Language interpreter so the exact definition deployed to Step Functions runs in tests and offline demos.
 
 ## Accomplishments
 
@@ -60,7 +63,10 @@ Family members get the Family Circle app in their own language, and can also ask
 
 ## What we learned
 
-[Your words.]
+- Designing for someone with memory loss changes everything downstream: never quiz, never show an error, one idea per sentence, and let her keep some things private. Those rules ended up in the MCP server's instructions, not just the UI.
+- MCP features like elicitation, progress notifications and resource subscriptions are what make a voice assistant feel trustworthy. "Shall I send this to Riya?" is a small protocol message with a big effect on dignity.
+- Running the same Step Functions definition in production and in tests, and testing the exact Lambda bundles we'd deploy, gave us much more confidence than mocks alone.
+- Measuring the safety screen across languages found real bugs that reading the code had missed.
 
 ## What's next
 
@@ -68,4 +74,4 @@ Multi-household tenancy, Cognito-authenticated family app accounts, a connection
 
 ## Built during the submission window
 
-[If anything existed before the hackathon, say so here. Otherwise: "Everything in this repository was built during the submission window."]
+Everything in this repository was built during the submission window: the MCP server, the simulated Alexa+ device, the family app, the escalation workflow, the Ring doorbell integration, the evals and the AWS CDK stack. Nothing existed before the hackathon.
