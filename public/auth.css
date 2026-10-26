@@ -130,3 +130,12 @@ label.inline { border: 0; padding: 0; }
 @media (max-width: 560px) {
   .row, .row.three { grid-template-columns: 1fr; }
 }
+
+.join-google {
+  display: flex; align-items: center; justify-content: center; gap: 10px; height: 48px; border-radius: 6px; border: 1px solid #e4e6ea;
+  background: #fff; color: #16181d; text-decoration: none; font: 500 0.95rem var(--sans); box-shadow: 0 1px 1px rgb(17 24 39 / 4%);
+}
+.join-google:hover { background: #fafafa; border-color: #d6d9de; }
+.join-google svg { width: 20px; height: 20px; }
+#join-accept { width: 100%; }
+#join-ready:not([hidden]) { margin-top: 18px; display: grid; }

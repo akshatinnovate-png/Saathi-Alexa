@@ -60,6 +60,20 @@ export const config = {
     demoAccounts: env.SAATHI_DEMO_ACCOUNTS !== 'false',
   },
 
+  mail: {
+    provider: env.SAATHI_MAIL || undefined,
+    from: env.SAATHI_MAIL_FROM || undefined,
+    ses: flag('SAATHI_AWS_SES', useAws),
+    smtpUrl: env.SAATHI_SMTP_URL || undefined,
+    gmailUser: env.SAATHI_GMAIL_USER || undefined,
+    gmailAppPassword: env.SAATHI_GMAIL_APP_PASSWORD || undefined,
+  },
+
+  google: {
+    clientId: env.SAATHI_GOOGLE_CLIENT_ID || undefined,
+    clientSecret: env.SAATHI_GOOGLE_CLIENT_SECRET || undefined,
+  },
+
   ring: {
     webhookSecret: env.SAATHI_RING_WEBHOOK_SECRET || 'local-ring-simulator-secret',
     webhookSecretArn: env.SAATHI_RING_WEBHOOK_SECRET_ARN,

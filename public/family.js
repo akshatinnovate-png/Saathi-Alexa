@@ -249,25 +249,171 @@ function pickAvatar(forId) {
   input.click();
 }
 
+function toast(message, ms = 5000) {
+  const node = $('toast');
+  node.textContent = message;
+  node.hidden = false;
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => { node.hidden = true; }, ms);
+}
+
+async function call(path, method = 'GET') {
+  const res = await fetch(`/api${path}`, { method });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error ?? res.statusText);
+  return json;
+}
+
+async function renderMailStatus() {
+  const box = $('mail-status');
+  try {
+    const mail = await call('/mail');
+    const owner = status.me?.role === 'owner';
+    const parts = [];
+    if (mail.gmail) parts.push(el('span', {}, `Invites and alerts are sent from your Gmail, ${mail.gmail.email}.`));
+    else if (mail.real) parts.push(el('span', {}, `Invites and alerts are emailed by Saathi${mail.from ? ` (${mail.from})` : ''}.`));
+    else parts.push(el('span', {}, "Email isn't set up on this Saathi yet, so you'll get a link to share instead."));
+    if (owner && mail.googleAvailable && !mail.gmail) parts.push(el('a', { class: 'pill-action', href: '/auth/google?gmail=1' }, 'Send from my Gmail'));
+    if (owner && mail.gmail) parts.push(el('button', { class: 'text-action', type: 'button', onclick: async () => { await call('/mail/gmail', 'DELETE'); renderMailStatus(); } }, 'Disconnect Gmail'));
+    if (mail.real || mail.gmail) parts.push(el('button', { class: 'text-action', type: 'button', onclick: async () => { const r = await api('/mail/test', {}); toast(r.sent ? `Test email sent to ${status.me.email}.` : "That address can't receive email."); } }, 'Send me a test'));
+    box.replaceChildren(...parts);
+  } catch {
+    box.replaceChildren();
+  }
+}
+
+async function renderPending() {
+  try {
+    const pending = await call('/household/invites');
+    $('pending-invites').hidden = !pending.length;
+    $('pending-list').replaceChildren(...pending.map((p) => {
+      const person = circle.find((c) => c.id === p.memberId);
+      return el('li', {}, el('span', {}, `${person?.name ?? p.email} · ${p.email}`),
+        status.me?.role === 'owner' ? el('button', { class: 'text-action', type: 'button', onclick: async () => {
+          try { showInviteResult(person ?? { name: p.email, email: p.email }, await api(`/household/invite/${encodeURIComponent(p.memberId)}/resend`, {})); } catch (err) { toast(err.message); }
+        } }, 'Send again') : '');
+    }));
+  } catch {
+    $('pending-invites').hidden = true;
+  }
+}
+
+function showInviteResult(member, invite) {
+  $('invite-form').hidden = true;
+  $('invite-done').hidden = false;
+  const first = String(member.name ?? '').split(' ')[0] || 'them';
+  if (invite.joined) {
+    $('invite-done-h').textContent = `${first} is in the circle`;
+    $('invite-done-text').textContent = `${first} already had a Saathi account, so they're part of ${elderName}'s circle now.`;
+  } else {
+    $('invite-done-h').textContent = invite.emailed ? 'Invite sent' : 'Share the invite';
+    $('invite-done-text').textContent = invite.emailed
+      ? `We emailed ${member.email}. You can also send ${first} the link yourself.`
+      : `Send ${first} this link. It works for 30 days.`;
+  }
+  const link = invite.link;
+  $('copy-link').hidden = !link;
+  $('whatsapp-link').hidden = !link;
+  if (link) {
+    $('whatsapp-link').href = `https://wa.me/?text=${encodeURIComponent(`Join ${elderName}'s family circle on Saathi: ${link}`)}`;
+    $('copy-link').onclick = async () => {
+      try { await navigator.clipboard.writeText(link); toast('Link copied.'); } catch { prompt('Copy this link', link); }
+    };
+  }
+  $('invite-close').focus();
+}
+
 function setupInvite() {
   const dialog = $('invite-dialog');
   const select = dialog.querySelector('select[name="language"]');
   select.replaceChildren(...Object.entries(languages).map(([code, l]) => el('option', { value: code }, `${l.native} · ${l.name}`)));
-  $('open-invite').addEventListener('click', () => { $('invite-error').hidden = true; $('device-key').hidden = true; dialog.showModal(); });
+  $('open-invite').addEventListener('click', () => {
+    $('invite-error').hidden = true;
+    $('invite-form').hidden = false;
+    $('invite-done').hidden = true;
+    renderMailStatus();
+    renderPending();
+    dialog.showModal();
+  });
+  $('invite-close').addEventListener('click', () => dialog.close());
   $('invite-form').addEventListener('submit', async (e) => {
     if (e.submitter?.value !== 'send') return;
     e.preventDefault();
     const f = new FormData(e.target);
+    $('invite-send').disabled = true;
     try {
-      await api('/household/invite', { name: f.get('name'), relationship: f.get('relationship'), email: f.get('email'), language: f.get('language'), role: f.get('neighbour') ? 'neighbour' : 'family' });
-      dialog.close();
+      const member = await api('/household/invite', { name: f.get('name'), relationship: f.get('relationship'), email: f.get('email'), language: f.get('language'), role: f.get('neighbour') ? 'neighbour' : 'family' });
       e.target.reset();
+      showInviteResult(member, member.invite ?? {});
       await init(false);
     } catch (err) {
       $('invite-error').textContent = err.message;
       $('invite-error').hidden = false;
+    } finally {
+      $('invite-send').disabled = false;
     }
   });
+}
+
+function setupDevices() {
+  const dialog = $('device-dialog');
+  let countdown;
+  $('device-h').textContent = `Set up ${elderName}'s device`;
+  $('open-devices').setAttribute('aria-label', `Set up ${elderName}'s device`);
+
+  async function newCode() {
+    $('pair-error').hidden = true;
+    try {
+      const { code, expiresAt, url, qr } = await api('/devices/pairing-code', {});
+      $('pair-code').textContent = `${code.slice(0, 3)} ${code.slice(3)}`;
+      $('pair-url').textContent = url.replace(/^https?:\/\//, '');
+      $('pair-qr').innerHTML = qr;
+      clearInterval(countdown);
+      const tick = () => {
+        const left = Math.max(0, Math.round((new Date(expiresAt) - Date.now()) / 1000));
+        $('pair-expiry').textContent = left ? `Works for ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')} more` : 'This code expired. Tap "New code".';
+        if (!left) clearInterval(countdown);
+      };
+      tick();
+      countdown = setInterval(tick, 1000);
+    } catch (err) {
+      $('pair-error').textContent = err.message;
+      $('pair-error').hidden = false;
+    }
+  }
+
+  let known = null;
+  let watcher;
+  async function renderDevices() {
+    try {
+      const devices = await call('/devices');
+      if (known !== null && devices.length > known) {
+        toast(`${devices[0].label} is connected.`);
+        $('pair-code').textContent = '✓ Connected';
+        $('pair-expiry').textContent = '';
+        clearInterval(countdown);
+      }
+      known = devices.length;
+      $('device-list').replaceChildren(...(devices.length ? devices.map((d) => el('li', {},
+        el('span', {}, `${d.label} · since ${new Date(d.pairedAt).toLocaleDateString([], { day: 'numeric', month: 'short' })}`),
+        el('button', { class: 'text-action', type: 'button', onclick: async () => { await call(`/devices/${encodeURIComponent(d.id)}`, 'DELETE'); renderDevices(); } }, 'Remove'))) : [el('li', { class: 'muted' }, 'None yet.')]));
+    } catch {
+      $('device-list').replaceChildren();
+    }
+  }
+
+  $('open-devices').addEventListener('click', () => {
+    $('device-key').hidden = true;
+    known = null;
+    newCode();
+    renderDevices();
+    clearInterval(watcher);
+    watcher = setInterval(renderDevices, 3000);
+    dialog.showModal();
+  });
+  $('pair-new').addEventListener('click', newCode);
+  $('device-close').addEventListener('click', () => dialog.close());
+  dialog.addEventListener('close', () => { clearInterval(countdown); clearInterval(watcher); });
   $('pair-device').addEventListener('click', async () => {
     try {
       const { token, mcpUrl } = await api('/household/device-token', { label: `${elderName}'s Alexa+` });
@@ -277,6 +423,20 @@ function setupInvite() {
     }
     $('device-key').hidden = false;
   });
+}
+
+function showReturnNotice() {
+  const params = new URLSearchParams(location.search);
+  const gmail = params.get('gmail');
+  if (!gmail) return;
+  const messages = {
+    connected: 'Gmail connected. Invites and alerts will come from your address.',
+    failed: 'Gmail did not connect. Please try again.',
+    'no-permission': 'Google did not give permission to send email. Try again and tick "Send email on your behalf".',
+    'owner-only': 'Only the person who set up this household can connect Gmail.',
+  };
+  toast(messages[gmail] ?? 'Done.', 7000);
+  history.replaceState(null, '', location.pathname + location.hash);
 }
 
 let recorder;
@@ -349,6 +509,8 @@ async function init(first = true) {
   await refresh();
   if (first) {
     setupInvite();
+    setupDevices();
+    showReturnNotice();
     $('open-invite').hidden = status.me && status.me.role !== 'owner';
   }
 }

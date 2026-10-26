@@ -160,3 +160,7 @@ select, input[type="text"] {
   .device-next { max-width: 100%; text-align: left; }
   .device-head { flex-direction: column; }
 }
+
+.kiosk .panel, .kiosk .topbar a.btn { display: none; }
+.kiosk .sim { grid-template-columns: minmax(0, 960px); justify-content: center; }
+.kiosk .device { min-height: calc(100svh - 140px); }

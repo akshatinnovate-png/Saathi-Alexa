@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Join the family circle · Saathi</title>
+  <meta name="description" content="You were invited to a family circle on Saathi.">
+  <link rel="icon" href="assets/logo-favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400&family=Noto+Sans+Devanagari:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="auth.css">
+</head>
+<body class="auth-body">
+  <header class="auth-top">
+    <a class="auth-back" href="/">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Back
+    </a>
+    <a class="auth-brand" href="/" aria-label="Saathi home">
+      <img src="assets/logo-ink.svg" alt="">
+      <span>Saathi</span>
+    </a>
+    <a class="auth-support" href="mailto:akshat.innovate@gmail.com?subject=Saathi%20support">Contact support</a>
+  </header>
+
+  <main class="auth-main">
+    <section class="auth-card" aria-labelledby="join-title">
+      <h1 class="auth-title" id="join-title">You're invited</h1>
+      <p class="auth-sub" id="join-sub">Checking your invite…</p>
+
+      <div id="join-ready" hidden>
+        <a class="join-google" id="join-google" href="#" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.5 12.27c0-.79-.07-1.54-.2-2.27H12v4.3h5.9a5.05 5.05 0 0 1-2.2 3.31v2.75h3.55c2.08-1.92 3.25-4.74 3.25-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.55-2.75c-.98.66-2.24 1.05-3.73 1.05-2.87 0-5.3-1.94-6.17-4.54H2.16v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.83 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.16a11 11 0 0 0 0 9.88z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.07.56 4.21 1.64l3.15-3.15A10.97 10.97 0 0 0 12 1 11 11 0 0 0 2.16 7.06L5.83 9.9C6.7 7.3 9.13 5.38 12 5.38z"/></svg>
+          <span>Join with Google</span>
+        </a>
+        <div class="auth-or" id="join-or" aria-hidden="true" hidden><span>or</span></div>
+
+        <button class="auth-submit" id="join-accept" type="button" hidden>Join the circle</button>
+
+        <form class="auth-form" id="join-form" novalidate>
+          <div class="field" id="field-name">
+            <label for="name">Your name</label>
+            <input id="name" name="name" type="text" autocomplete="name">
+          </div>
+          <div class="field">
+            <label for="email">Email address</label>
+            <input id="email" name="email" type="email" autocomplete="email" required>
+          </div>
+          <div class="field">
+            <label for="password" id="password-label">Choose a password</label>
+            <input id="password" name="password" type="password" autocomplete="new-password" required>
+          </div>
+          <p class="auth-error" id="join-error" role="alert" hidden></p>
+          <button class="auth-submit" id="join-submit" type="submit">Join the circle</button>
+        </form>
+      </div>
+      <p class="auth-switch" id="join-switch" hidden><a href="/login.html">Log in instead</a></p>
+    </section>
+  </main>
+
+  <div class="auth-art" aria-hidden="true"></div>
+  <script type="module" src="join.js"></script>
+</body>
+</html>

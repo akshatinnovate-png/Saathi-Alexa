@@ -205,6 +205,10 @@ function addEvent(event) {
 async function init() {
   const status = await api('/status');
   languages = status.languages;
+  if (status.device) {
+    document.body.classList.add('kiosk');
+    document.querySelector('.brand-title small').textContent = status.device.label;
+  }
   const select = $('language');
   select.replaceChildren(...Object.entries(languages).map(([code, l]) => el('option', { value: code, selected: code === settings.language }, `${l.native} · ${l.name}`)));
   select.addEventListener('change', () => { settings.language = select.value; saveSettings(settings); renderQuick(); tickClock(); sessionId = `device-${Math.random().toString(36).slice(2, 8)}`; });

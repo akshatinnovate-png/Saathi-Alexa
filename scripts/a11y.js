@@ -48,6 +48,10 @@ const scenarios = [
   { name: 'House map, 3D', path: '/family.html#home', wait: '.h3-rooms li', settle: 2500 },
   { name: 'House map, 2D plan', path: '/family.html#home', wait: '.h3-rooms li', click: '.h3-seg button:last-child' },
   { name: 'House map, phone width', path: '/family.html#home', width: 390, wait: '.h3-rooms li' },
+  { name: 'Set up a device (pairing code)', path: '/device.html' },
+  { name: 'Join from an invite (expired link)', path: '/join.html?invite=nope' },
+  { name: 'Family app, invite dialog', path: '/family.html', click: '#open-invite', after: '#mail-status' },
+  { name: "Family app, set up Aaji's device", path: '/family.html', click: '#open-devices', after: '#pair-qr svg, #pair-error:not([hidden])' },
   { name: 'Walk the house', path: '/scan.html' },
   { name: 'Walk the house, drawing by hand', path: '/scan.html', click: '#start-draw' },
 ];

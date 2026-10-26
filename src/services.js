@@ -30,9 +30,18 @@ export function createServices(config, overrides = {}) {
     ? createAwsEventBus({ region, eventBusName: resources.eventBusName, local: localBus })
     : localBus);
 
-  const notifier = overrides.notifier ?? (aws.sns
+  const baseNotifier = overrides.notifier ?? (aws.sns
     ? withMirror(createAwsNotifier({ region, topicArn: resources.familyTopicArn }), localBus)
     : createLocalNotifier({ bus: localBus }));
+  let emailing = null;
+  const notifier = {
+    get kind() { return (emailing ?? baseNotifier).kind; },
+    notify: (n) => (emailing ?? baseNotifier).notify(n),
+    subscribe: (subscription) => baseNotifier.subscribe?.(subscription),
+  };
+  function attachMail(familyMail) {
+    if (!aws.sns) emailing = familyMail.wrapNotifier(baseNotifier);
+  }
 
   const media = overrides.media ?? (aws.s3
     ? createAwsMedia({ region, bucket: resources.mediaBucket })
@@ -78,7 +87,7 @@ export function createServices(config, overrides = {}) {
   }
 
   return {
-    saathi, forHousehold, householdIds, resetDemo, store, translator, sentiment, speech, events, localBus, notifier, media, escalation, metrics,
+    saathi, forHousehold, householdIds, resetDemo, attachMail, store, translator, sentiment, speech, events, localBus, notifier, media, escalation, metrics,
     describe: () => ({
       store: store.kind, translate: translator.kind, sentiment: sentiment.kind, speech: speech.kind,
       events: events.kind, notifications: notifier.kind, media: media.kind, escalation: escalation.kind,

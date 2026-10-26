@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import express from 'express';
+import QRCode from 'qrcode';
 import { hostHeaderValidation, localhostHostValidation } from '@modelcontextprotocol/sdk/server/middleware/hostHeaderValidation.js';
 import { mountMcp } from './mcpRoute.js';
 import { mountAuth } from './authRoutes.js';
@@ -10,9 +11,10 @@ import { verifySignature, normaliseRingEvent, SIGNATURE_HEADER, TIMESTAMP_HEADER
 
 const PROTECTED_PAGES = ['/family.html', '/alexa.html', '/welcome.html', '/scan.html'];
 
-export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor }) {
+export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail }) {
   const { localBus, store } = services;
   const app = express();
+  app.set('trust proxy', 'loopback');
   const requireLogin = config.web?.requireLogin !== false && Boolean(accounts && sessions);
 
   if (allowedHosts?.length) app.use(hostHeaderValidation(allowedHosts));
@@ -32,16 +34,18 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     } catch (err) { next(err); }
   });
 
-  if (accounts && sessions) mountAuth(app, { config, accounts, sessions });
+  if (accounts && sessions) mountAuth(app, { config, accounts, sessions, google, familyMail });
 
   app.use((req, _res, next) => {
-    req.householdId = requireLogin ? req.user?.householdId ?? null : req.user?.householdId ?? DEFAULT_HOUSEHOLD;
+    const fallback = requireLogin ? null : DEFAULT_HOUSEHOLD;
+    req.householdId = req.user?.householdId ?? req.device?.householdId ?? fallback;
     req.memberId = req.user?.memberId ?? null;
     next();
   });
 
   app.get(PROTECTED_PAGES, (req, res, next) => {
     if (!requireLogin) return next();
+    if (!req.user && req.device) return req.path === '/alexa.html' ? next() : res.redirect('/alexa.html');
     if (!req.user) return res.redirect(`/login.html?next=${encodeURIComponent(req.originalUrl)}`);
     if (!req.user.householdId && req.path !== '/welcome.html') return res.redirect('/welcome.html');
     if (req.user.householdId && req.path === '/welcome.html') return res.redirect('/family.html');
@@ -54,9 +58,64 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
 
   api.use((req, res, next) => {
     if (!req.householdId) return res.status(401).json({ error: requireLogin && req.user ? 'Set up your household first.' : 'Please log in.' });
+    if (req.device && !req.user && /^\/(household|devices|mail|demo|family\/avatar)/.test(req.path)) return res.status(403).json({ error: "Aaji's device can't do that. Use the family app." });
     req.saathi = services.forHousehold(req.householdId);
     next();
   });
+
+  const familyOnly = (req, res) => {
+    if (!accounts || !req.user) { res.status(401).json({ error: 'Please log in.' }); return false; }
+    return true;
+  };
+  const ownerOnly = (req, res) => {
+    if (!familyOnly(req, res)) return false;
+    if (req.user.role !== 'owner') { res.status(403).json({ error: 'Only the person who set up this household can do that.' }); return false; }
+    return true;
+  };
+  const originOf = (req) => config.auth.publicUrl ?? `${req.protocol}://${req.get('host')}`;
+
+  api.post('/devices/pairing-code', wrap(async (req, res) => {
+    if (!familyOnly(req, res)) return;
+    const { code, expiresAt } = await accounts.createPairingCode(req.user.email);
+    const url = `${originOf(req)}/device.html`;
+    const qr = await QRCode.toString(`${url}?code=${code}`, { type: 'svg', margin: 1, color: { dark: '#16181d', light: '#ffffff' } });
+    res.json({ code, expiresAt, url, qr });
+  }));
+
+  api.get('/devices', wrap(async (req, res) => {
+    if (!familyOnly(req, res)) return;
+    res.json(await accounts.listDevices(req.householdId));
+  }));
+
+  api.delete('/devices/:id', wrap(async (req, res) => {
+    if (!familyOnly(req, res)) return;
+    res.json({ removed: Boolean(await accounts.removeDevice(req.householdId, req.params.id)) });
+  }));
+
+  api.get('/mail', wrap(async (req, res) => {
+    if (!familyOnly(req, res)) return;
+    res.json(familyMail ? await familyMail.status(req.householdId) : { service: 'none', real: false, gmail: null, googleAvailable: false });
+  }));
+
+  api.post('/mail/test', wrap(async (req, res) => {
+    if (!familyOnly(req, res) || !familyMail) return;
+    res.json(await familyMail.sendTest(req.householdId, { to: req.user.email, name: req.user.name }));
+  }));
+
+  api.delete('/mail/gmail', wrap(async (req, res) => {
+    if (!ownerOnly(req, res) || !familyMail) return;
+    res.json({ removed: Boolean(await familyMail.disconnectGmail(req.householdId)) });
+  }));
+
+  api.get('/household/invites', wrap(async (req, res) => {
+    if (!familyOnly(req, res)) return;
+    res.json(await accounts.pendingInvites(req.householdId));
+  }));
+
+  api.post('/household/invite/:memberId/resend', wrap(async (req, res) => {
+    if (!ownerOnly(req, res)) return;
+    res.json(await accounts.resendInvite(req.user.email, req.params.memberId));
+  }));
 
   api.get('/status', wrap(async (req, res) => {
     const circle = await req.saathi.circle();
@@ -65,7 +124,7 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     res.json({
       services: services.describe(), auth: config.auth.mode, brain: simulatorFor ? (await simulatorFor(req.householdId)).brain : 'offline-planner',
       languages: LANGUAGES, elder: await withAvatar(elder), circle: await Promise.all(circle.map(withAvatar)),
-      householdId: req.householdId, me: req.user ?? null, memberId: req.memberId,
+      householdId: req.householdId, me: req.user ?? null, memberId: req.memberId, device: req.device ? { id: req.device.id, label: req.device.label } : null,
     });
   }));
 

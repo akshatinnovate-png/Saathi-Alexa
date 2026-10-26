@@ -1,3 +1,5 @@
+import './env.js';
+import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
 import { createServices } from './services.js';
 import { createApp } from './http/app.js';
@@ -9,17 +11,26 @@ import { createRingSimulator } from './ring/webhook.js';
 import { createAccounts } from './accounts/accounts.js';
 import { createCognitoAccounts } from './accounts/cognito.js';
 import { createSessions, sessionSecret } from './accounts/sessions.js';
+import { createGoogle, createVault } from './accounts/google.js';
+import { createMailer } from './mail/mailer.js';
+import { createFamilyMail } from './mail/familyMail.js';
 
 const llm = createLlm(config.agent, config.region);
 const services = createServices(config, { llmTranslate: llm?.translate });
 const baseUrl = `http://${config.host === '0.0.0.0' ? '127.0.0.1' : config.host}:${config.port}`;
+const publicUrl = config.auth.publicUrl ?? `http://localhost:${config.port}`;
 
 const cognito = config.auth.userPoolId && config.auth.webClientId
   ? createCognitoAccounts({ region: config.auth.region, userPoolId: config.auth.userPoolId, clientId: config.auth.webClientId, domain: config.auth.domain, publicUrl: config.auth.publicUrl ?? baseUrl })
   : null;
-const accounts = createAccounts({ store: services.store, services, cognito, demo: config.web.demoAccounts });
+const secret = await sessionSecret(services.store, config.web.sessionSecret);
+const sessions = createSessions(secret);
+const google = config.google.clientId && config.google.clientSecret ? createGoogle(config.google) : null;
+const mailer = createMailer({ mail: config.mail, region: config.region, outboxDir: fileURLToPath(new URL('../data/outbox', import.meta.url)) });
+const familyMail = createFamilyMail({ store: services.store, mailer, google, vault: createVault(secret), publicUrl });
+services.attachMail(familyMail);
+const accounts = createAccounts({ store: services.store, services, cognito, demo: config.web.demoAccounts, onInvite: (invite) => familyMail.sendInvite(invite) });
 await accounts.ensureDemo();
-const sessions = createSessions(await sessionSecret(services.store, config.web.sessionSecret));
 
 const baseVerifier = createVerifier(config.auth);
 const verifier = baseVerifier ? createHouseholdVerifier({ base: baseVerifier, accounts }) : null;
@@ -59,15 +70,20 @@ async function assistantFor(householdId) {
 }
 
 const ringSimulator = createRingSimulator({ url: `${baseUrl}/ring/events`, secret: config.ring.webhookSecret });
-const allowedHosts = process.env.SAATHI_ALLOWED_HOSTS?.split(',').map((h) => h.trim()).filter(Boolean);
-const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator });
+const configuredHosts = process.env.SAATHI_ALLOWED_HOSTS?.split(',').map((h) => h.trim()).filter(Boolean) ?? [];
+const allowedHosts = configuredHosts.length || config.auth.publicUrl
+  ? [...new Set([...configuredHosts, ...(config.auth.publicUrl ? [new URL(config.auth.publicUrl).hostname, 'localhost', '127.0.0.1'] : [])])]
+  : undefined;
+const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail });
 
 app.listen(config.port, config.host, () => {
   console.log(`\n  Saathi is running\n`);
-  console.log(`  Website (intro, sign in, family app):        ${baseUrl}/`);
+  console.log(`  Open this in your browser:                   ${publicUrl}/`);
+  console.log(`  Aaji's tablet or Echo Show (pairing code):   ${publicUrl}/device.html`);
   console.log(`  MCP endpoint (Streamable HTTP, 2025-11-25):  ${baseUrl}/mcp   [auth: ${config.auth.mode}]`);
   console.log(`  Ring doorbell webhook (HMAC-signed):         ${baseUrl}/ring/events`);
-  console.log(`  Accounts: ${cognito ? 'Amazon Cognito' : 'local (scrypt)'}${config.web.demoAccounts ? ' + demo accounts (riya@saathi.demo)' : ''}`);
+  console.log(`  Accounts: ${cognito ? 'Amazon Cognito' : 'local (scrypt)'}${google ? ' + Google sign-in' : ''}${config.web.demoAccounts ? ' + demo accounts (riya@saathi.demo)' : ''}`);
+  console.log(`  Email: ${mailer.real ? `${mailer.kind} from ${mailer.from}` : 'not set up (emails are printed here). Run "npm run setup" to send real email'}`);
   console.log(`  Alexa+ brain: ${llm ? `${llm.provider} (${llm.model})` : 'offline-planner'}`);
   console.log(`  Services: ${JSON.stringify(services.describe())}\n`);
 });

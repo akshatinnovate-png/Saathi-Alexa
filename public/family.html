@@ -19,6 +19,7 @@
   <a class="skip-link" href="#main">Skip to content</a>
   <div class="fam-shell">
     <main class="fam-main" id="main">
+      <p class="toast" id="toast" role="status" hidden></p>
       <header class="fam-head">
         <div>
           <p class="fam-date" id="today"></p>
@@ -125,6 +126,7 @@
         <a class="rail-btn" href="#overview" data-nav="overview" aria-label="Overview"></a>
         <a class="rail-btn" href="#care" data-nav="care" aria-label="Care: alerts, tablets and visits"><span class="badge" id="alert-badge" hidden></span></a>
         <button class="rail-btn" type="button" id="open-invite" data-icon="userPlus" aria-label="Invite family"></button>
+        <button class="rail-btn" type="button" id="open-devices" data-icon="tablet" aria-label="Set up Aaji's device"></button>
       </div>
       <div class="rail-group">
         <a class="rail-btn" href="#memories" data-nav="memories" aria-label="Memories and letters"></a>
@@ -142,7 +144,7 @@
   <dialog class="sheet" id="invite-dialog" aria-labelledby="invite-h">
     <form method="dialog" class="sheet-form" id="invite-form">
       <h2 id="invite-h">Invite someone to the circle</h2>
-      <p class="muted">They'll get the updates meant for them, in their language.</p>
+      <p class="muted">They'll get an email with a link to join, and the updates meant for them, in their language.</p>
       <div class="sheet-row">
         <label>Name<input name="name" required autocomplete="off"></label>
         <label>Relationship<input name="relationship" placeholder="grandson, neighbour…" required autocomplete="off"></label>
@@ -157,12 +159,46 @@
         <button class="text-action" value="cancel" formnovalidate>Cancel</button>
         <button class="pill-action dark" id="invite-send" value="send">Send invite</button>
       </div>
-      <hr>
-      <h2>Pair Aaji's Alexa+</h2>
-      <p class="muted">Creates a private key that lets one Alexa+ device reach only this household.</p>
-      <button class="pill-action" type="button" id="pair-device">Create a device key</button>
-      <pre class="device-key" id="device-key" hidden></pre>
+      <div class="mail-status" id="mail-status"></div>
+      <div class="pending" id="pending-invites" hidden>
+        <h3>Waiting to join</h3>
+        <ul id="pending-list"></ul>
+      </div>
     </form>
+    <div class="sheet-form invite-done" id="invite-done" hidden aria-live="polite">
+      <h2 id="invite-done-h">Invite sent</h2>
+      <p id="invite-done-text"></p>
+      <div class="share-row">
+        <button class="pill-action" type="button" id="copy-link">Copy invite link</button>
+        <a class="pill-action whatsapp" id="whatsapp-link" href="#" target="_blank" rel="noopener">Send on WhatsApp</a>
+      </div>
+      <div class="sheet-actions"><button class="pill-action dark" type="button" id="invite-close">Done</button></div>
+    </div>
+  </dialog>
+
+  <dialog class="sheet" id="device-dialog" aria-labelledby="device-h">
+    <div class="sheet-form">
+      <h2 id="device-h">Set up Aaji's device</h2>
+      <p class="muted" id="device-intro">Use an Echo Show, a tablet or an old phone. Keep it plugged in near where she sits.</p>
+      <ol class="pair-steps">
+        <li><span>1</span><div>On that device, open <strong id="pair-url">saathi/device</strong>, or scan this code with its camera.</div></li>
+        <li><span>2</span><div>Type this number:<p class="pair-code" id="pair-code" aria-live="polite">––– –––</p><p class="muted small" id="pair-expiry"></p></div></li>
+      </ol>
+      <div class="pair-qr" id="pair-qr" aria-hidden="true"></div>
+      <p class="form-error" id="pair-error" role="alert" hidden></p>
+      <div class="sheet-actions">
+        <button class="text-action" type="button" id="pair-new">New code</button>
+        <button class="pill-action dark" type="button" id="device-close">Done</button>
+      </div>
+      <h3 class="devices-h">Connected devices</h3>
+      <ul class="device-list" id="device-list"></ul>
+      <details class="advanced">
+        <summary>Connect a real Alexa+ (for developers)</summary>
+        <p class="muted">Alexa+ connects to Saathi as an MCP server. This creates a private key that reaches only this household.</p>
+        <button class="pill-action" type="button" id="pair-device">Create an Alexa+ key</button>
+        <pre class="device-key" id="device-key" hidden></pre>
+      </details>
+    </div>
   </dialog>
 
   <input type="file" id="avatar-file" accept="image/png,image/jpeg,image/webp" hidden>

@@ -1,0 +1,28 @@
+.dev {
+  min-height: 100svh; margin: 0; color: #f6f1e8; font-family: "Atkinson Hyperlegible", var(--sans);
+  background: radial-gradient(120% 80% at 80% 0%, #2a2f4a 0%, rgb(42 47 74 / 0%) 60%), radial-gradient(90% 70% at 0% 100%, #3b2a1e 0%, rgb(59 42 30 / 0%) 60%), #14161c;
+}
+.dev-main { max-width: 560px; margin: 0 auto; padding: max(32px, env(safe-area-inset-top)) 20px 40px; display: grid; justify-items: center; text-align: center; gap: 14px; }
+.dev-logo { width: 56px; height: 56px; }
+.dev h1 { margin: 6px 0 0; font: 300 clamp(2rem, 6vw, 2.8rem) / 1.1 var(--sans); letter-spacing: -0.03em; }
+.dev-sub { margin: 0; font-size: 1.2rem; line-height: 1.5; color: #d6d9e2; }
+.dev-sub strong { color: #fff; }
+.dev-form { display: grid; gap: 18px; width: 100%; margin-top: 10px; }
+.dev-code {
+  width: 100%; box-sizing: border-box; text-align: center; font: 700 clamp(2.6rem, 11vw, 3.6rem) "Atkinson Hyperlegible", monospace; letter-spacing: 0.18em;
+  padding: 14px 10px; border-radius: 24px; border: 2px solid rgb(255 255 255 / 25%); background: rgb(255 255 255 / 7%); color: #fff;
+}
+.dev-code::placeholder { color: rgb(255 255 255 / 25%); }
+.dev-code:focus { outline: 3px solid #f3ebdd; outline-offset: 3px; }
+.dev-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.dev-pad button {
+  min-height: 72px; border-radius: 22px; border: 1px solid rgb(255 255 255 / 16%); background: rgb(255 255 255 / 8%);
+  color: #fff; font: 700 1.8rem "Atkinson Hyperlegible", var(--sans); cursor: pointer;
+}
+.dev-pad button:active { background: rgb(255 255 255 / 18%); }
+.dev-pad .go { background: #f3ebdd; color: #16181d; border: 0; }
+.dev-error { margin: 0; padding: 12px 16px; border-radius: 16px; background: #5c1d17; color: #ffd9d4; font-size: 1.1rem; }
+.dev-done { display: grid; gap: 6px; font-size: 1.4rem; }
+.dev-check { margin: 0; width: 96px; height: 96px; border-radius: 50%; display: grid; place-items: center; background: #2bb673; color: #04210f; font-size: 3rem; justify-self: center; }
+.dev-help { margin-top: 18px; color: #aab1bf; font-size: 1rem; line-height: 1.5; }
+:root[data-contrast="high"] .dev { background: #000; }

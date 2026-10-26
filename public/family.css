@@ -268,3 +268,23 @@ button.person:hover { background: rgb(255 255 255 / 90%); }
 :root[data-contrast="high"] .hero::after { display: none; }
 :root[data-contrast="high"] .glass, :root[data-contrast="high"] .person, :root[data-contrast="high"] .next-card, :root[data-contrast="high"] .rail-group { background: #fff; border: 2px solid #000; backdrop-filter: none; }
 :root[data-contrast="high"] .days li { background: #fff !important; color: #000 !important; border: 2px solid #000; }
+.mail-status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 14px; border-radius: 14px; background: #f4f6fa; font-size: 0.88rem; color: #3b4252; }
+.mail-status .pill-action { min-height: 40px; padding: 0 14px; font-size: 0.88rem; }
+.mail-status .text-action { min-height: 40px; font-size: 0.85rem; }
+.pending h3, .devices-h { margin: 6px 0 0; font: 600 0.75rem var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: #3b4252; }
+.pending ul, .device-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pending li, .device-list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #f4f6fa; font-size: 0.9rem; }
+.pending li .text-action, .device-list li .text-action { min-height: 36px; font-size: 0.85rem; }
+.share-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.pill-action.whatsapp { background: #d6f5e0; border-color: #b6e8c7; color: #0d5a2a; }
+.pair-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.pair-steps li { display: flex; gap: 12px; align-items: flex-start; }
+.pair-steps li > span { width: 28px; height: 28px; border-radius: 50%; background: #1d2230; color: #fff; display: grid; place-items: center; font: 600 0.85rem var(--sans); flex: none; }
+.pair-code { margin: 6px 0 2px !important; font: 600 2.6rem/1 var(--sans); letter-spacing: 0.12em; color: #141826; font-variant-numeric: tabular-nums; }
+.pair-qr { width: 168px; height: 168px; justify-self: start; margin-left: 40px; }
+.pair-qr svg { width: 100%; height: 100%; border-radius: 12px; }
+.small { font-size: 0.82rem; }
+.advanced { border-top: 1px solid #eceef3; padding-top: 10px; }
+.advanced summary { cursor: pointer; font: 500 0.88rem var(--sans); color: #3b4252; min-height: 32px; }
+.advanced[open] { display: grid; gap: 10px; }
+.toast { position: fixed; left: 50%; top: 18px; transform: translateX(-50%); z-index: 30; margin: 0; padding: 12px 18px; border-radius: 999px; background: #1d2230; color: #fff; font: 500 0.92rem var(--sans); box-shadow: 0 12px 30px rgb(20 30 60 / 25%); max-width: calc(100vw - 32px); }
