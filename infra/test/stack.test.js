@@ -44,7 +44,7 @@ test('Streamable HTTP routes exist for POST, GET and DELETE /mcp', () => {
 
 test('sweeps run every 15 minutes and the family letter every Sunday evening in India', () => {
   template.hasResourceProperties('AWS::Scheduler::Schedule', { ScheduleExpression: 'rate(15 minutes)' });
-  template.hasResourceProperties('AWS::Scheduler::Schedule', { ScheduleExpression: 'cron(0 18 ? * SUN *)', ScheduleExpressionTimezone: 'Asia/Kolkata' });
+  template.hasResourceProperties('AWS::Scheduler::Schedule', { ScheduleExpression: 'rate(1 hour)' });
   template.hasResourceProperties('AWS::Lambda::Function', { Handler: 'digest.handler' });
 });
 

@@ -12,7 +12,7 @@ bundleServer(out);
 function invoke(script, env = {}) {
   const stdout = execFileSync(process.execPath, ['--input-type=module', '-e', script], {
     cwd: out,
-    env: { PATH: process.env.PATH, SAATHI_METRICS: 'off', SAATHI_DATA_FILE: join(out, 'data.json'), ...env },
+    env: { PATH: process.env.PATH, SAATHI_METRICS: 'off', SAATHI_DEMO: 'true', SAATHI_DATA_FILE: join(out, 'data.json'), ...env },
   });
   return JSON.parse(stdout.toString().trim().split('\n').at(-1));
 }
@@ -73,7 +73,7 @@ test('the Ring, sweep and weekly-letter Lambda bundles run', () => {
     const bad = await ring({ headers: { 'x-saathi-ring-signature': 'sha256=00', 'x-saathi-ring-timestamp': ts }, body });
     const swept = await sweep();
     const { handler: digest } = await import('./digest.mjs');
-    const letters = await digest();
+    const letters = await digest({ force: true });
     console.log(JSON.stringify({ ok: ok.statusCode, bad: bad.statusCode, swept: Array.isArray(swept.raised) && Array.isArray(swept.refills), letters: letters.sent.map((l) => l.memberId).sort() }));
   `, { SAATHI_RING_WEBHOOK_SECRET: 's3cret' });
   assert.deepEqual(result, { ok: 200, bad: 401, swept: true, letters: ['anand', 'riya'] });

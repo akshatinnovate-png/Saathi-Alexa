@@ -4,7 +4,7 @@ import { buildSync } from 'esbuild';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
-  Stack, Duration, RemovalPolicy, CfnOutput, AssetHashType, DockerImage, TimeZone,
+  Stack, Duration, RemovalPolicy, CfnOutput, AssetHashType, DockerImage,
   aws_dynamodb as dynamodb, aws_s3 as s3, aws_sns as sns, aws_sns_subscriptions as subs,
   aws_events as events, aws_events_targets as targets, aws_stepfunctions as sfn,
   aws_lambda as lambda, aws_iam as iam, aws_logs as logs, aws_secretsmanager as secrets,
@@ -264,9 +264,9 @@ export class SaathiStack extends Stack {
       description: 'Missed-dose, refill, appointment and quiet-day sweep',
     });
     new scheduler.Schedule(this, 'WeeklyLetterSchedule', {
-      schedule: scheduler.ScheduleExpression.cron({ minute: '0', hour: '18', weekDay: 'SUN', timeZone: TimeZone.ASIA_KOLKATA }),
+      schedule: scheduler.ScheduleExpression.rate(Duration.hours(1)),
       target: new schedulerTargets.LambdaInvoke(digestFn, {}),
-      description: 'Weekly family letter, Sunday 18:00 India time',
+      description: "Weekly family letter, sent Sunday from 18:00 in each elder's own time zone",
     });
 
     const httpApi = new apigw.HttpApi(this, 'McpApi', {

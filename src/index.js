@@ -96,6 +96,7 @@ setInterval(async () => {
       await saathi.sweepQuietDay();
       await saathi.sweepSupplies();
       await saathi.sweepAppointments();
+      await saathi.sweepWeeklyLetter();
     } catch (err) {
       console.error(`sweep failed for ${householdId}`, err);
     }

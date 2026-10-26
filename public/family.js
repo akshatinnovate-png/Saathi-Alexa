@@ -144,7 +144,7 @@ function renderMeds(meds) {
 
 function renderAppointments(appointments) {
   $('appointments').replaceChildren(...(appointments.length ? appointments.map((a) => el('div', { class: 'row-item' },
-    el('div', {}, el('strong', {}, a.title), el('small', {}, `${new Date(`${a.at}:00`).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })} ${a.at.slice(11, 16)} · ${a.with} · ${a.place}`)),
+    el('button', { class: 'row-link', type: 'button', onclick: () => openVisit(care.appointments.find((x) => x.id === a.id) ?? a) }, el('strong', {}, a.title), el('small', {}, `${new Date(`${a.at}:00`).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })} ${a.at.slice(11, 16)} · ${a.with}${a.place ? ` · ${a.place}` : ''}`)),
     a.escort ? el('span', { class: 'pill ok' }, `${nameOf(a.escort)} is taking ${pr.object}`) : el('button', { class: 'pill-action', type: 'button', onclick: () => post('/family/escort', { appointmentId: a.id }) }, `I'll take ${pr.object}`)))
     : [el('p', { class: 'empty' }, 'No doctor visits in the next two weeks.')]));
 }
@@ -486,6 +486,192 @@ async function setupSettings() {
   });
 }
 
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+let care = { medications: [], appointments: [], routine: [] };
+
+async function loadCare() {
+  try {
+    care = await call('/care');
+  } catch {
+    care = { medications: [], appointments: [], routine: [] };
+  }
+  $('routine').replaceChildren(...(care.routine.length
+    ? care.routine.map((r) => el('li', {}, el('strong', {}, r.time), r.activity, r.days ? el('span', { class: 'muted' }, ` · ${r.days.map((d) => DAYS[d]).join(', ')}`) : ''))
+    : [el('li', { class: 'muted' }, 'Nothing yet. Add meals, walks or regular calls.')]));
+}
+
+async function send(path, method, body) {
+  const res = await fetch(`/api${path}`, { method, headers: { 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error ?? 'Something went wrong.');
+  return json;
+}
+
+function editor(title, ...content) {
+  const dialog = $('edit-dialog');
+  $('edit-body').replaceChildren(el('h2', { id: 'edit-h' }, title), ...content);
+  if (!dialog.open) dialog.showModal();
+  return dialog;
+}
+
+function field(label, input) {
+  return el('label', {}, label, input);
+}
+
+function dayPicker(selected) {
+  return el('fieldset', { class: 'day-picks' }, el('legend', {}, 'Days (leave all unticked for every day)'),
+    ...DAYS.map((d, i) => el('label', {}, el('input', { type: 'checkbox', value: String(i), checked: Boolean(selected?.includes(i)) }), d)));
+}
+const pickedDays = (root) => [...root.querySelectorAll('.day-picks input:checked')].map((x) => Number(x.value));
+
+function openMedicines(editing = null) {
+  const m = editing ?? {};
+  const error = el('p', { class: 'form-error', role: 'alert', hidden: true });
+  const inputs = {
+    name: el('input', { required: true, autocomplete: 'off', value: m.name ?? '', placeholder: 'Amlodipine 5 mg' }),
+    purpose: el('input', { autocomplete: 'off', value: m.purpose ?? '', placeholder: 'blood pressure' }),
+    description: el('input', { autocomplete: 'off', value: m.description ?? '', placeholder: 'small white round tablet' }),
+    time1: el('input', { type: 'time', value: m.times?.[0] ?? '09:00' }),
+    time2: el('input', { type: 'time', value: m.times?.[1] ?? '' }),
+    time3: el('input', { type: 'time', value: m.times?.[2] ?? '' }),
+    remaining: el('input', { type: 'number', min: '0', value: m.supply?.remaining ?? '' }),
+    withFood: el('input', { type: 'checkbox', checked: Boolean(m.withFood) }),
+  };
+  const days = dayPicker(m.days);
+  const form = el('form', { class: 'sheet-form inner' },
+    el('div', { class: 'sheet-row' }, field('Medicine', inputs.name), field('For', inputs.purpose)),
+    field('What it looks like (so it can be described to them)', inputs.description),
+    el('div', { class: 'sheet-row three' }, field('Time', inputs.time1), field('Second time', inputs.time2), field('Third time', inputs.time3)),
+    days,
+    el('div', { class: 'sheet-row' }, field('Tablets left (leave empty if you do not track it)', inputs.remaining), el('label', { class: 'inline-check' }, inputs.withFood, ' Take with food')),
+    error,
+    el('div', { class: 'sheet-actions' },
+      el('button', { class: 'text-action', type: 'button', onclick: () => $('edit-dialog').close() }, 'Close'),
+      el('button', { class: 'pill-action dark', type: 'submit' }, editing ? 'Save changes' : 'Add medicine')));
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body = {
+      name: inputs.name.value, purpose: inputs.purpose.value, description: inputs.description.value,
+      times: [inputs.time1.value, inputs.time2.value, inputs.time3.value].filter(Boolean), days: pickedDays(form),
+      remaining: inputs.remaining.value, withFood: inputs.withFood.checked,
+    };
+    try {
+      await send(editing ? `/care/medications/${encodeURIComponent(editing.id)}` : '/care/medications', editing ? 'PUT' : 'POST', body);
+      toast(editing ? 'Medicine updated.' : 'Medicine added.');
+      await loadCare();
+      await refresh();
+      openMedicines();
+    } catch (err) {
+      error.textContent = err.message;
+      error.hidden = false;
+    }
+  });
+  const list = el('ul', { class: 'edit-list' }, ...(care.medications.length ? care.medications.map((x) => el('li', {},
+    el('div', {}, el('strong', {}, x.name), el('small', { class: 'muted' }, `${x.times.join(', ')}${x.days ? ` · ${x.days.map((d) => DAYS[d]).join(', ')}` : ' · every day'} · ${x.purpose}${x.daysLeft != null ? ` · ${x.daysLeft} days left` : ''}`)),
+    el('div', { class: 'row-actions' },
+      el('button', { class: 'text-action', type: 'button', onclick: () => openMedicines(x) }, 'Edit'),
+      el('button', { class: 'text-action', type: 'button', onclick: async () => {
+        if (!confirm(`Remove ${x.name}? ${elderName} will no longer be reminded about it.`)) return;
+        await send(`/care/medications/${encodeURIComponent(x.id)}`, 'DELETE');
+        await loadCare(); await refresh(); openMedicines();
+      } }, 'Remove')))) : [el('li', { class: 'muted' }, 'No medicines yet.')]));
+  editor(editing ? `Edit ${editing.name}` : 'Medicines', ...(editing ? [] : [list, el('h3', { class: 'devices-h' }, 'Add a medicine')]), form);
+  inputs.name.focus();
+}
+
+function openVisit(editing = null) {
+  const a = editing ?? {};
+  const error = el('p', { class: 'form-error', role: 'alert', hidden: true });
+  const tomorrow = new Date(Date.now() + 86400e3).toISOString().slice(0, 10);
+  const inputs = {
+    title: el('input', { autocomplete: 'off', value: a.title ?? '', placeholder: 'Check-up' }),
+    with: el('input', { required: true, autocomplete: 'off', value: a.with ?? '', placeholder: 'Dr. Mehta' }),
+    place: el('input', { autocomplete: 'off', value: a.place ?? '', placeholder: 'Clinic and area' }),
+    date: el('input', { type: 'date', value: a.at?.slice(0, 10) ?? tomorrow, required: true }),
+    time: el('input', { type: 'time', value: a.at?.slice(11, 16) ?? '10:00', required: true }),
+    notes: el('input', { autocomplete: 'off', value: a.notes ?? '', placeholder: 'Bring the old reports' }),
+  };
+  const form = el('form', { class: 'sheet-form inner' },
+    el('div', { class: 'sheet-row' }, field('What for', inputs.title), field('With', inputs.with)),
+    field('Where', inputs.place),
+    el('div', { class: 'sheet-row' }, field(`Date (${elderName}'s time)`, inputs.date), field('Time', inputs.time)),
+    field('Notes for whoever takes them', inputs.notes),
+    error,
+    el('div', { class: 'sheet-actions' },
+      editing ? el('button', { class: 'text-action', type: 'button', onclick: async () => {
+        if (!confirm('Remove this visit?')) return;
+        await send(`/care/appointments/${encodeURIComponent(editing.id)}`, 'DELETE');
+        $('edit-dialog').close(); await loadCare(); await refresh();
+      } }, 'Remove visit') : '',
+      el('button', { class: 'text-action', type: 'button', onclick: () => $('edit-dialog').close() }, 'Close'),
+      el('button', { class: 'pill-action dark', type: 'submit' }, editing ? 'Save changes' : 'Add visit')));
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await send(editing ? `/care/appointments/${encodeURIComponent(editing.id)}` : '/care/appointments', editing ? 'PUT' : 'POST', {
+        title: inputs.title.value, with: inputs.with.value, place: inputs.place.value, at: `${inputs.date.value}T${inputs.time.value}`, notes: inputs.notes.value,
+      });
+      $('edit-dialog').close();
+      toast(editing ? 'Visit updated.' : `Visit added. ${elderName} will be reminded.`);
+      await loadCare();
+      await refresh();
+    } catch (err) {
+      error.textContent = err.message;
+      error.hidden = false;
+    }
+  });
+  editor(editing ? 'Edit visit' : 'Add a doctor visit', form);
+  inputs.with.focus();
+}
+
+function openRoutine() {
+  const error = el('p', { class: 'form-error', role: 'alert', hidden: true });
+  const rows = el('div', { class: 'routine-rows' });
+  const addRow = (item = {}) => {
+    const time = el('input', { type: 'time', value: item.time ?? '' , 'aria-label': 'Time' });
+    const activity = el('input', { autocomplete: 'off', value: item.activity ?? '', placeholder: 'Evening walk with Meera', 'aria-label': 'Activity' });
+    const row = el('div', { class: 'routine-row' }, field('Time', time), field('Activity', activity),
+      el('button', { class: 'text-action', type: 'button', onclick: () => row.remove() }, 'Remove'));
+    row.dataset.days = JSON.stringify(item.days ?? []);
+    rows.append(row);
+  };
+  care.routine.forEach(addRow);
+  if (!care.routine.length) addRow();
+  const form = el('form', { class: 'sheet-form inner' }, rows,
+    el('button', { class: 'text-action', type: 'button', onclick: () => addRow() }, '+ Add another'),
+    error,
+    el('div', { class: 'sheet-actions' },
+      el('button', { class: 'text-action', type: 'button', onclick: () => $('edit-dialog').close() }, 'Close'),
+      el('button', { class: 'pill-action dark', type: 'submit' }, 'Save routine')));
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const routine = [...rows.children].map((row) => {
+      const [time, activity] = row.querySelectorAll('input');
+      const days = JSON.parse(row.dataset.days || '[]');
+      return { time: time.value, activity: activity.value, days: days.length ? days : undefined };
+    }).filter((r) => r.activity.trim());
+    try {
+      await send('/care/routine', 'PUT', { routine });
+      $('edit-dialog').close();
+      toast('Routine saved.');
+      await loadCare();
+    } catch (err) {
+      error.textContent = err.message;
+      error.hidden = false;
+    }
+  });
+  editor(`${elderName}'s day`, el('p', { class: 'muted' }, `Meals, walks, prayers, regular calls. When ${elderName} asks "what should I do now?", Saathi answers from this. Tablets are added on their own.`), form);
+}
+
+function setupCareEditing() {
+  $('manage-meds').addEventListener('click', () => openMedicines());
+  $('manage-appts').addEventListener('click', () => openVisit());
+  $('manage-routine').addEventListener('click', () => openRoutine());
+  const neighbour = circle.find((p) => p.id === status.memberId)?.role === 'neighbour';
+  for (const id of ['manage-meds', 'manage-appts', 'manage-routine']) $(id).hidden = neighbour;
+  loadCare();
+}
+
 function showReturnNotice() {
   const params = new URLSearchParams(location.search);
   const gmail = params.get('gmail');
@@ -577,6 +763,7 @@ async function init(first = true) {
     setupInvite();
     setupDevices();
     setupSettings();
+    setupCareEditing();
     showReturnNotice();
     $('open-invite').hidden = status.me && status.me.role !== 'owner';
   }

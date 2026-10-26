@@ -72,9 +72,10 @@
       <section class="view" id="view-care" data-view="care" aria-labelledby="care-h" hidden>
         <h2 class="view-title" id="care-h">Care</h2>
         <div class="grid">
-          <article class="glass span-6" aria-labelledby="meds-h"><h3 id="meds-h">Tablets today</h3><div class="list" id="meds"></div></article>
-          <article class="glass span-6" aria-labelledby="appts-h"><h3 id="appts-h">Doctor visits</h3><div class="list" id="appointments"></div></article>
+          <article class="glass span-6" aria-labelledby="meds-h"><div class="card-head"><h3 id="meds-h">Tablets today</h3><button class="text-action" type="button" id="manage-meds">Manage medicines</button></div><div class="list" id="meds"></div></article>
+          <article class="glass span-6" aria-labelledby="appts-h"><div class="card-head"><h3 id="appts-h">Doctor visits</h3><button class="text-action" type="button" id="manage-appts">Add a visit</button></div><div class="list" id="appointments"></div></article>
           <article class="glass span-6" aria-labelledby="mood-h"><h3 id="mood-h">How they've been feeling</h3><div class="mood" id="mood"></div></article>
+          <article class="glass span-12" aria-labelledby="routine-h"><div class="card-head"><h3 id="routine-h">Daily routine</h3><button class="text-action" type="button" id="manage-routine">Edit routine</button></div><p class="muted small" id="routine-note">Saathi uses this to answer "what should I do now?". Tablets are added automatically.</p><ol class="routine-list" id="routine"></ol></article>
           <article class="glass span-6" aria-labelledby="door-h"><h3 id="door-h">Front door <span class="muted">· Ring</span></h3><div class="list" id="door"></div></article>
         </div>
       </section>
@@ -217,6 +218,10 @@
       <h3 class="devices-h">People in the circle</h3>
       <ul class="device-list" id="member-list"></ul>
     </form>
+  </dialog>
+
+  <dialog class="sheet wide" id="edit-dialog" aria-labelledby="edit-h">
+    <div class="sheet-form" id="edit-body"></div>
   </dialog>
 
   <dialog class="sheet" id="device-dialog" aria-labelledby="device-h">

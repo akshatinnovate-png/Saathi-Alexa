@@ -50,10 +50,26 @@ export function createSaathi(deps) {
     }
   }
 
+  const timesOf = (m) => [...new Set((Array.isArray(m.times) && m.times.length ? m.times : [m.time]).filter((x) => /^\d{2}:\d{2}$/.test(x ?? '')))].sort();
+  const takesOn = (m, dayIndex) => !Array.isArray(m.days) || !m.days.length || m.days.includes(dayIndex);
+  const perDay = (m) => timesOf(m).length * (Array.isArray(m.days) && m.days.length ? m.days.length / 7 : 1) || 1;
+  const daysLeftOf = (m) => (m.supply ? Math.floor(m.supply.remaining / perDay(m)) : null);
+  const dayIndexOf = (date) => new Date(`${date}T12:00:00Z`).getUTCDay();
+
+  async function schedule(dayIndex) {
+    const me = await elder();
+    const meds = await store.list('medications');
+    const tablets = meds.filter((m) => takesOn(m, dayIndex)).flatMap((m) => timesOf(m).map((time) => ({
+      time, activity: m.short ?? `${m.purpose} tablet`, medicationId: m.id,
+      i18n: Object.fromEntries(Object.entries(m.i18n ?? {}).filter(([, v]) => v.short).map(([l, v]) => [l, { activity: v.short }])),
+    })));
+    return [...tablets, ...(me?.routine ?? []).filter((r) => !r.medicationId)];
+  }
+
   async function orientation({ language } = {}) {
     const { me, lang } = await voice(language);
     const now = localParts();
-    const upcoming = me.routine
+    const upcoming = (await schedule(now.dayIndex))
       .filter((r) => (!r.days || r.days.includes(now.dayIndex)) && toMinutes(r.time) >= now.minutes)
       .sort((a, b) => toMinutes(a.time) - toMinutes(b.time));
     const longDate = new Intl.DateTimeFormat('en-GB', { timeZone: tz, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(clock());
@@ -85,7 +101,7 @@ export function createSaathi(deps) {
       return { found: false, sayLanguage: lang, say: t(lang, 'whoNotFound', { query }), circle: circle.map((p) => `${p.name} (${p.relationship})`) };
     }
     const messages = (await store.list('messages')).filter((m) => m.from === person.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    const routine = (await elder()).routine.filter((r) => r.activity.includes(person.name));
+    const routine = ((await elder()).routine ?? []).filter((r) => r.activity.includes(person.name));
     return {
       found: true,
       person: { name: person.name, relationship: person.relationship, city: person.city },
@@ -96,17 +112,18 @@ export function createSaathi(deps) {
     };
   }
 
+  const doseFor = (doses, m, date, time) => doses.find((d) => d.medicationId === m.id && d.date === date && (d.slot ? d.slot === time : time === timesOf(m)[0]));
+
   async function medicationStatus() {
     const now = localParts();
     const meds = await store.list('medications');
     const doses = (await store.list('doses')).filter((d) => d.date === now.date);
-    return meds.map((m) => {
-      const taken = doses.find((d) => d.medicationId === m.id);
-      const diff = now.minutes - toMinutes(m.time);
+    return meds.filter((m) => takesOn(m, now.dayIndex)).flatMap((m) => timesOf(m).map((time) => {
+      const taken = doseFor(doses, m, now.date, time);
+      const diff = now.minutes - toMinutes(time);
       const status = taken ? 'taken' : diff > 90 ? 'missed' : diff >= -30 ? 'due' : 'upcoming';
-      const daysLeft = m.supply ? Math.floor(m.supply.remaining / (m.supply.perDay || 1)) : null;
-      return { ...m, status, takenAt: taken?.takenAt ?? null, daysLeft };
-    });
+      return { ...m, time, times: timesOf(m), slot: time, slotId: `${m.id}@${time}`, status, takenAt: taken?.takenAt ?? null, daysLeft: daysLeftOf(m) };
+    })).sort((a, b) => a.time.localeCompare(b.time));
   }
 
   async function medicationSchedule({ language } = {}) {
@@ -128,17 +145,20 @@ export function createSaathi(deps) {
     const meds = await medicationStatus();
     const q = (medicationQuery ?? '').toLowerCase();
     const names = (m) => [m.id, m.name.toLowerCase(), m.purpose, ...Object.values(m.i18n ?? {}).flatMap((v) => [v.short, v.phrase])].filter(Boolean);
-    const med = meds.find((m) => q && names(m).some((n) => n.includes(q) || q.includes(n)))
-      ?? meds.find((m) => m.status === 'due') ?? meds.find((m) => m.status === 'missed');
+    const named = meds.filter((m) => q && names(m).some((n) => n.includes(q) || q.includes(n)));
+    const pool = named.length ? named : meds;
+    const open = pool.filter((m) => m.status !== 'taken');
+    const med = open.find((m) => m.status === 'due') ?? [...open].reverse().find((m) => m.status === 'missed')
+      ?? (named.length ? open.find((m) => m.status === 'upcoming') : null) ?? (named.length ? named[named.length - 1] : null);
     if (!med) return { recorded: false, sayLanguage: lang, say: t(lang, 'medNotFound') };
     if (med.status === 'taken') return { recorded: false, alreadyTaken: true, medication: med.name, sayLanguage: lang, say: t(lang, 'medAlreadyTaken', { short: localized(med, 'short', lang), time: med.takenAt.slice(11, 16) }) };
     const now = localParts();
-    const dose = { id: `${med.id}-${now.date}`, medicationId: med.id, date: now.date, takenAt: `${now.date}T${now.time}`, late: med.status === 'missed' };
+    const dose = { id: `${med.id}-${now.date}-${med.slot}`, medicationId: med.id, slot: med.slot, date: now.date, takenAt: `${now.date}T${now.time}`, late: med.status === 'missed' };
     await store.put('doses', dose);
     if (med.supply) {
       const supply = { ...med.supply, remaining: Math.max(0, med.supply.remaining - 1) };
       await store.update('medications', med.id, { supply });
-      await checkSupply({ ...med, supply });
+      await checkSupply({ ...(await store.get('medications', med.id)), supply });
     }
     await events.publish('DoseTaken', { medicationId: med.id, medication: med.name, late: dose.late });
     metrics.emit('DoseTaken', 1, { late: String(dose.late) });
@@ -151,7 +171,7 @@ export function createSaathi(deps) {
     const me = await elder();
     const raised = [];
     for (const med of meds.filter((m) => m.status === 'missed')) {
-      const alertId = `dose-${med.id}-${now.date}`;
+      const alertId = timesOf(med).length > 1 ? `dose-${med.id}-${now.date}-${med.slot}` : `dose-${med.id}-${now.date}`;
       if (await store.get('alerts', alertId)) continue;
       const p = pronounsOf(me);
       await store.put('alerts', { id: alertId, type: 'dose-missed', severity: 'info', createdAt: clock().toISOString(), summary: `${me.preferredName} hasn't confirmed ${p.possessive} ${med.purpose} tablet (${med.time}).`, acknowledged: false });
@@ -425,7 +445,7 @@ export function createSaathi(deps) {
 
   async function checkSupply(med) {
     if (!med.supply) return null;
-    const daysLeft = Math.floor(med.supply.remaining / (med.supply.perDay || 1));
+    const daysLeft = daysLeftOf(med);
     if (daysLeft > (med.supply.lowAtDays ?? 5)) return null;
     const alertId = `refill-${med.id}-${med.supply.cycle ?? 0}`;
     if (await store.get('alerts', alertId)) return null;
@@ -461,7 +481,7 @@ export function createSaathi(deps) {
     const { lang } = await voice();
     if (member) await deliverToElder({ fromId: member.id, text: t(lang, 'refillArranged', { name: localized(member, 'name', lang), short: localized(med, 'short', lang) }), language: lang, system: true });
     await events.publish('RefillRecorded', { medicationId, by, quantity });
-    return { medicationId, remaining: supply.remaining, daysLeft: Math.floor(supply.remaining / (supply.perDay || 1)) };
+    return { medicationId, remaining: supply.remaining, daysLeft: daysLeftOf({ ...med, supply }) };
   }
 
   const dayDiff = (from, to) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400e3);
@@ -546,7 +566,10 @@ export function createSaathi(deps) {
       store.list('medications'), store.list('doses'), store.list('checkins'), store.list('stories'), store.list('door'), store.list('alerts'), store.list('circle'),
     ]);
     const weekDoses = doses.filter((d) => dayDiff(d.date, today) < 7).length;
-    const expected = meds.length * 7;
+    const expected = [0, 1, 2, 3, 4, 5, 6].reduce((n, i) => {
+      const date = new Date(Date.parse(`${today}T12:00:00Z`) - i * 86400e3).toISOString().slice(0, 10);
+      return n + meds.filter((m) => takesOn(m, dayIndexOf(date))).reduce((k, m) => k + timesOf(m).length, 0);
+    }, 0);
     const week = checkins.filter((c) => since(c.at));
     const shared = week.filter((c) => !c.private);
     const mood = ['POSITIVE', 'NEUTRAL', 'MIXED', 'NEGATIVE'].map((k) => [k, shared.filter((c) => c.sentiment === k).length]).sort((a, b) => b[1] - a[1])[0];
@@ -595,6 +618,107 @@ export function createSaathi(deps) {
     return Object.keys(out).length ? { [lang]: out } : {};
   }
 
+  const slugOf = (text) => String(text ?? '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30);
+  const clean = (v, max = 120) => String(v ?? '').trim().slice(0, max);
+
+  async function localizeFields(fields) {
+    const me = await elder();
+    const lang = me?.language;
+    if (!lang || lang === 'en') return {};
+    const out = {};
+    for (const [key, text] of Object.entries(fields)) {
+      if (!text) continue;
+      const tr = await translateTo(text, lang, 'en');
+      if (tr.translated) out[key] = tr.text;
+    }
+    return Object.keys(out).length ? { [lang]: out } : {};
+  }
+
+  async function saveMedication(input = {}) {
+    const name = clean(input.name);
+    if (!name) throw invalid('Give the medicine a name.');
+    const times = [...new Set((Array.isArray(input.times) ? input.times : [input.time]).map((x) => clean(x, 5)).filter(Boolean))].sort();
+    if (!times.length || times.some((x) => !/^([01]\d|2[0-3]):[0-5]\d$/.test(x))) throw invalid('Add at least one time, like 08:00.');
+    if (times.length > 6) throw invalid('Up to six times a day.');
+    const days = Array.isArray(input.days) && input.days.length && input.days.length < 7 ? [...new Set(input.days.map(Number).filter((d) => d >= 0 && d <= 6))].sort() : null;
+    const purpose = clean(input.purpose) || name;
+    const description = clean(input.description) || 'tablet';
+    const existing = input.id ? await store.get('medications', input.id) : null;
+    if (input.id && !existing) throw invalid('That medicine no longer exists.');
+    let id = existing?.id ?? (slugOf(name) || 'medicine');
+    if (!existing) for (let n = 2; await store.get('medications', id); n++) id = `${slugOf(name) || 'medicine'}-${n}`;
+    const phrase = `${description} for ${purpose}`;
+    const short = `${purpose} tablet`;
+    const remaining = input.remaining === undefined || input.remaining === '' ? existing?.supply?.remaining ?? null : Math.max(0, Math.round(Number(input.remaining)) || 0);
+    const med = {
+      ...(existing ?? {}), id, name, purpose, description, times, time: times[0], days, withFood: Boolean(input.withFood), phrase, short,
+      supply: remaining === null ? null : { ...(existing?.supply ?? {}), remaining, lowAtDays: Math.max(1, Number(input.lowAtDays) || existing?.supply?.lowAtDays || 5) },
+      i18n: existing && existing.phrase === phrase ? existing.i18n : await localizeFields({ phrase, short }),
+    };
+    await store.put('medications', med);
+    await events.publish('MedicationSaved', { medicationId: id });
+    return med;
+  }
+
+  async function removeMedication(medicationId) {
+    const removed = await store.remove('medications', medicationId);
+    if (removed) await events.publish('MedicationRemoved', { medicationId });
+    return removed;
+  }
+
+  async function saveAppointment(input = {}) {
+    const title = clean(input.title) || 'Doctor visit';
+    const withWhom = clean(input.with);
+    const at = clean(input.at, 16);
+    if (!withWhom) throw invalid('Who is the visit with?');
+    if (!/^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/.test(at)) throw invalid('Choose a date and time.');
+    const existing = input.id ? await store.get('appointments', input.id) : null;
+    if (input.id && !existing) throw invalid('That visit no longer exists.');
+    const place = clean(input.place, 160);
+    const appt = {
+      ...(existing ?? {}), id: existing?.id ?? id('appt'), title, with: withWhom, place, at, notes: clean(input.notes, 300), escort: existing?.escort ?? null,
+      i18n: await localizeFields({ title, with: withWhom, place }),
+    };
+    await store.put('appointments', appt);
+    await events.publish('AppointmentSaved', { appointmentId: appt.id });
+    return appt;
+  }
+
+  async function removeAppointment(appointmentId) {
+    const removed = await store.remove('appointments', appointmentId);
+    if (removed) {
+      await store.remove('alerts', `escort-${appointmentId}`);
+      await events.publish('AppointmentRemoved', { appointmentId });
+    }
+    return removed;
+  }
+
+  async function saveRoutine(items = []) {
+    if (!Array.isArray(items) || items.length > 20) throw invalid('Up to 20 routine items.');
+    const routine = [];
+    for (const item of items) {
+      const time = clean(item.time, 5);
+      const activity = clean(item.activity, 100);
+      if (!activity) continue;
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw invalid(`"${activity}" needs a time, like 17:00.`);
+      const days = Array.isArray(item.days) && item.days.length && item.days.length < 7 ? item.days.map(Number) : undefined;
+      routine.push({ time, activity, ...(days ? { days } : {}), i18n: await localizeFields({ activity }) });
+    }
+    routine.sort((a, b) => a.time.localeCompare(b.time));
+    await store.update('profile', 'elder', { routine });
+    await events.publish('ProfileUpdated', { fields: ['routine'] });
+    return routine;
+  }
+
+  async function careSetup() {
+    const [meds, appts, me] = await Promise.all([store.list('medications'), store.list('appointments'), elder()]);
+    return {
+      medications: meds.map((m) => ({ ...m, times: timesOf(m), daysLeft: daysLeftOf(m) })).sort((a, b) => timesOf(a)[0].localeCompare(timesOf(b)[0])),
+      appointments: appts.sort((a, b) => a.at.localeCompare(b.at)),
+      routine: me?.routine ?? [],
+    };
+  }
+
   async function removeMember(memberId) {
     const member = await store.get('circle', memberId);
     if (!member) return null;
@@ -629,6 +753,13 @@ export function createSaathi(deps) {
     const updated = await store.update('profile', 'elder', next);
     await events.publish('ProfileUpdated', { fields: Object.keys(next) });
     return updated;
+  }
+
+  async function sweepWeeklyLetter() {
+    const now = localParts();
+    if (now.dayIndex !== 0 || now.minutes < 18 * 60) return null;
+    if ((await store.list('letters')).some((l) => l.id.startsWith(`letter-${now.date}-`))) return null;
+    return weeklyLetters({ send: true });
   }
 
   async function addMember({ name, relationship, language = 'en', role = 'family', email = null, city = '' }) {
@@ -744,7 +875,8 @@ export function createSaathi(deps) {
     const out = [];
     for (let i = days - 1; i >= 0; i--) {
       const date = new Date(Date.parse(`${today}T12:00:00Z`) - i * 86400e3).toISOString().slice(0, 10);
-      out.push({ date, weekday: DAY_NAMES[new Date(`${date}T12:00:00Z`).getUTCDay()].slice(0, 3), today: i === 0, taken: doses.filter((d) => d.date === date).length, expected: meds.length });
+      const expected = meds.filter((m) => takesOn(m, dayIndexOf(date))).reduce((k, m) => k + timesOf(m).length, 0);
+      out.push({ date, weekday: DAY_NAMES[dayIndexOf(date)].slice(0, 3), today: i === 0, taken: doses.filter((d) => d.date === date).length, expected });
     }
     return out;
   }
@@ -788,8 +920,8 @@ export function createSaathi(deps) {
   return withZone({
     elder, orientation, whoIs,
     medicationSchedule, medicationStatus, confirmMedication, sweepMissedDoses, sweepQuietDay, doorEvent,
-    sweepSupplies, recordRefill, upcomingAppointments, sweepAppointments, claimEscort, addVoiceNote, weeklyLetters,
-    addMember, removeMember, updateProfile, subscribeMember, setAvatar, media, householdId: deps.householdId ?? DEFAULT_HOUSEHOLD,
+    sweepSupplies, sweepWeeklyLetter, recordRefill, upcomingAppointments, sweepAppointments, claimEscort, addVoiceNote, weeklyLetters,
+    addMember, removeMember, updateProfile, saveMedication, removeMedication, saveAppointment, removeAppointment, saveRoutine, careSetup, subscribeMember, setAvatar, media, householdId: deps.householdId ?? DEFAULT_HOUSEHOLD,
     messages, doorActivity, homeMap, saveRooms, placeItem, removeItem, whereIs,
     checkIn, requestHelp, acknowledgeAlert,
     familyMessages, sendToFamily, messageFromFamily,

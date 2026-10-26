@@ -108,6 +108,53 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     res.json({ removed: Boolean(await familyMail.disconnectGmail(req.householdId)) });
   }));
 
+  const careEditor = async (req, res) => {
+    if (!familyOnly(req, res)) return false;
+    const me = (await req.saathi.circle()).find((p) => p.id === req.user.memberId);
+    if (me?.role === 'neighbour') { res.status(403).json({ error: 'Neighbours can see alerts but not change medicines or visits.' }); return false; }
+    return true;
+  };
+
+  api.get('/care', wrap(async (req, res) => {
+    if (!familyOnly(req, res)) return;
+    res.json(await req.saathi.careSetup());
+  }));
+
+  api.post('/care/medications', wrap(async (req, res) => {
+    if (!(await careEditor(req, res))) return;
+    res.json(await req.saathi.saveMedication({ ...(req.body ?? {}), id: undefined }));
+  }));
+
+  api.put('/care/medications/:id', wrap(async (req, res) => {
+    if (!(await careEditor(req, res))) return;
+    res.json(await req.saathi.saveMedication({ ...(req.body ?? {}), id: req.params.id }));
+  }));
+
+  api.delete('/care/medications/:id', wrap(async (req, res) => {
+    if (!(await careEditor(req, res))) return;
+    res.json({ removed: Boolean(await req.saathi.removeMedication(req.params.id)) });
+  }));
+
+  api.post('/care/appointments', wrap(async (req, res) => {
+    if (!(await careEditor(req, res))) return;
+    res.json(await req.saathi.saveAppointment({ ...(req.body ?? {}), id: undefined }));
+  }));
+
+  api.put('/care/appointments/:id', wrap(async (req, res) => {
+    if (!(await careEditor(req, res))) return;
+    res.json(await req.saathi.saveAppointment({ ...(req.body ?? {}), id: req.params.id }));
+  }));
+
+  api.delete('/care/appointments/:id', wrap(async (req, res) => {
+    if (!(await careEditor(req, res))) return;
+    res.json({ removed: Boolean(await req.saathi.removeAppointment(req.params.id)) });
+  }));
+
+  api.put('/care/routine', wrap(async (req, res) => {
+    if (!(await careEditor(req, res))) return;
+    res.json(await req.saathi.saveRoutine(req.body?.routine ?? []));
+  }));
+
   api.put('/household/profile', wrap(async (req, res) => {
     if (!ownerOnly(req, res)) return;
     res.json(await req.saathi.updateProfile(req.body ?? {}));

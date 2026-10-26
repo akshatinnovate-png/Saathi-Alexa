@@ -111,6 +111,7 @@
 .w-panel[hidden] { display: none; }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .row.three { grid-template-columns: 0.8fr 1.6fr 0.8fr; }
+.row.four { grid-template-columns: 0.8fr 0.8fr 1.4fr 0.7fr; }
 .field select {
   height: 44px; border-radius: 6px; border: 1px solid #dfe2e6; background: #fff; padding: 0 10px; font: 400 0.98rem var(--sans); color: #16181d;
 }
@@ -128,7 +129,7 @@ label.inline { border: 0; padding: 0; }
 .w-actions .auth-submit { margin-top: 8px; padding: 0 22px; }
 .ghost-btn { margin-top: 8px; height: 44px; padding: 0 18px; border-radius: 6px; border: 1px solid #dfe2e6; background: #fff; font: 500 0.95rem var(--sans); color: #16181d; cursor: pointer; }
 @media (max-width: 560px) {
-  .row, .row.three { grid-template-columns: 1fr; }
+  .row, .row.three, .row.four { grid-template-columns: 1fr; }
 }
 
 .join-google {

@@ -37,11 +37,9 @@ export function seedData(now = new Date()) {
         devices: [{ id: 'front-door', kind: 'ring-video-doorbell', location: 'front door' }],
         routine: [
           { time: '07:00', activity: 'Morning tea and prayers', i18n: { hi: { activity: 'सुबह की चाय और पूजा' }, mr: { activity: 'सकाळचा चहा आणि पूजा' } } },
-          { time: '09:00', activity: 'Blood pressure tablet (Amlodipine) with breakfast', i18n: { hi: { activity: 'नाश्ते के साथ ब्लड प्रेशर की गोली' }, mr: { activity: 'नाश्त्यासोबत रक्तदाबाची गोळी' } } },
-          { time: '13:30', activity: 'Lunch and calcium tablet', i18n: { hi: { activity: 'दोपहर का खाना और कैल्शियम की गोली' }, mr: { activity: 'दुपारचं जेवण आणि कॅल्शियमची गोळी' } } },
+          { time: '13:30', activity: 'Lunch', i18n: { hi: { activity: 'दोपहर का खाना' }, mr: { activity: 'दुपारचं जेवण' } } },
           { time: '17:00', activity: 'Evening walk in the society garden with Meera', i18n: { hi: { activity: 'मीरा के साथ सोसाइटी के बगीचे में शाम की सैर' }, mr: { activity: 'मीरासोबत सोसायटीच्या बागेत संध्याकाळचं फिरणं' } } },
           { time: '19:30', activity: 'Video call with Riya', days: [0, 3], i18n: { hi: { activity: 'रिया के साथ वीडियो कॉल' }, mr: { activity: 'रियासोबत व्हिडिओ कॉल' } } },
-          { time: '21:00', activity: 'Memory tablet (Donepezil) before bed', i18n: { hi: { activity: 'सोने से पहले याददाश्त की गोली' }, mr: { activity: 'झोपण्यापूर्वी स्मरणशक्तीची गोळी' } } },
         ],
       },
     ],

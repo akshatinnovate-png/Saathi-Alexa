@@ -30,7 +30,8 @@ export function validateOnboarding(form) {
   if (form?.elder?.pronoun && !PRONOUNS.includes(form.elder.pronoun)) problems.push('Choose she, he or they.');
   if (form?.elder?.country && !COUNTRIES[form.elder.country]) problems.push('Choose their country from the list.');
   for (const [i, m] of (form?.medications ?? []).entries()) {
-    if (!clean(m.name) || !/^\d{2}:\d{2}$/.test(m.time ?? '')) problems.push(`Medicine ${i + 1} needs a name and a time.`);
+    const times = Array.isArray(m.times) && m.times.length ? m.times : [m.time];
+    if (!clean(m.name) || !times.every((x) => /^\d{2}:\d{2}$/.test(x ?? ''))) problems.push(`Medicine ${i + 1} needs a name and a time.`);
   }
   return problems;
 }
@@ -80,10 +81,11 @@ export async function buildHousehold(form, { ownerEmail, translate, now = new Da
     const short = `${clean(m.purpose) || clean(m.name)} tablet`;
     const i18nPhrase = await localize(phrase);
     const i18nShort = await localize(short);
+    const times = [...new Set(Array.isArray(m.times) && m.times.length ? m.times : [m.time])].sort();
     medications.push({
-      id: uniqueId(m.name, taken), name: clean(m.name), purpose: clean(m.purpose) || clean(m.name), time: m.time,
+      id: uniqueId(m.name, taken), name: clean(m.name), purpose: clean(m.purpose) || clean(m.name), time: times[0], times,
       withFood: Boolean(m.withFood), description: clean(m.description) || 'tablet', phrase, short,
-      supply: { remaining: Math.max(0, Number(m.remaining) || 30), perDay: 1, lowAtDays: 5 },
+      supply: { remaining: Math.max(0, Number(m.remaining) || 30), lowAtDays: 5 },
       i18n: i18nPhrase[language] || i18nShort[language] ? { [language]: { phrase: i18nPhrase[language] ?? phrase, short: i18nShort[language] ?? short } } : {},
     });
   }
@@ -101,7 +103,7 @@ export async function buildHousehold(form, { ownerEmail, translate, now = new Da
       },
       privacy: { shareMoodWords: form.privacy?.shareMoodWords !== false },
       pharmacy: clean(form.pharmacy?.name) ? { name: clean(form.pharmacy.name), phone: clean(form.pharmacy.phone, 30) } : null,
-      devices: [], routine: medications.map((m) => ({ time: m.time, activity: `${m.short} (${m.name})` })),
+      devices: [], routine: [],
       createdAt: now.toISOString(),
     }],
     circle, medications, doses: [], checkins: [], stories: [], messages: [], alerts: [], door: [], appointments: [], letters: [],

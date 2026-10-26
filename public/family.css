@@ -292,3 +292,25 @@ button.person:hover { background: rgb(255 255 255 / 90%); }
 .sheet.wide { width: min(680px, calc(100% - 24px)); }
 .checks-row { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px 18px; }
 .checks-row legend { font: 500 0.85rem var(--sans); margin-bottom: 6px; }
+
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 4px; }
+.card-head h3 { margin: 0 !important; }
+.card-head .text-action { min-height: 40px; font-size: 0.88rem; color: #1f5fbf; }
+.routine-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.routine-list li { padding: 8px 12px; border-radius: 12px; background: #f4f6fa; font-size: 0.9rem; }
+.routine-list li strong { margin-right: 6px; font-variant-numeric: tabular-nums; }
+.edit-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.edit-list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #f4f6fa; font-size: 0.9rem; }
+.edit-list li div { display: grid; gap: 2px; min-width: 0; }
+.edit-list li .row-actions { display: flex; gap: 2px; flex: none; }
+.edit-list .text-action { min-height: 36px; font-size: 0.85rem; }
+.day-picks { display: flex; flex-wrap: wrap; gap: 6px; border: 0; padding: 0; margin: 0; }
+.day-picks legend { font: 500 0.85rem var(--sans); margin-bottom: 6px; }
+.day-picks label { display: inline-flex !important; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 999px; background: #f4f6fa; font: 500 0.85rem var(--sans); }
+.routine-row { display: grid; grid-template-columns: 110px 1fr auto; gap: 8px; align-items: end; }
+.row-link { all: unset; display: grid; gap: 2px; cursor: pointer; border-radius: 8px; }
+.row-link:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+.row-link small { color: #4b5366; }
+.sheet-form.inner { padding: 0; }
+.sheet-row.three { grid-template-columns: 1fr 1fr 1fr; }
+@media (max-width: 640px) { .sheet-row.three, .routine-row { grid-template-columns: 1fr; } }

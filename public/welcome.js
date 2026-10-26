@@ -79,7 +79,7 @@ function require(ids) {
 function form() {
   const meds = [...document.querySelectorAll('.med-row')].map((row) => {
     const v = (k) => row.querySelector(`[data-k="${k}"]`);
-    return { name: v('name').value, purpose: v('purpose').value, time: v('time').value, description: v('description').value, remaining: Number(v('remaining').value), withFood: v('withFood').checked };
+    return { name: v('name').value, purpose: v('purpose').value, times: [v('time').value, v('time2').value].filter(Boolean), description: v('description').value, remaining: Number(v('remaining').value), withFood: v('withFood').checked };
   }).filter((m) => m.name.trim());
   return {
     elder: {

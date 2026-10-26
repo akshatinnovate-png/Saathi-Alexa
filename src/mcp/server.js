@@ -43,8 +43,12 @@ export function buildMcpServer(saathi, { bus } = {}) {
     capabilities: { logging: {}, resources: { subscribe: Boolean(bus), listChanged: Boolean(bus) }, completions: {} },
   });
 
-  const tool = (name, config, handler) => server.registerTool(name, config, async (args, extra) =>
-    (hasScope(extra.authInfo, TOOL_SCOPES[name]) ? handler(args, extra) : forbidden(name)));
+  const notSetUp = { content: [{ type: 'text', text: "Saathi isn't set up for this home yet. Ask the family to finish setting it up in the Saathi app." }], isError: true };
+  const tool = (name, config, handler) => server.registerTool(name, config, async (args, extra) => {
+    if (!hasScope(extra.authInfo, TOOL_SCOPES[name])) return forbidden(name);
+    if (!(await saathi.elder())) return notSetUp;
+    return handler(args, extra);
+  });
 
   tool('what_day_is_it', {
     title: 'Gentle orientation',
