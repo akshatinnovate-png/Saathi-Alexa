@@ -129,14 +129,31 @@ Every AWS integration sits behind a small adapter and has an offline stand-in: a
 
 ## Run it locally (2 minutes, no cloud account)
 
-Requires Node.js 20 or later.
+### 1. Install Node.js (20 or later) and Git
+
+Check what you have with `node -v` and `git --version`. If Node is missing or older than v20:
+
+| System | Install |
+|---|---|
+| **Windows** | `winget install OpenJS.NodeJS.LTS Git.Git`, or download the LTS installer from [nodejs.org](https://nodejs.org) and Git from [git-scm.com](https://git-scm.com). Reopen the terminal afterwards |
+| **macOS** | `brew install node git` (with [Homebrew](https://brew.sh)), or the LTS installer from [nodejs.org](https://nodejs.org) |
+| **Ubuntu / Debian** | `curl -fsSL https://deb.nodesource.com/setup_22.x \| sudo -E bash - && sudo apt-get install -y nodejs git` |
+| **Any system, with nvm** | `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh \| bash`, reopen the terminal, then `nvm install 22` |
+
+`npm` comes with Node.js.
+
+### 2. Get the code and start it
 
 ```bash
+git clone https://github.com/akshatinnovate-png/Saathi-Alexa.git
+cd Saathi-Alexa
 npm install
 npm start
 ```
 
-Then open:
+To use another port: `PORT=3000 npm start` (PowerShell: `$env:PORT=3000; npm start`).
+
+### 3. Open it
 
 - **Saathi**: http://127.0.0.1:8787/ (log in with `riya@saathi.demo` / `saathi-demo-2026`, or create your own household)
 - **Aaji's Alexa+ simulator**: http://127.0.0.1:8787/alexa.html
