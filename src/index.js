@@ -14,9 +14,10 @@ import { createSessions, sessionSecret } from './accounts/sessions.js';
 import { createGoogle, createVault } from './accounts/google.js';
 import { createMailer } from './mail/mailer.js';
 import { createFamilyMail } from './mail/familyMail.js';
+import { createDoorbell } from './doorbell/doorbell.js';
 
 const llm = createLlm(config.agent, config.region);
-const services = createServices(config, { llmTranslate: llm?.translate });
+const services = createServices(config, { llmTranslate: llm?.translate, llmMood: llm?.mood });
 const baseUrl = `http://${config.host === '0.0.0.0' ? '127.0.0.1' : config.host}:${config.port}`;
 const publicUrl = config.auth.publicUrl ?? `http://localhost:${config.port}`;
 
@@ -29,6 +30,7 @@ const google = config.google.clientId && config.google.clientSecret ? createGoog
 const mailer = createMailer({ mail: config.mail, region: config.region, outboxDir: fileURLToPath(new URL('../data/outbox', import.meta.url)) });
 const familyMail = createFamilyMail({ store: services.store, mailer, google, vault: createVault(secret), publicUrl });
 services.attachMail(familyMail);
+const doorbell = createDoorbell({ store: services.store, services, vault: createVault(secret), publicUrl });
 const accounts = createAccounts({ store: services.store, services, cognito, demo: config.web.demoAccounts, onInvite: (invite) => familyMail.sendInvite(invite) });
 await accounts.ensureDemo();
 
@@ -74,7 +76,9 @@ const configuredHosts = process.env.SAATHI_ALLOWED_HOSTS?.split(',').map((h) => 
 const allowedHosts = configuredHosts.length || config.auth.publicUrl
   ? [...new Set([...configuredHosts, ...(config.auth.publicUrl ? [new URL(config.auth.publicUrl).hostname, 'localhost', '127.0.0.1'] : [])])]
   : undefined;
-const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail });
+const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell });
+
+doorbell.startAll().catch((err) => console.error('Ring listeners failed to start:', err.message));
 
 app.listen(config.port, config.host, () => {
   console.log(`\n  Saathi is running${config.demo ? ' in DEMO mode (fictional family, short escalation waits, data in data/demo.json)' : ''}\n`);

@@ -171,6 +171,8 @@ button.person:hover { background: rgb(255 255 255 / 90%); }
 .span-5 { grid-column: span 5; }
 .span-6 { grid-column: span 6; }
 .span-7 { grid-column: span 7; }
+.span-12 { grid-column: 1 / -1; }
+.grid > article { align-self: start; }
 .glass {
   background: rgb(255 255 255 / 76%); border: 1px solid rgb(255 255 255 / 94%); border-radius: 24px; padding: 18px 20px;
   box-shadow: 0 1px 2px rgb(30 40 80 / 5%), 0 16px 40px rgb(60 80 140 / 8%); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
@@ -314,3 +316,10 @@ button.person:hover { background: rgb(255 255 255 / 90%); }
 .sheet-form.inner { padding: 0; }
 .sheet-row.three { grid-template-columns: 1fr 1fr 1fr; }
 @media (max-width: 640px) { .sheet-row.three, .routine-row { grid-template-columns: 1fr; } }
+.doorbell { display: grid; gap: 10px; font-size: 0.9rem; }
+.doorbell p { margin: 0; }
+.ring-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ring-row input { flex: 1 1 160px; min-height: 44px; border-radius: 10px; border: 1px solid #dbe1ec; padding: 0 12px; font: 400 0.95rem var(--sans); }
+.hook-url { display: block; padding: 10px 12px; border-radius: 10px; background: #f4f6fa; word-break: break-all; font-size: 0.8rem; }
+.hook-url:empty { display: none; }
+.translate-note { margin: 0 0 12px; padding: 12px 14px; border-radius: 14px; background: #fff3dc; color: #5a3a06; font-size: 0.88rem; }

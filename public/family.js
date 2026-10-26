@@ -462,7 +462,47 @@ async function setupSettings() {
   }
 
   form.country.addEventListener('change', () => { form.emergencyNumber.value = reference.countries[form.country.value]?.emergency ?? form.emergencyNumber.value; });
-  $('open-settings').addEventListener('click', () => { $('settings-error').hidden = true; fill(); dialog.showModal(); });
+  $('open-settings').addEventListener('click', () => { $('settings-error').hidden = true; fill(); renderDoorbell(); dialog.showModal(); });
+
+  async function renderDoorbell() {
+    const box = $('doorbell');
+    let state;
+    try { state = await call('/doorbell'); } catch { box.replaceChildren(); return; }
+    const error = el('p', { class: 'form-error', role: 'alert', hidden: true });
+    const fail = (err) => { error.textContent = err.message; error.hidden = false; };
+    const parts = [];
+    if (state.ring.connected) {
+      parts.push(el('p', {}, `Ring is connected (${state.ring.email ?? 'your account'})${state.ring.cameras?.length ? `: ${state.ring.cameras.join(', ')}` : ''}. When someone rings during an alert, the family is told, and once the neighbour has been sent for, the alert closes.`),
+        state.ring.error ? el('p', { class: 'form-error' }, `Last problem: ${state.ring.error}`) : '',
+        el('button', { class: 'text-action', type: 'button', onclick: async () => { await send('/doorbell/ring', 'DELETE'); renderDoorbell(); } }, 'Disconnect Ring'));
+    } else {
+      const email = el('input', { type: 'email', autocomplete: 'off', 'aria-label': 'Ring account email', placeholder: 'Ring account email' });
+      const password = el('input', { type: 'password', autocomplete: 'off', 'aria-label': 'Ring account password', placeholder: 'Password' });
+      const code = el('input', { inputmode: 'numeric', autocomplete: 'one-time-code', 'aria-label': 'Code from Ring', placeholder: 'Code from Ring' });
+      const codeRow = el('div', { class: 'ring-row', hidden: true }, code, el('button', { class: 'pill-action', type: 'button', onclick: async () => {
+        try { await send('/doorbell/ring/code', 'POST', { code: code.value }); toast('Ring connected.'); renderDoorbell(); } catch (err) { fail(err); }
+      } }, 'Confirm code'));
+      const prompt = el('p', { class: 'muted small', hidden: true });
+      parts.push(el('p', { class: 'muted' }, 'Have a Ring doorbell? Connect the account so Saathi hears the bell. Your password is used once to get a key and is not stored.'),
+        el('div', { class: 'ring-row' }, email, password, el('button', { class: 'pill-action', type: 'button', onclick: async () => {
+          try {
+            const out = await send('/doorbell/ring', 'POST', { email: email.value, password: password.value });
+            password.value = '';
+            if (out.needsCode) { prompt.textContent = out.prompt; prompt.hidden = false; codeRow.hidden = false; code.focus(); return; }
+            toast('Ring connected.'); renderDoorbell();
+          } catch (err) { fail(err); }
+        } }, 'Connect Ring')), prompt, codeRow);
+    }
+    const hook = el('code', { class: 'hook-url' }, state.hookUrl ?? '');
+    parts.push(el('details', { class: 'advanced' }, el('summary', {}, 'Another doorbell or smart-home system'),
+      el('p', { class: 'muted' }, 'Any doorbell that can call a web link works: Home Assistant, IFTTT, SmartThings, Alexa routines through a webhook skill. Send a POST to this private link with {"event": "ding"} or {"event": "motion"}.'),
+      hook,
+      el('div', { class: 'share-row' },
+        el('button', { class: 'pill-action', type: 'button', onclick: async () => { const out = await send('/doorbell/hook', 'POST'); hook.textContent = out.hookUrl; try { await navigator.clipboard.writeText(out.hookUrl); toast('New link copied. The old one stops working.'); } catch { } } }, state.hookUrl ? 'Make a new link' : 'Make a doorbell link'),
+        state.hookUrl ? el('button', { class: 'text-action', type: 'button', onclick: async () => { try { await navigator.clipboard.writeText(hook.textContent); toast('Link copied.'); } catch { } } }, 'Copy') : '')));
+    parts.push(error);
+    box.replaceChildren(...parts);
+  }
   form.addEventListener('submit', async (e) => {
     if (e.submitter?.value !== 'save') return;
     e.preventDefault();
@@ -747,6 +787,7 @@ async function init(first = true) {
   languages = status.languages;
   elderName = status.elder.preferredName;
   pr = pronounsOf(status.elder);
+  $('translate-note').hidden = status.services?.translate !== 'passthrough';
   $('mood-h').textContent = `How ${elderName} has been feeling`;
   $('compose-text').placeholder = `Write in your language. ${elderName} hears it in theirs.`;
   $('record-status').textContent = `${elderName} hears your actual voice, not a translation.`;

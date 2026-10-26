@@ -52,6 +52,20 @@ export function createLocalSentiment() {
   };
 }
 
+export function createModelSentiment({ mood, fallback = createLocalSentiment() }) {
+  return {
+    kind: 'claude',
+    async analyze(text, language) {
+      try {
+        const out = await mood(text, language);
+        if (out) return { ...out, analysedLanguage: language ?? 'multi', engine: 'claude' };
+      } catch {
+      }
+      return fallback.analyze(text, language);
+    },
+  };
+}
+
 export function createLocalSpeech() {
   return { kind: 'browser-speech', async synthesize() { return null; } };
 }

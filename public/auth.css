@@ -140,3 +140,6 @@ label.inline { border: 0; padding: 0; }
 .join-google svg { width: 20px; height: 20px; }
 #join-accept { width: 100%; }
 #join-ready:not([hidden]) { margin-top: 18px; display: grid; }
+#auth-social[data-count="1"] { grid-template-columns: 1fr; }
+#auth-social[data-count="2"] { grid-template-columns: 1fr 1fr; }
+.social-btn.wide { display: flex; gap: 10px; justify-content: center; align-items: center; font: 500 0.95rem var(--sans); text-decoration: none; }

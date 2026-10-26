@@ -76,6 +76,24 @@ if (google === 1) {
   if (secret) values.SAATHI_GOOGLE_CLIENT_SECRET = secret;
 }
 
+const brain = await choose('Translation and conversation (so a message in English reaches them in their language)?', [
+  'Claude API key (recommended)',
+  'Amazon Web Services (Translate, Polly, Comprehend, Claude on Bedrock)',
+  'Not now (messages stay in the language they were written in)',
+]);
+if (brain === 1) {
+  console.log('\n  Get a key at https://console.anthropic.com/settings/keys\n');
+  const key = await ask('Claude API key (hidden)', { secret: true });
+  if (key) values.ANTHROPIC_API_KEY = key;
+} else if (brain === 2) {
+  console.log('\n  Uses the AWS credentials already set up on this computer (aws configure).');
+  values.SAATHI_AWS_TRANSLATE = 'true';
+  values.SAATHI_AWS_POLLY = 'true';
+  values.SAATHI_AWS_COMPREHEND = 'true';
+  values.SAATHI_USE_BEDROCK = 'true';
+  values.AWS_REGION = await ask('AWS region', { fallback: values.AWS_REGION ?? 'us-east-1' });
+}
+
 const url = await ask('\nPublic address, if you use a tunnel or a domain (leave empty for this computer only)', { fallback: current.SAATHI_PUBLIC_URL ?? '' });
 if (url) values.SAATHI_PUBLIC_URL = url.replace(/\/+$/, ''); else unset('SAATHI_PUBLIC_URL');
 

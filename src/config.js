@@ -16,7 +16,7 @@ export const config = {
   host: env.HOST ?? '127.0.0.1',
   region: env.AWS_REGION ?? env.AWS_DEFAULT_REGION ?? 'us-east-1',
   dataFile: env.SAATHI_DATA_FILE ?? fileURLToPath(new URL('../data/saathi.json', import.meta.url)),
-  timezone: env.SAATHI_TIMEZONE ?? 'Asia/Kolkata',
+  timezone: env.SAATHI_TIMEZONE ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
 
   aws: {
     translate: flag('SAATHI_AWS_TRANSLATE', useAws),

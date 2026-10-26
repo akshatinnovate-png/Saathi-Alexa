@@ -12,7 +12,7 @@ import { verifySignature, normaliseRingEvent, SIGNATURE_HEADER, TIMESTAMP_HEADER
 
 const PROTECTED_PAGES = ['/family.html', '/alexa.html', '/welcome.html', '/scan.html'];
 
-export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail }) {
+export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell }) {
   const { localBus, store } = services;
   const app = express();
   app.set('trust proxy', 'loopback');
@@ -31,8 +31,21 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
       let event;
       try { event = normaliseRingEvent(req.body); } catch (err) { return res.status(400).json({ error: err.message }); }
       const device = await store.get('ringDevices', event.deviceId);
+      if (!device && !config.demo) return res.status(404).json({ error: 'Unknown doorbell. Use the doorbell link from your household settings.' });
       res.json(await services.forHousehold(device?.householdId ?? DEFAULT_HOUSEHOLD).doorEvent(event));
     } catch (err) { next(err); }
+  });
+
+  app.post('/hooks/doorbell/:token', express.urlencoded({ extended: false }), async (req, res, next) => {
+    try {
+      if (!doorbell) return res.status(404).json({ error: 'Doorbell links are not available.' });
+      const result = await doorbell.handleHook(req.params.token, { ...req.query, ...(typeof req.body === 'object' ? req.body : {}) });
+      if (!result) return res.status(404).json({ error: 'This doorbell link is not valid any more. Make a new one in Saathi settings.' });
+      res.json({ ok: true, kind: result.event.kind });
+    } catch (err) {
+      if (err.status === 400) return res.status(400).json({ error: err.message });
+      next(err);
+    }
   });
 
   if (accounts && sessions) mountAuth(app, { config, accounts, sessions, google, familyMail });
@@ -59,7 +72,7 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
 
   api.use((req, res, next) => {
     if (!req.householdId) return res.status(401).json({ error: requireLogin && req.user ? 'Set up your household first.' : 'Please log in.' });
-    if (req.device && !req.user && /^\/(household|devices|mail|demo|family\/avatar)/.test(req.path)) return res.status(403).json({ error: "Aaji's device can't do that. Use the family app." });
+    if (req.device && !req.user && /^\/(household|devices|mail|demo|doorbell|care|family\/avatar)/.test(req.path)) return res.status(403).json({ error: "This device can't do that. Use the family app." });
     req.saathi = services.forHousehold(req.householdId);
     next();
   });
@@ -153,6 +166,31 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
   api.put('/care/routine', wrap(async (req, res) => {
     if (!(await careEditor(req, res))) return;
     res.json(await req.saathi.saveRoutine(req.body?.routine ?? []));
+  }));
+
+  api.get('/doorbell', wrap(async (req, res) => {
+    if (!ownerOnly(req, res)) return;
+    res.json(doorbell ? await doorbell.status(req.householdId) : { hookUrl: null, ring: { connected: false } });
+  }));
+
+  api.post('/doorbell/hook', wrap(async (req, res) => {
+    if (!ownerOnly(req, res) || !doorbell) return;
+    res.json({ hookUrl: await doorbell.newHook(req.householdId) });
+  }));
+
+  api.post('/doorbell/ring', wrap(async (req, res) => {
+    if (!ownerOnly(req, res) || !doorbell) return;
+    res.json(await doorbell.connectRing(req.householdId, req.body ?? {}));
+  }));
+
+  api.post('/doorbell/ring/code', wrap(async (req, res) => {
+    if (!ownerOnly(req, res) || !doorbell) return;
+    res.json(await doorbell.verifyRingCode(req.householdId, req.body?.code));
+  }));
+
+  api.delete('/doorbell/ring', wrap(async (req, res) => {
+    if (!ownerOnly(req, res) || !doorbell) return;
+    res.json(await doorbell.disconnectRing(req.householdId));
   }));
 
   api.put('/household/profile', wrap(async (req, res) => {

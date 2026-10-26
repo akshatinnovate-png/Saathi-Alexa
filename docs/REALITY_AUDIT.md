@@ -52,3 +52,13 @@ Everything in Saathi that was a demo, a simulation, a hard-coded assumption or a
 | 24 | Mood was read by a **small keyword list** even when Claude was available | Claude reads mood when configured (Amazon Comprehend on AWS); the keyword list is only the last resort |
 | 25 | The login page showed **X and Apple buttons that did nothing** | Only sign-in options that are really connected are shown |
 | 26 | The landing page asked *"How is Aaji today?"* to every visitor | Plain questions about your own family |
+
+## How each fix is checked
+
+`test/reality.test.js` runs a fresh, non-demo install end to end: no fictional family or demo login exists; an old data file survives; a household in Boston gets *"Please call him"* and *"emergency services on 911"* at Boston time; a medicine taken twice a day records the right dose and counts supply per dose; reminders are spoken once and on time; the weekly letter goes out once on Sunday evening Boston time; a removed person loses access; neighbours cannot change medicines; a private doorbell link and a Ring login with its 2-step code both reach the right household. `test/mail.test.js` covers email, invites, Google sign-in and device pairing.
+
+## What is still not real
+
+- **Alexa+ itself.** Saathi is a working MCP server for Alexa+, but connecting a real Alexa+ needs Amazon's Alexa+ MCP integration. Until then, the elder's own Saathi screen (tablet, phone or Echo Show browser) is the real device.
+- **Ring** is reached through the community `ring-client-api` library, because Ring has no public API. It was tested against a stand-in for Ring's login and push events, not a live Ring account.
+- **The safety screen** for falls, pain and being lost is phrase-based in English, Hindi and Marathi. It errs on the side of alerting; other languages rely on translation first.

@@ -284,7 +284,7 @@ export function createAccounts({ store, services, cognito = null, demo = false, 
     async issueDeviceToken(email, { label = 'Alexa+ device', scopes = ALL_SCOPES } = {}) {
       const account = await store.get('accounts', normaliseEmail(email));
       if (!account?.householdId) throw new AuthError('account', 'Set up a household first.');
-      if (scopes.includes(SCOPES.elder) && account.role !== 'owner') throw new AuthError('forbidden', "Only the household owner can pair Aaji's device.");
+      if (scopes.includes(SCOPES.elder) && account.role !== 'owner') throw new AuthError('forbidden', "Only the household owner can connect a device.");
       const token = `sth_${randomBytes(24).toString('base64url')}`;
       await store.put('deviceTokens', { id: hashToken(token), householdId: account.householdId, scopes, label, createdBy: account.email, createdAt: clock().toISOString() });
       return token;

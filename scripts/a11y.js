@@ -53,6 +53,8 @@ const scenarios = [
   { name: 'Join from an invite (expired link)', path: '/join.html?invite=nope' },
   { name: 'Family app, invite dialog', path: '/family.html', click: '#open-invite', after: '#mail-status' },
   { name: "Family app, set up Aaji's device", path: '/family.html', click: '#open-devices', after: '#pair-qr svg, #pair-error:not([hidden])' },
+  { name: 'Family app, care view', path: '/family.html#care', wait: '#meds .row-item' },
+  { name: 'Family app, medicines editor', path: '/family.html#care', wait: '#meds .row-item', click: '#manage-meds', after: '#edit-body form' },
   { name: 'Walk the house', path: '/scan.html' },
   { name: 'Walk the house, drawing by hand', path: '/scan.html', click: '#start-draw' },
 ];

@@ -20,8 +20,8 @@ function render() {
   $('field-email').hidden = mode === 'confirm';
   $('field-password').hidden = mode === 'confirm';
   $('field-code').hidden = mode !== 'confirm';
-  $('auth-social').hidden = mode === 'confirm';
-  document.querySelector('.auth-or').hidden = mode === 'confirm';
+  $('auth-social').hidden = mode === 'confirm' || !socialAvailable;
+  document.querySelector('.auth-or').hidden = mode === 'confirm' || !socialAvailable;
   $('password').autocomplete = mode === 'signup' ? 'new-password' : 'current-password';
   $('switch-link').textContent = c.switch[1];
   $('switch-link').href = c.switch[2];
@@ -95,6 +95,25 @@ document.querySelectorAll('.social-btn').forEach((a) => {
   });
 });
 
+function showProviders() {
+  const buttons = [...document.querySelectorAll('.social-btn')];
+  for (const b of buttons) b.hidden = !providers.social.includes(b.dataset.provider);
+  const any = buttons.some((b) => !b.hidden);
+  $('auth-social').dataset.count = String(buttons.filter((b) => !b.hidden).length);
+  socialAvailable = any;
+  for (const b of buttons.filter((x) => !x.hidden)) {
+    if (buttons.filter((x) => !x.hidden).length === 1 && !b.querySelector('span')) {
+      const label = document.createElement('span');
+      label.textContent = b.getAttribute('aria-label');
+      b.append(label);
+      b.classList.add('wide');
+    }
+  }
+  render();
+}
+
+let socialAvailable = false;
+
 async function init() {
   render();
   if (params.get('error') === 'social-unavailable') showError('That sign-in option is not connected yet. Please use your email.');
@@ -102,6 +121,7 @@ async function init() {
   try {
     const session = await (await fetch('/api/session')).json();
     providers = session.providers;
+    showProviders();
     if (session.user) {
       location.replace(session.user.householdId ? (next ?? '/family.html') : '/welcome.html');
       return;

@@ -27,6 +27,7 @@ export async function handler(event, _context, overrides) {
     return { statusCode: 400, body: JSON.stringify({ error: err.message }) };
   }
   const device = await services.store.get('ringDevices', ringEvent.deviceId);
+  if (!device && !config.demo) return { statusCode: 404, body: JSON.stringify({ error: 'Unknown doorbell. Use the doorbell link from your household settings.' }) };
   const result = await services.forHousehold(device?.householdId ?? 'default').doorEvent(ringEvent);
   return { statusCode: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(result) };
 }

@@ -60,13 +60,13 @@ On a phone:
 | **Landing, intro and login** | Video intro with an animated halftone, a photo slideshow, and the login page | `public/index.html`, `public/login.html` |
 | **Escalation workflow** | One Amazon States Language definition. It is deployed to AWS Step Functions **and** executed offline by a built-in ASL interpreter | `src/escalation/` |
 | **Infrastructure as code** | AWS CDK stack: 65 resources across 15 AWS services, four esbuild-bundled Lambdas. The template passes `cfn-lint` and the state machine passes `asl-validator`, both in CI | `infra/` |
-| **Ring doorbell integration** | HMAC-signed, replay-protected webhook (`/ring/events`), a simulated Ring Video Doorbell, and its own Lambda in AWS | `src/ring/`, `src/lambda/ring.js` |
+| **Front doorbell** | A real Ring account connects from Settings (email, password and Ring's 2-step code; Ring's push events for presses and motion; the token stored encrypted). Any other doorbell or smart-home system can call a private per-household link. An HMAC-signed webhook with its own Lambda remains for integrations | `src/doorbell/`, `src/ring/`, `src/lambda/ring.js` |
 | **OAuth 2.1 authorization** | Per the MCP authorization spec: Amazon Cognito is the authorization server, Saathi the protected resource (RFC 9728 metadata), with `saathi/elder` and `saathi/family` scopes | `src/auth/` |
 | **Safety and routing evals** | 44 multilingual safety cases (100% emergency recall, zero false alarms required) and 25 routing cases | `evals/` |
 | **Spoken in her language, offline** | Every reply Saathi speaks is written in Marathi, Hindi and English, with her routine, tablets and family described in each. Aaji hears Marathi even with no translation service or model | `src/domain/i18n.js` |
-| **Accessibility audit** | axe-core in a real browser across 21 page states (landing, login, invite join page, device pairing, Alexa+ device, both assistants, family app and its invite and device dialogs, house map in 3D and 2D, walkaround, high contrast, phone width): 0 violations, enforced in CI | `scripts/a11y.js` |
+| **Accessibility audit** | axe-core in a real browser across 23 page states (landing, login, invite join page, device pairing, the elder's screen, both assistants, family app with its care view, medicines editor, invite and device dialogs, house map in 3D and 2D, walkaround, high contrast, phone width): 0 violations, enforced in CI | `scripts/a11y.js` |
 | **Deployment smoke test** | One command checks a live endpoint: OAuth token, RFC 9728 metadata, 401 without a token, protocol 2025-11-25, tools, a Marathi reply, scopes | `scripts/smoke.js` |
-| **Tests** | 67 server tests (MCP protocol features, OAuth, accounts and household isolation, Google sign-in, email, invites, device pairing, the house map, Ring, dignity, retry safety, localisation, refills, appointments, voice notes, weekly letters, Lambda, escalation, AWS SDK mocks, evals) and 12 infrastructure tests, 3 of which load the exact production Lambda bundles and drive them with API Gateway, Ring and Scheduler events | `test/`, `infra/test/` |
+| **Tests** | 75 server tests (no fictional data in a fresh install, data never wiped, time zones, pronouns, emergency numbers, medicines several times a day, reminders, doorbells, MCP protocol features, OAuth, accounts and household isolation, Google sign-in, email, invites, device pairing, the house map, Ring, dignity, retry safety, localisation, refills, appointments, voice notes, weekly letters, Lambda, escalation, AWS SDK mocks, evals) and 12 infrastructure tests, 3 of which load the exact production Lambda bundles and drive them with API Gateway, Ring and Scheduler events | `test/`, `infra/test/` |
 
 ## Architecture
 
@@ -168,22 +168,27 @@ It asks a few questions and saves your answers in a private `.env` file:
 
 ### 4. Open it
 
-- **Saathi**: http://localhost:8787/ (log in with `riya@saathi.demo` / `saathi-demo-2026`, or create your own household)
-- **Aaji's Alexa+ simulator**: http://localhost:8787/alexa.html
-- **Family Circle app**: http://localhost:8787/family.html (open it side by side)
+- **Saathi**: http://localhost:8787/ — a fresh install is empty: sign up and set up your own household
+- **The elder's screen**: http://localhost:8787/device.html on their tablet or Echo Show (pair it with a code from the family app)
+- **Family app**: http://localhost:8787/family.html
 - **Walk the house**: `/scan.html` on an ARCore Android phone in Chrome. WebXR needs HTTPS, so reach your laptop through a tunnel (for example `cloudflared tunnel --url http://localhost:8787`) or deploy
 - **MCP endpoint**: `http://127.0.0.1:8787/mcp`
 
+**Just want to look around?** `npm run demo` starts a separate demo with a fictional family (Aaji in Pune, her granddaughter Riya in Toronto). Log in as `riya@saathi.demo` / `saathi-demo-2026`. The demo keeps its data in `data/demo.json`, has short escalation waits, a pretend doorbell and a *Reset demo* button, and never touches your real data.
+
 ### How a family uses it
 
-1. **Set up.** One person signs up (email or Google) and answers four questions about their elder: name, language, tablets and a neighbour.
+1. **Set up.** One person signs up (email or Google) and answers four short steps about their elder: name, language, pronouns, country (which sets the emergency number), time zone, tablets and a neighbour.
 2. **Invite the family.** In the family app, tap the *invite* button. Each person gets an email in their own language with a **Join** button. You can also copy the link or send it on WhatsApp. The link works once, for 30 days.
-3. **Set up Aaji's device.** Tap the *tablet* button. On an Echo Show (Silk browser), a tablet or an old phone, open `/device.html` or scan the QR code, and type the six numbers. That device becomes Aaji's Saathi screen: big text, her language, no logins and no settings to get lost in. You can remove it from the family app at any time.
-4. **That's it.** Alerts, nudges and the weekly letter arrive by email. Emergencies go to the neighbour too, even if they never made an account.
+3. **Set up their device.** Tap the *tablet* button. On an Echo Show (Silk browser), a tablet or an old phone, open `/device.html` or scan the QR code, and type the six numbers. That device becomes their Saathi screen: big text, their language, no logins and no settings to get lost in. It speaks tablet reminders when they are due, reminds them about visits, and reads new messages and plays voice notes as they arrive. You can remove it from the family app at any time.
+4. **Keep it up to date.** In *Care*, manage medicines (up to six times a day, on chosen weekdays, with supply tracking), doctor visits and the daily routine. In *Settings*, change their details, remove someone from the circle, and connect the front door: a Ring account (with its 2-step code) or a private link for any other smart doorbell.
+5. **That's it.** Alerts, nudges and the weekly letter (Sunday evening in their time zone) arrive by email. Emergencies go to the neighbour too, even if they never made an account.
 
-Connecting a real Alexa+ through MCP is still there for developers, under *Set up Aaji's device → Connect a real Alexa+ (for developers)*.
+Connecting a real Alexa+ through MCP is still there for developers, under *Set up their device → Connect a real Alexa+ (for developers)*.
 
-Try tapping **💛 माझं मन** ("how I feel") in Marathi and watch the family app get a gentle nudge. Then tap **🆘 मदत** ("help") and watch the escalation move from family to neighbour to emergency, and stop the moment you press *"I'm on it"*.
+Everything that used to be a demo, a simulation or a built-in assumption, and how it was made real, is listed in [docs/REALITY_AUDIT.md](docs/REALITY_AUDIT.md).
+
+In the demo, try tapping **💛 माझं मन** ("how I feel") in Marathi and watch the family app get a gentle nudge. Then tap **🆘 मदत** ("help") and watch the escalation move from family to neighbour to emergency, and stop the moment you press *"I'm on it"*.
 
 With no model configured, an offline rule-based planner stands in for Alexa+. It still replies in Marathi, Hindi or English, because every spoken line is localised in the server itself. Add a Claude key for free-form conversation and translation of anything family members write:
 
@@ -203,7 +208,7 @@ npm run inspect      # MCP Inspector; connect to http://127.0.0.1:8787/mcp (Stre
 ### Tests, evals and audits
 
 ```bash
-npm test                    # 67 tests: MCP protocol, OAuth, Ring, dignity, retry safety, localisation, care logistics, Lambda, escalation, AWS adapters
+npm test                    # 75 tests: MCP protocol, OAuth, Ring, dignity, retry safety, localisation, care logistics, Lambda, escalation, AWS adapters
 npm run eval                # multilingual safety + routing evals with a per-language report
 npm run a11y                # axe-core accessibility audit in Chromium (CHROME_PATH=... to pick a browser)
 cd infra && npm install && npm test   # 12 tests: CDK assertions + the real Lambda bundles
@@ -255,9 +260,10 @@ Seed the demo household and point the simulator and family app at the deployed r
 export AWS_REGION=us-east-1 SAATHI_USE_AWS=true SAATHI_USE_BEDROCK=true \
   SAATHI_TABLE=... SAATHI_EVENT_BUS=... SAATHI_FAMILY_TOPIC_ARN=... \
   SAATHI_MEDIA_BUCKET=... SAATHI_ESCALATION_SFN_ARN=...
-npm run seed:aws
 npm start
 ```
+
+That starts with an empty table. For a judged demo, `npm run seed:aws -- --demo` writes the fictional demo family into it instead.
 
 Prerequisites: Amazon Bedrock model access for Claude in your region. Family members confirm their SNS email subscriptions.
 
@@ -327,7 +333,8 @@ The server also sends `instructions` on initialize: short, warm sentences, never
 - The safety eval cases were written by the same team as the phrase screen. Real-world phrasing needs clinician- and family-sourced cases before anyone relies on it.
 - A new Google OAuth app starts in "testing" mode: only the Google accounts you add as test users can sign in, and **Send from my Gmail** uses a restricted Gmail scope that Google must verify before the public can use it. Gmail app passwords, SES and SMTP have no such limit.
 - Real email was exercised against mocked SES, Gmail API and Google token endpoints in tests, and the Gmail SMTP path through nodemailer; send yourself a test from the invite dialog (*Send me a test*) after `npm run setup`.
-- The Ring doorbell is simulated. The webhook accepts Ring-style event payloads, but no Ring account or device was connected during the hackathon.
+- Ring has no official public API. Saathi connects through the community `ring-client-api` library, the same one Home Assistant and Homebridge rely on; Ring could change its private API. It was tested against a faithful stand-in for Ring's login and push events, not a live Ring account.
+- Without Claude or Amazon Translate configured, messages are delivered in the language they were written in, and the family app says so.
 - The walkaround measures what the phone's AR tracking measures: expect a few centimetres of drift over a whole house. It captures floor outlines, not furniture or a textured mesh.
 - The intro video, slideshow photos and login illustration are credited in `docs/ASSETS.md`; confirm each licence before any commercial use.
 

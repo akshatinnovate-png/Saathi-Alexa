@@ -76,13 +76,14 @@
           <article class="glass span-6" aria-labelledby="appts-h"><div class="card-head"><h3 id="appts-h">Doctor visits</h3><button class="text-action" type="button" id="manage-appts">Add a visit</button></div><div class="list" id="appointments"></div></article>
           <article class="glass span-6" aria-labelledby="mood-h"><h3 id="mood-h">How they've been feeling</h3><div class="mood" id="mood"></div></article>
           <article class="glass span-12" aria-labelledby="routine-h"><div class="card-head"><h3 id="routine-h">Daily routine</h3><button class="text-action" type="button" id="manage-routine">Edit routine</button></div><p class="muted small" id="routine-note">Saathi uses this to answer "what should I do now?". Tablets are added automatically.</p><ol class="routine-list" id="routine"></ol></article>
-          <article class="glass span-6" aria-labelledby="door-h"><h3 id="door-h">Front door <span class="muted">· Ring</span></h3><div class="list" id="door"></div></article>
+          <article class="glass span-6" aria-labelledby="door-h"><h3 id="door-h">Front door</h3><div class="list" id="door"></div></article>
         </div>
       </section>
 
       <section class="view" id="view-messages" data-view="messages" aria-labelledby="msg-h" hidden>
         <h2 class="view-title" id="msg-h">Messages</h2>
         <article class="glass thread-card">
+          <p class="translate-note" id="translate-note" hidden>Messages are delivered in the language they were written in, because this Saathi has no translation service yet. Whoever runs it can add one with <code>npm run setup</code> (Claude or Amazon Translate).</p>
           <div class="thread" id="thread"></div>
           <form class="compose" id="compose">
             <label class="sr-only" for="compose-text">Message</label>
@@ -217,6 +218,8 @@
       </div>
       <h3 class="devices-h">People in the circle</h3>
       <ul class="device-list" id="member-list"></ul>
+      <h3 class="devices-h">Front door</h3>
+      <div class="doorbell" id="doorbell"></div>
     </form>
   </dialog>
 

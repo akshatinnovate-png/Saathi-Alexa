@@ -3,7 +3,7 @@ import { createFileStore } from './local/fileStore.js';
 import { seedData } from './domain/seed.js';
 import { createDynamoStore } from './aws/dynamoStore.js';
 import { createAwsTranslator, createAwsSentiment, createAwsSpeech } from './aws/language.js';
-import { createLocalTranslator, createLocalSentiment, createLocalSpeech } from './local/language.js';
+import { createLocalTranslator, createLocalSentiment, createModelSentiment, createLocalSpeech } from './local/language.js';
 import { createAwsEventBus, createAwsNotifier, createAwsMedia, createAwsEscalation } from './aws/platform.js';
 import { createLocalEventBus, createLocalNotifier, createLocalMedia } from './local/platform.js';
 import { createLocalEscalation } from './escalation/localEscalation.js';
@@ -24,7 +24,7 @@ export function createServices(config, overrides = {}) {
     ? createAwsTranslator({ region })
     : createLocalTranslator({ llmTranslate: overrides.llmTranslate }));
 
-  const sentiment = overrides.sentiment ?? (aws.comprehend ? createAwsSentiment({ region, translator }) : createLocalSentiment());
+  const sentiment = overrides.sentiment ?? (aws.comprehend ? createAwsSentiment({ region, translator }) : overrides.llmMood ? createModelSentiment({ mood: overrides.llmMood }) : createLocalSentiment());
   const speech = overrides.speech ?? (aws.polly ? createAwsSpeech({ region }) : createLocalSpeech());
 
   const events = overrides.events ?? (aws.eventbridge

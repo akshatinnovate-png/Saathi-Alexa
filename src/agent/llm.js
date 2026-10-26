@@ -32,5 +32,17 @@ export function createLlm(agentConfig, region) {
     return response.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim() || null;
   }
 
-  return { provider: bedrock ? 'amazon-bedrock' : 'claude-api', model, create, translate };
+  async function mood(text) {
+    const response = await create({
+      system: 'You read how an older person says they feel. Reply with only a JSON object: {"sentiment": "POSITIVE" | "NEGATIVE" | "NEUTRAL" | "MIXED", "positive": 0-1, "negative": 0-1, "neutral": 0-1, "mixed": 0-1}. Scores add up to 1. Judge the feeling, not the topic; any language.',
+      messages: [{ role: 'user', content: text }],
+    });
+    const raw = response.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
+    const json = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1));
+    if (!['POSITIVE', 'NEGATIVE', 'NEUTRAL', 'MIXED'].includes(json.sentiment)) return null;
+    const n = (v) => Math.max(0, Math.min(1, Number(v) || 0));
+    return { sentiment: json.sentiment, scores: { positive: n(json.positive), negative: n(json.negative), neutral: n(json.neutral), mixed: n(json.mixed) } };
+  }
+
+  return { provider: bedrock ? 'amazon-bedrock' : 'claude-api', model, create, translate, mood };
 }

@@ -199,7 +199,7 @@ async function refreshNext() {
   try {
     const status = await api('/family/summary');
     const meds = status.medications.filter((m) => m.status === 'due' || m.status === 'missed');
-    $('next').textContent = meds.length ? `💊 ${meds.map((m) => m.description).join(', ')}` : '✅ All tablets on track';
+    $('next').textContent = meds.length ? `💊 ${meds.map((m) => (m.description && m.description !== 'tablet' ? m.description : m.name)).join(', ')}` : '✅ All tablets on track';
   } catch {  }
 }
 
