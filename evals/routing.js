@@ -1,3 +1,4 @@
+import { pathToFileURL } from 'node:url';
 import { readFileSync } from 'node:fs';
 import { planOffline } from '../src/agent/offlinePlanner.js';
 
@@ -11,7 +12,7 @@ export function runRoutingEval(file = new URL('./routing-cases.json', import.met
   return { results, accuracy: results.filter((r) => r.pass).length / results.length };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const report = runRoutingEval();
   for (const r of report.results) console.log(`${r.pass ? 'PASS' : 'FAIL'}  [${r.lang}] ${String(r.tool).padEnd(26)} got=${String(r.got).padEnd(26)} ${r.text}`);
   console.log(`\nRouting accuracy: ${(report.accuracy * 100).toFixed(1)}%`);

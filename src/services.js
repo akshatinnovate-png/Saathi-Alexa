@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { createFileStore } from './local/fileStore.js';
 import { createDynamoStore } from './aws/dynamoStore.js';
 import { createAwsTranslator, createAwsSentiment, createAwsSpeech } from './aws/language.js';
@@ -35,7 +36,7 @@ export function createServices(config, overrides = {}) {
 
   const media = overrides.media ?? (aws.s3
     ? createAwsMedia({ region, bucket: resources.mediaBucket })
-    : createLocalMedia({ dir: new URL('../data/media', import.meta.url).pathname }));
+    : createLocalMedia({ dir: fileURLToPath(new URL('../data/media', import.meta.url)) }));
 
   const escalation = overrides.escalation ?? (aws.stepfunctions
     ? createAwsEscalation({ region, stateMachineArn: resources.escalationStateMachineArn })

@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { hostHeaderValidation, localhostHostValidation } from '@modelcontextprotocol/sdk/server/middleware/hostHeaderValidation.js';
 import { mountMcp } from './mcpRoute.js';
@@ -216,9 +217,9 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
   }));
 
   app.use('/api', api);
-  app.use('/media', express.static(new URL('../../data/media', import.meta.url).pathname));
-  app.use('/vendor/three', express.static(new URL('../../node_modules/three', import.meta.url).pathname, { index: false }));
-  app.use(express.static(new URL('../../public', import.meta.url).pathname));
+  app.use('/media', express.static(fileURLToPath(new URL('../../data/media', import.meta.url))));
+  app.use('/vendor/three', express.static(fileURLToPath(new URL('../../node_modules/three', import.meta.url)), { index: false }));
+  app.use(express.static(fileURLToPath(new URL('../../public', import.meta.url))));
 
   app.use((err, _req, res, _next) => {
     if (err.code && err.constructor?.name === 'AuthError') return res.status(err.code === 'forbidden' ? 403 : 400).json({ error: err.message, code: err.code });

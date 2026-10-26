@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 const env = process.env;
 
 const flag = (name, fallback = false) => {
@@ -12,7 +13,7 @@ export const config = {
   port: Number(env.PORT ?? 8787),
   host: env.HOST ?? '127.0.0.1',
   region: env.AWS_REGION ?? env.AWS_DEFAULT_REGION ?? 'us-east-1',
-  dataFile: env.SAATHI_DATA_FILE ?? new URL('../data/saathi.json', import.meta.url).pathname,
+  dataFile: env.SAATHI_DATA_FILE ?? fileURLToPath(new URL('../data/saathi.json', import.meta.url)),
   timezone: env.SAATHI_TIMEZONE ?? 'Asia/Kolkata',
 
   aws: {

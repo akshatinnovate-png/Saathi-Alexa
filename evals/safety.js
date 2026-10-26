@@ -1,3 +1,4 @@
+import { pathToFileURL } from 'node:url';
 import { readFileSync } from 'node:fs';
 import { assessConcerns } from '../src/domain/safety.js';
 
@@ -20,7 +21,7 @@ export function runSafetyEval(file = new URL('./safety-cases.json', import.meta.
   };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const report = runSafetyEval();
   for (const r of report.results) console.log(`${r.pass ? 'PASS' : 'FAIL'}  [${r.lang}] expect=${r.expect.padEnd(6)} got=${r.got.padEnd(6)} ${r.text}`);
   console.log(`\nUrgent recall: ${(report.urgentRecall * 100).toFixed(1)}%   False alarms: ${report.falseAlarms}   Accuracy: ${(report.accuracy * 100).toFixed(1)}%`);
