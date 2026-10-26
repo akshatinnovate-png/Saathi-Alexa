@@ -1,8 +1,7 @@
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { seedData, SEED_VERSION } from '../domain/seed.js';
 
-export function createFileStore({ file, seed = () => seedData(), persist = true } = {}) {
+export function createFileStore({ file, seed = () => ({}), persist = true } = {}) {
   let data = null;
   let writing = Promise.resolve();
 
@@ -10,13 +9,10 @@ export function createFileStore({ file, seed = () => seedData(), persist = true 
     if (data) return data;
     if (persist) {
       try {
-        const saved = JSON.parse(await readFile(file, 'utf8'));
-        if (saved.meta?.[0]?.version === SEED_VERSION) {
-          data = saved;
-          return data;
-        }
+        data = JSON.parse(await readFile(file, 'utf8'));
+        return data;
       } catch (err) {
-        if (err.code !== 'ENOENT') throw err;
+        if (err.code !== 'ENOENT') throw new Error(`Saathi could not read its data file ${file}: ${err.message}. Nothing was changed; fix or restore the file and start again.`);
       }
     }
     data = seed();

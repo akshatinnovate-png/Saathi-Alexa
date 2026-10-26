@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { createFileStore } from './local/fileStore.js';
+import { seedData } from './domain/seed.js';
 import { createDynamoStore } from './aws/dynamoStore.js';
 import { createAwsTranslator, createAwsSentiment, createAwsSpeech } from './aws/language.js';
 import { createLocalTranslator, createLocalSentiment, createLocalSpeech } from './local/language.js';
@@ -17,7 +18,7 @@ export function createServices(config, overrides = {}) {
 
   const store = overrides.store ?? (aws.dynamodb
     ? createDynamoStore({ tableName: resources.tableName, region })
-    : createFileStore({ file: config.dataFile }));
+    : createFileStore({ file: config.dataFile, seed: config.demo ? () => seedData() : () => ({}) }));
 
   const translator = overrides.translator ?? (aws.translate
     ? createAwsTranslator({ region })

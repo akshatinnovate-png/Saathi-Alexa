@@ -1,3 +1,14 @@
+const PRONOUN_FORMS = {
+  she: { subject: 'she', object: 'her', possessive: 'her' },
+  he: { subject: 'he', object: 'him', possessive: 'his' },
+  they: { subject: 'they', object: 'them', possessive: 'their' },
+};
+export function pronounsOf(person) {
+  const p = PRONOUN_FORMS[person?.pronoun] ?? PRONOUN_FORMS.they;
+  const cap = (s) => s[0].toUpperCase() + s.slice(1);
+  return { ...p, Subject: cap(p.subject), Possessive: cap(p.possessive) };
+}
+
 export const api = async (path, body) => {
   const res = await fetch(`/api${path}`, body === undefined ? {} : {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),

@@ -8,8 +8,10 @@ const flag = (name, fallback = false) => {
 };
 
 const useAws = flag('SAATHI_USE_AWS');
+const demo = flag('SAATHI_DEMO');
 
 export const config = {
+  demo,
   port: Number(env.PORT ?? 8787),
   host: env.HOST ?? '127.0.0.1',
   region: env.AWS_REGION ?? env.AWS_DEFAULT_REGION ?? 'us-east-1',
@@ -57,7 +59,7 @@ export const config = {
   web: {
     requireLogin: env.SAATHI_REQUIRE_LOGIN !== 'false',
     sessionSecret: env.SAATHI_SESSION_SECRET || undefined,
-    demoAccounts: env.SAATHI_DEMO_ACCOUNTS !== 'false',
+    demoAccounts: demo && env.SAATHI_DEMO_ACCOUNTS !== 'false',
   },
 
   mail: {
@@ -80,7 +82,7 @@ export const config = {
   },
 
   escalation: {
-    familyAckWaitSeconds: Number(env.SAATHI_FAMILY_ACK_WAIT ?? 20),
-    neighbourAckWaitSeconds: Number(env.SAATHI_NEIGHBOUR_ACK_WAIT ?? 20),
+    familyAckWaitSeconds: Number(env.SAATHI_FAMILY_ACK_WAIT ?? (demo ? 20 : 300)),
+    neighbourAckWaitSeconds: Number(env.SAATHI_NEIGHBOUR_ACK_WAIT ?? (demo ? 20 : 300)),
   },
 };

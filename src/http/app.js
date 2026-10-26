@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import QRCode from 'qrcode';
+import { COUNTRIES, PRONOUNS } from '../domain/people.js';
 import { hostHeaderValidation, localhostHostValidation } from '@modelcontextprotocol/sdk/server/middleware/hostHeaderValidation.js';
 import { mountMcp } from './mcpRoute.js';
 import { mountAuth } from './authRoutes.js';
@@ -54,7 +55,7 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
 
   const api = express.Router();
   const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res)).catch(next);
-  const memberOf = (req) => req.memberId ?? req.body?.member ?? req.query.member ?? 'riya';
+  const memberOf = (req) => req.memberId ?? req.body?.member ?? req.query.member ?? (config.demo ? 'riya' : null);
 
   api.use((req, res, next) => {
     if (!req.householdId) return res.status(401).json({ error: requireLogin && req.user ? 'Set up your household first.' : 'Please log in.' });
@@ -105,6 +106,16 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
   api.delete('/mail/gmail', wrap(async (req, res) => {
     if (!ownerOnly(req, res) || !familyMail) return;
     res.json({ removed: Boolean(await familyMail.disconnectGmail(req.householdId)) });
+  }));
+
+  api.put('/household/profile', wrap(async (req, res) => {
+    if (!ownerOnly(req, res)) return;
+    res.json(await req.saathi.updateProfile(req.body ?? {}));
+  }));
+
+  api.delete('/household/members/:memberId', wrap(async (req, res) => {
+    if (!ownerOnly(req, res)) return;
+    res.json(await accounts.removeMember(req.user.email, req.params.memberId));
   }));
 
   api.get('/household/invites', wrap(async (req, res) => {
@@ -158,7 +169,7 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     res.set('Content-Type', spoken.contentType).set('X-Polly-Voice', spoken.voice).send(spoken.audio);
   }));
 
-  api.post('/ring/simulate', wrap(async (req, res) => {
+  if (config.demo) api.post('/ring/simulate', wrap(async (req, res) => {
     const kind = req.body?.kind;
     if (!['ding', 'motion'].includes(kind)) return res.status(400).json({ error: 'kind must be ding or motion' });
     const deviceId = req.householdId === DEFAULT_HOUSEHOLD ? 'front-door' : `front-door-${req.householdId}`;
@@ -260,7 +271,7 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     req.on('close', () => { clearInterval(ping); unsubscribe(); });
   });
 
-  api.post('/demo/reset', wrap(async (req, res) => {
+  if (config.demo) api.post('/demo/reset', wrap(async (req, res) => {
     if (req.householdId !== DEFAULT_HOUSEHOLD) return res.status(403).json({ error: 'Only the demo household can be reset.' });
     await services.resetDemo(seedData());
     (await simulatorFor?.(req.householdId))?.reset('device-1');
@@ -268,13 +279,14 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     res.json({ ok: true });
   }));
 
-  api.post('/demo/sweep', wrap(async (req, res) => {
+  if (config.demo) api.post('/demo/sweep', wrap(async (req, res) => {
     res.json({
       raised: await req.saathi.sweepMissedDoses(), quietDay: await req.saathi.sweepQuietDay(),
       refills: await req.saathi.sweepSupplies(), escorts: await req.saathi.sweepAppointments(),
     });
   }));
 
+  app.get('/api/reference', (_req, res) => res.json({ countries: COUNTRIES, pronouns: PRONOUNS, languages: LANGUAGES }));
   app.use('/api', api);
   app.use('/media', express.static(fileURLToPath(new URL('../../data/media', import.meta.url))));
   app.use('/vendor/three', express.static(fileURLToPath(new URL('../../node_modules/three', import.meta.url)), { index: false }));

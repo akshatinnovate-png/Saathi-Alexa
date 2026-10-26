@@ -77,7 +77,7 @@ const allowedHosts = configuredHosts.length || config.auth.publicUrl
 const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail });
 
 app.listen(config.port, config.host, () => {
-  console.log(`\n  Saathi is running\n`);
+  console.log(`\n  Saathi is running${config.demo ? ' in DEMO mode (fictional family, short escalation waits, data in data/demo.json)' : ''}\n`);
   console.log(`  Open this in your browser:                   ${publicUrl}/`);
   console.log(`  Aaji's tablet or Echo Show (pairing code):   ${publicUrl}/device.html`);
   console.log(`  MCP endpoint (Streamable HTTP, 2025-11-25):  ${baseUrl}/mcp   [auth: ${config.auth.mode}]`);

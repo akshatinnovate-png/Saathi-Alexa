@@ -25,7 +25,7 @@ export function createLlm(agentConfig, region) {
 
   async function translate(text, { from, to }) {
     const response = await create({
-      system: 'You translate short personal messages between family members. Keep the warmth, names and terms of endearment (Aaji, beta, etc.). Output only the translation.',
+      system: 'You translate short personal messages between family members. Keep the warmth, names and terms of endearment (Aaji, Nani, beta and so on). Output only the translation.',
       messages: [{ role: 'user', content: `Translate from ${from === 'auto' ? 'the detected language' : languageName(from)} to ${languageName(to)}:\n\n${text}` }],
     });
     if (response.stop_reason === 'refusal') return null;

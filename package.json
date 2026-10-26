@@ -12,7 +12,8 @@
     "eval": "node evals/safety.js && node evals/routing.js",
     "a11y": "node scripts/a11y.js",
     "smoke": "node scripts/smoke.js",
-    "setup": "node scripts/setup.js"
+    "setup": "node scripts/setup.js",
+    "demo": "node scripts/demo.js"
   },
   "keywords": [
     "alexa-plus",

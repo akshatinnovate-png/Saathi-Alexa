@@ -1,4 +1,4 @@
-import { api, loadSettings, saveSettings, applyDisplay, bindToggle, onEvents, el, timeOf } from './common.js';
+import { api, loadSettings, saveSettings, applyDisplay, bindToggle, onEvents, el, timeOf, pronounsOf } from './common.js';
 import { icon, iconEl } from './icons.js';
 
 const settings = loadSettings({ member: 'riya', large: false, contrast: false });
@@ -8,7 +8,8 @@ const $ = (id) => document.getElementById(id);
 let status = null;
 let circle = [];
 let languages = {};
-let elderName = 'Aaji';
+let elderName = '';
+let pr = pronounsOf(null);
 let currentView = 'overview';
 const loaded = { assistant: null, home: null };
 
@@ -35,21 +36,21 @@ function renderAlerts(alerts) {
   const open = alerts.filter((a) => a.type === 'help' && (!a.acknowledged || Date.now() - new Date(a.acknowledgedAt) < 10 * 60e3));
   const nudges = alerts.filter((a) => ['dose-missed', 'quiet-day', 'refill', 'appointment-escort'].includes(a.type) && !a.acknowledged);
   const NUDGE = {
-    'dose-missed': ['💊', "I'll remind her", (a) => ack(a.id)],
-    'quiet-day': ['🌤', "I'll call her", (a) => ack(a.id)],
+    'dose-missed': ['💊', `I'll remind ${pr.object}`, (a) => ack(a.id)],
+    'quiet-day': ['🌤', `I'll call ${pr.object}`, (a) => ack(a.id)],
     refill: ['🧾', 'Refilled (30 days)', (a) => post('/family/refill', { medicationId: a.medicationId, quantity: 30 })],
-    'appointment-escort': ['🚗', "I'll take her", (a) => post('/family/escort', { appointmentId: a.appointmentId })],
+    'appointment-escort': ['🚗', `I'll take ${pr.object}`, (a) => post('/family/escort', { appointmentId: a.appointmentId })],
   };
   $('alerts').replaceChildren(
     ...open.map((a) => {
       const idx = STAGES.findIndex(([s]) => s === a.escalationStage);
       return el('div', { class: `alert${a.acknowledged ? ' done' : ''}` },
-        el('h3', {}, a.acknowledged ? (a.acknowledgedBy === 'front-door' ? '✅ Help reached her door (Ring doorbell)' : `✅ ${nameOf(a.acknowledgedBy)} is on it`) : `🆘 ${elderName} needs help: ${a.reason}`),
-        a.doorbellAt && !a.acknowledged ? el('div', {}, `🔔 Her doorbell rang at ${timeOf(a.doorbellAt)}`) : null,
+        el('h3', {}, a.acknowledged ? (a.acknowledgedBy === 'front-door' ? `✅ Help reached ${pr.possessive} door (doorbell)` : `✅ ${nameOf(a.acknowledgedBy)} is on it`) : `🆘 ${elderName} needs help: ${a.reason}`),
+        a.doorbellAt && !a.acknowledged ? el('div', {}, `🔔 ${pr.Possessive} doorbell rang at ${timeOf(a.doorbellAt)}`) : null,
         el('div', { class: 'muted' }, `“${a.words}” · ${timeOf(a.createdAt)}`),
         el('ol', { class: 'stepper', 'aria-label': 'Escalation progress' },
           ...STAGES.map(([, label], i) => el('li', { class: `step${a.acknowledged ? (i <= Math.max(idx, 0) ? ' done' : '') : i < idx ? ' done' : i === idx ? ' active' : ''}` }, label))),
-        a.acknowledged ? null : el('button', { class: 'btn-danger', type: 'button', onclick: () => ack(a.id) }, "I'm on it - I'll call her now"));
+        a.acknowledged ? null : el('button', { class: 'btn-danger', type: 'button', onclick: () => ack(a.id) }, `I'm on it - I'll call ${pr.object} now`));
     }),
     ...nudges.map((a) => {
       const [emoji, label, act] = NUDGE[a.type];
@@ -98,7 +99,7 @@ function renderPeople() {
   $('family-count').textContent = `${everyone.length} in the circle`;
   $('people').replaceChildren(...everyone.map((p) => {
     const mine = p.id === meId();
-    const sub = p.id === 'elder' ? `${p.city ?? ''} · ${localTime('Asia/Kolkata')}` : `${p.relationship}${p.city ? ` · ${p.city}` : ''}${p.timezone ? ` · ${localTime(p.timezone)}` : ''}`;
+    const sub = p.id === 'elder' ? `${p.city ?? ''} · ${localTime(status.elder.timezone ?? 'UTC')}` : `${p.relationship}${p.city ? ` · ${p.city}` : ''}${p.timezone ? ` · ${localTime(p.timezone)}` : ''}`;
     const body = [avatar(p), el('span', {}, el('strong', {}, p.id === 'elder' ? p.preferredName : p.name, mine ? ' (you)' : ''), el('small', {}, sub))];
     if (mine || p.id === 'elder') {
       return el('button', { class: 'person', type: 'button', title: 'Change photo', onclick: () => pickAvatar(p.id === 'elder' ? 'elder' : p.id) }, ...body, el('span', { class: 'sr-only' }, ', change photo'));
@@ -115,7 +116,7 @@ function renderUpNext(s) {
     })),
     ...s.appointments.slice(0, 3).map((a) => ({
       kind: 'visit', when: a.daysAway === 0 ? 'Today' : a.daysAway === 1 ? 'Tomorrow' : new Date(`${a.at.slice(0, 10)}T12:00:00`).toLocaleDateString([], { weekday: 'long' }),
-      title: a.title, small: a.with, time: a.at.slice(11, 16), meta: a.escortName ? `${a.escortName} is taking her` : 'Nobody taking her yet',
+      title: a.title, small: a.with, time: a.at.slice(11, 16), meta: a.escortName ? `${a.escortName} is taking ${pr.object}` : `Nobody taking ${pr.object} yet`,
     })),
   ].slice(0, 4);
   if (!items.length) {
@@ -144,7 +145,7 @@ function renderMeds(meds) {
 function renderAppointments(appointments) {
   $('appointments').replaceChildren(...(appointments.length ? appointments.map((a) => el('div', { class: 'row-item' },
     el('div', {}, el('strong', {}, a.title), el('small', {}, `${new Date(`${a.at}:00`).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })} ${a.at.slice(11, 16)} · ${a.with} · ${a.place}`)),
-    a.escort ? el('span', { class: 'pill ok' }, `${nameOf(a.escort)} is taking her`) : el('button', { class: 'pill-action', type: 'button', onclick: () => post('/family/escort', { appointmentId: a.id }) }, "I'll take her")))
+    a.escort ? el('span', { class: 'pill ok' }, `${nameOf(a.escort)} is taking ${pr.object}`) : el('button', { class: 'pill-action', type: 'button', onclick: () => post('/family/escort', { appointmentId: a.id }) }, `I'll take ${pr.object}`)))
     : [el('p', { class: 'empty' }, 'No doctor visits in the next two weeks.')]));
 }
 
@@ -154,7 +155,7 @@ function renderMood(checkins) {
     el('div', {},
       el('div', { lang: c.language }, `“${c.text}”`),
       c.english !== c.text ? el('div', { class: 'muted' }, c.english) : null,
-      el('small', { class: 'muted' }, `${timeOf(c.at)} · ${c.sentiment === 'PRIVATE' ? '🤫 kept between her and Alexa' : c.sentiment.toLowerCase()}`))))
+      el('small', { class: 'muted' }, `${timeOf(c.at)} · ${c.sentiment === 'PRIVATE' ? `🤫 kept between ${pr.object} and Saathi` : c.sentiment.toLowerCase()}`))))
     : [el('p', { class: 'empty' }, 'No check-ins yet today.')]));
 }
 
@@ -172,13 +173,13 @@ function renderStories(stories) {
     return el('article', { class: 'story' },
       el('h4', {}, s.title),
       el('div', { lang }, mine.text),
-      lang !== s.language && mine.text !== s.text ? el('div', { class: 'orig', lang: s.language }, `In her words: ${s.text}`) : null,
+      lang !== s.language && mine.text !== s.text ? el('div', { class: 'orig', lang: s.language }, `In ${pr.possessive} words: ${s.text}`) : null,
       s.audio[lang] ? el('audio', { controls: true, src: s.audio[lang], preload: 'none' }) : null);
-  }) : [el('p', { class: 'empty' }, 'Her first story is waiting to be told.')]));
+  }) : [el('p', { class: 'empty' }, `${pr.Possessive} first story is waiting to be told.`)]));
 }
 
 function renderLetter(letter) {
-  $('letter').textContent = letter ? letter.text : 'Every Sunday evening you get a letter about her week, in your language.';
+  $('letter').textContent = letter ? letter.text : `Every Sunday evening you get a letter about ${pr.possessive} week, in your language.`;
 }
 
 async function renderThread() {
@@ -425,6 +426,66 @@ function setupDevices() {
   });
 }
 
+async function setupSettings() {
+  const dialog = $('settings-dialog');
+  const form = $('settings-form');
+  const owner = status.me?.role === 'owner';
+  $('open-settings').hidden = !owner;
+  if (!owner) return;
+  let reference = { countries: {} };
+  try { reference = await (await fetch('/api/reference')).json(); } catch { }
+  const zones = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
+
+  function fill() {
+    const e = status.elder;
+    form.language.replaceChildren(...Object.entries(languages).map(([code, l]) => el('option', { value: code, selected: code === e.language }, `${l.native} · ${l.name}`)));
+    form.country.replaceChildren(...Object.entries(reference.countries).sort((a, b) => a[1].name.localeCompare(b[1].name)).map(([code, c]) => el('option', { value: code, selected: code === e.country }, c.name)), el('option', { value: '', selected: !e.country }, 'Somewhere else'));
+    form.timezone.replaceChildren(...[...new Set([e.timezone ?? 'UTC', ...zones])].sort().map((z) => el('option', { value: z, selected: z === (e.timezone ?? 'UTC') }, z.replaceAll('_', ' '))));
+    form.name.value = e.name ?? '';
+    form.preferredName.value = e.preferredName ?? '';
+    form.pronoun.value = e.pronoun ?? 'they';
+    form.emergencyNumber.value = e.emergencyNumber ?? reference.countries[e.country]?.emergency ?? '';
+    form.city.value = e.city ?? '';
+    form.home.value = e.home ?? '';
+    form.pharmacyName.value = e.pharmacy?.name ?? '';
+    form.pharmacyPhone.value = e.pharmacy?.phone ?? '';
+    form.memorySupport.checked = Boolean(e.accessibility?.memorySupport);
+    form.hearingLoss.checked = e.accessibility?.hearing === 'mild-loss';
+    form.lowVision.checked = e.accessibility?.vision === 'low-vision';
+    form.shareMoodWords.checked = e.privacy?.shareMoodWords !== false;
+    $('member-list').replaceChildren(...circle.map((p) => el('li', {},
+      el('span', {}, `${p.name} · ${p.relationship}${p.email ? ` · ${p.email}` : ''}`),
+      p.id === status.memberId ? el('span', { class: 'muted' }, 'You') : el('button', { class: 'text-action', type: 'button', onclick: async () => {
+        if (!confirm(`Remove ${p.name} from ${elderName}'s circle? They will stop getting updates.`)) return;
+        try { await call(`/household/members/${encodeURIComponent(p.id)}`, 'DELETE'); await init(false); fill(); toast(`${p.name} was removed.`); } catch (err) { toast(err.message); }
+      } }, 'Remove'))));
+  }
+
+  form.country.addEventListener('change', () => { form.emergencyNumber.value = reference.countries[form.country.value]?.emergency ?? form.emergencyNumber.value; });
+  $('open-settings').addEventListener('click', () => { $('settings-error').hidden = true; fill(); dialog.showModal(); });
+  form.addEventListener('submit', async (e) => {
+    if (e.submitter?.value !== 'save') return;
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/household/profile', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({
+        name: form.name.value, preferredName: form.preferredName.value, language: form.language.value, pronoun: form.pronoun.value,
+        country: form.country.value, emergencyNumber: form.emergencyNumber.value, timezone: form.timezone.value, city: form.city.value, home: form.home.value,
+        pharmacy: { name: form.pharmacyName.value, phone: form.pharmacyPhone.value },
+        accessibility: { memorySupport: form.memorySupport.checked, hearingLoss: form.hearingLoss.checked, lowVision: form.lowVision.checked },
+        shareMoodWords: form.shareMoodWords.checked,
+      }) });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error ?? 'Could not save.');
+      dialog.close();
+      toast('Saved.');
+      await init(false);
+    } catch (err) {
+      $('settings-error').textContent = err.message;
+      $('settings-error').hidden = false;
+    }
+  });
+}
+
 function showReturnNotice() {
   const params = new URLSearchParams(location.search);
   const gmail = params.get('gmail');
@@ -499,6 +560,11 @@ async function init(first = true) {
   circle = status.circle;
   languages = status.languages;
   elderName = status.elder.preferredName;
+  pr = pronounsOf(status.elder);
+  $('mood-h').textContent = `How ${elderName} has been feeling`;
+  $('compose-text').placeholder = `Write in your language. ${elderName} hears it in theirs.`;
+  $('record-status').textContent = `${elderName} hears your actual voice, not a translation.`;
+  $('device-intro').textContent = `Use an Echo Show, a tablet or an old phone. Keep it plugged in near where ${elderName} sits.`;
   if (!status.me) {
     $('view-as').hidden = false;
     $('member').replaceChildren(...circle.map((p) => el('option', { value: p.id, selected: p.id === settings.member }, `${p.name} (${p.relationship})`)));
@@ -510,6 +576,7 @@ async function init(first = true) {
   if (first) {
     setupInvite();
     setupDevices();
+    setupSettings();
     showReturnNotice();
     $('open-invite').hidden = status.me && status.me.role !== 'owner';
   }

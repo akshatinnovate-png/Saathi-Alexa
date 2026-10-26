@@ -288,3 +288,7 @@ button.person:hover { background: rgb(255 255 255 / 90%); }
 .advanced summary { cursor: pointer; font: 500 0.88rem var(--sans); color: #3b4252; min-height: 32px; }
 .advanced[open] { display: grid; gap: 10px; }
 .toast { position: fixed; left: 50%; top: 18px; transform: translateX(-50%); z-index: 30; margin: 0; padding: 12px 18px; border-radius: 999px; background: #1d2230; color: #fff; font: 500 0.92rem var(--sans); box-shadow: 0 12px 30px rgb(20 30 60 / 25%); max-width: calc(100vw - 32px); }
+
+.sheet.wide { width: min(680px, calc(100% - 24px)); }
+.checks-row { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.checks-row legend { font: 500 0.85rem var(--sans); margin-bottom: 6px; }

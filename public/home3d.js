@@ -271,7 +271,7 @@ function renderPlan(host, map, { selected, onPick }) {
   host.replaceChildren(root);
 }
 
-export function mountHome(root, { elderName = 'Aaji', canEdit = true } = {}) {
+export function mountHome(root, { elderName = 'them', canEdit = true } = {}) {
   let map = { rooms: [], items: [], devices: [] };
   let mode = webglAvailable() ? '3d' : '2d';
   let scene = null;
@@ -308,7 +308,7 @@ export function mountHome(root, { elderName = 'Aaji', canEdit = true } = {}) {
       el('div', { class: 'h3-stage-wrap' }, stage, finder, answer),
       el('aside', { class: 'h3-side glass' },
         el('h3', {}, 'Rooms'), rooms,
-        el('h3', {}, 'Things she looks for'), items,
+        el('h3', {}, 'Things to help find'), items,
         canEdit ? form : '')));
   root.replaceChildren(card);
 

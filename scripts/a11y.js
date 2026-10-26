@@ -7,15 +7,16 @@ import { createApp } from '../src/http/app.js';
 import { createAlexaSimulator } from '../src/agent/alexaSimulator.js';
 import { createFamilyAssistant } from '../src/agent/familyAssistant.js';
 import { createFileStore } from '../src/local/fileStore.js';
+import { seedData } from '../src/domain/seed.js';
 
 const require = createRequire(import.meta.url);
 const axeSource = readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
 const LOCAL_CHROMIUM = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 
-const services = createServices({ ...config, host: '127.0.0.1' }, { store: createFileStore({ persist: false }), metrics: { emit() {} } });
+const services = createServices({ ...config, host: '127.0.0.1' }, { store: createFileStore({ persist: false, seed: () => seedData() }), metrics: { emit() {} } });
 let simulator;
 let assistant;
-const appConfig = { ...config, host: '127.0.0.1', web: { ...config.web, requireLogin: false } };
+const appConfig = { ...config, demo: true, host: '127.0.0.1', web: { ...config.web, requireLogin: false } };
 const app = createApp({
   config: appConfig,
   services,

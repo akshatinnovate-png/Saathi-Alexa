@@ -12,7 +12,7 @@ let services;
 
 before(async () => {
   services = testServices();
-  const accounts = createAccounts({ store: services.store, services });
+  const accounts = createAccounts({ store: services.store, services, demo: true });
   await accounts.ensureDemo();
   const app = createApp({
     config: testConfig({ host: '127.0.0.1', web: { requireLogin: true } }),

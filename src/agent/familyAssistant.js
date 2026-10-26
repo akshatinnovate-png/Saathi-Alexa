@@ -9,14 +9,13 @@ const FAMILY_TOOLS = [
 
 const RULES = [
   { tool: 'weekly_family_letter', test: /week|letter|lately|recently/i, args: (m) => ({ member: m }) },
-  { tool: 'get_upcoming_appointments', test: /doctor|appointment|clinic|visit|take her|check-?up/i, args: () => ({ language: 'en', days: 30 }) },
+  { tool: 'get_upcoming_appointments', test: /doctor|appointment|clinic|visit|take (?:her|him|them)|check-?up/i, args: () => ({ language: 'en', days: 30 }) },
   { tool: 'get_medication_schedule', test: /tablet|medicine|pill|refill|dose|supply/i, args: () => ({ language: 'en' }) },
   { tool: 'list_memory_stories', test: /stor(y|ies)|memory book|memories/i, args: () => ({ limit: 5, language: 'en' }) },
-  { tool: 'where_is', test: /where (is|are)|kept|find (her|the)/i, args: (_m, text) => ({ item: text.replace(/.*where (is|are)\s*(her|the|aaji'?s)?\s*/i, '').replace(/[?.!]/g, '') || text, language: 'en' }) },
+  { tool: 'where_is', test: /where (is|are)|kept|find (?:her|his|their|the)/i, args: (_m, text) => ({ item: text.replace(/.*where (is|are)\s*(her|his|their|the|[\p{L}]+'s)?\s*/iu, '').replace(/[?.!]/g, '') || text, language: 'en' }) },
   { tool: 'family_summary', test: /.*/, args: (m) => ({ member: m }) },
 ];
 
-const SUGGESTIONS = ['How was Aaji this week?', 'Who is taking her to the doctor?', 'Does she need a refill?', 'Where are her glasses?'];
 
 export function createFamilyAssistant({ mcpUrl, headers, llm }) {
   let mcp;
@@ -52,7 +51,7 @@ export function createFamilyAssistant({ mcpUrl, headers, llm }) {
     return `You are Saathi's assistant inside the family app. You are talking with ${memberId}, a member of ${elder.preferredName}'s care circle.
 ${elder.preferredName} (${elder.name}) lives in ${elder.city}. Answer warmly and concisely, in ${language ?? 'the language the family member writes in'}.
 Use the tools to look things up; never guess about tablets, appointments or alerts. Private check-ins are private: never speculate about them.
-If something sounds urgent, say so plainly and suggest calling her. Use plain sentences, no markdown tables.`;
+If something sounds urgent, say so plainly and suggest calling them. Use plain sentences, no markdown tables.`;
   }
 
   async function withModel(conversationId, message, memberId, language, trace) {
@@ -62,7 +61,7 @@ If something sounds urgent, say so plainly and suggest calling her. Use plain se
     for (let i = 0; i < 6; i++) {
       const response = await llm.create({ system: systemPrompt(memberId, language), tools: anthropicTools, messages: history });
       history.push({ role: 'assistant', content: response.content });
-      if (response.stop_reason === 'refusal') return "I can't help with that one, but I can tell you how she's doing today.";
+      if (response.stop_reason === 'refusal') return `I can't help with that one, but I can tell you how ${elder.preferredName} is doing today.`;
       if (response.stop_reason === 'pause_turn') continue;
       if (response.stop_reason !== 'tool_use') {
         conversations.set(conversationId, history.slice(-24));
@@ -82,8 +81,8 @@ If something sounds urgent, say so plainly and suggest calling her. Use plain se
   }
 
   return {
-    suggestions: SUGGESTIONS,
-    async ask({ message, memberId = 'riya', language, conversationId = 'default' }) {
+    get suggestions() { return suggestionsFor(elder?.preferredName); },
+    async ask({ message, memberId = null, language, conversationId = 'default' }) {
       await connect();
       const trace = [];
       let reply;
@@ -99,7 +98,7 @@ If something sounds urgent, say so plainly and suggest calling her. Use plain se
       } else {
         reply = await offline(message, memberId, trace);
       }
-      return { reply, brain, trace, suggestions: SUGGESTIONS };
+      return { reply, brain, trace, suggestions: suggestionsFor(elder?.preferredName) };
     },
     async close() {
       await mcp?.close();

@@ -74,7 +74,7 @@
         <div class="grid">
           <article class="glass span-6" aria-labelledby="meds-h"><h3 id="meds-h">Tablets today</h3><div class="list" id="meds"></div></article>
           <article class="glass span-6" aria-labelledby="appts-h"><h3 id="appts-h">Doctor visits</h3><div class="list" id="appointments"></div></article>
-          <article class="glass span-6" aria-labelledby="mood-h"><h3 id="mood-h">How she's been feeling</h3><div class="mood" id="mood"></div></article>
+          <article class="glass span-6" aria-labelledby="mood-h"><h3 id="mood-h">How they've been feeling</h3><div class="mood" id="mood"></div></article>
           <article class="glass span-6" aria-labelledby="door-h"><h3 id="door-h">Front door <span class="muted">· Ring</span></h3><div class="list" id="door"></div></article>
         </div>
       </section>
@@ -85,12 +85,12 @@
           <div class="thread" id="thread"></div>
           <form class="compose" id="compose">
             <label class="sr-only" for="compose-text">Message</label>
-            <input id="compose-text" type="text" autocomplete="off" placeholder="Write in your language. She'll hear it in hers.">
+            <input id="compose-text" type="text" autocomplete="off" placeholder="Write in your language. They hear it in theirs.">
             <button class="round-btn dark" type="submit" aria-label="Send message"></button>
           </form>
           <div class="voice-row">
             <button class="pill-action" id="record" type="button" aria-pressed="false">🎤 Record a voice note</button>
-            <span class="muted" id="record-status" aria-live="polite">She hears your actual voice, not a translation.</span>
+            <span class="muted" id="record-status" aria-live="polite">They hear your actual voice, not a translation.</span>
           </div>
         </article>
       </section>
@@ -126,7 +126,8 @@
         <a class="rail-btn" href="#overview" data-nav="overview" aria-label="Overview"></a>
         <a class="rail-btn" href="#care" data-nav="care" aria-label="Care: alerts, tablets and visits"><span class="badge" id="alert-badge" hidden></span></a>
         <button class="rail-btn" type="button" id="open-invite" data-icon="userPlus" aria-label="Invite family"></button>
-        <button class="rail-btn" type="button" id="open-devices" data-icon="tablet" aria-label="Set up Aaji's device"></button>
+        <button class="rail-btn" type="button" id="open-devices" data-icon="tablet" aria-label="Set up their device"></button>
+        <button class="rail-btn" type="button" id="open-settings" data-icon="gear" aria-label="Settings"></button>
       </div>
       <div class="rail-group">
         <a class="rail-btn" href="#memories" data-nav="memories" aria-label="Memories and letters"></a>
@@ -135,7 +136,7 @@
         <a class="rail-btn" href="#home" data-nav="home" aria-label="House map"></a>
       </div>
       <div class="rail-group rail-bottom">
-        <a class="rail-btn" href="/alexa.html" data-icon="mic" aria-label="Open Aaji's Alexa"></a>
+        <a class="rail-btn" href="/alexa.html" data-icon="mic" aria-label="Open their Saathi screen" id="open-elder-screen"></a>
         <button class="rail-btn" type="button" id="logout" data-icon="logout" aria-label="Log out"></button>
       </div>
     </nav>
@@ -176,10 +177,52 @@
     </div>
   </dialog>
 
+  <dialog class="sheet wide" id="settings-dialog" aria-labelledby="settings-h">
+    <form method="dialog" class="sheet-form" id="settings-form">
+      <h2 id="settings-h">Settings</h2>
+      <p class="muted" id="settings-intro">Only the person who set up this household can change these.</p>
+      <div class="sheet-row">
+        <label>Full name<input name="name" required autocomplete="off"></label>
+        <label>What the family calls them<input name="preferredName" autocomplete="off"></label>
+      </div>
+      <div class="sheet-row">
+        <label>Language they speak<select name="language"></select></label>
+        <label>They are referred to as<select name="pronoun"><option value="she">she / her</option><option value="he">he / him</option><option value="they">they / them</option></select></label>
+      </div>
+      <div class="sheet-row">
+        <label>Country<select name="country"></select></label>
+        <label>Emergency number<input name="emergencyNumber" inputmode="tel" autocomplete="off"></label>
+      </div>
+      <div class="sheet-row">
+        <label>Time zone<select name="timezone"></select></label>
+        <label>City<input name="city" autocomplete="off"></label>
+      </div>
+      <label>Home (shown to the neighbour in an emergency)<input name="home" autocomplete="off"></label>
+      <div class="sheet-row">
+        <label>Pharmacy<input name="pharmacyName" autocomplete="off"></label>
+        <label>Pharmacy phone<input name="pharmacyPhone" inputmode="tel" autocomplete="off"></label>
+      </div>
+      <fieldset class="checks-row">
+        <legend>Support they need</legend>
+        <label class="inline-check"><input type="checkbox" name="memorySupport"> Memory support</label>
+        <label class="inline-check"><input type="checkbox" name="hearingLoss"> Hearing loss</label>
+        <label class="inline-check"><input type="checkbox" name="lowVision"> Low vision</label>
+      </fieldset>
+      <label class="inline-check"><input type="checkbox" name="shareMoodWords"> Share their words with the family when they seem low</label>
+      <p class="form-error" id="settings-error" role="alert" hidden></p>
+      <div class="sheet-actions">
+        <button class="text-action" value="cancel" formnovalidate>Cancel</button>
+        <button class="pill-action dark" id="settings-save" value="save">Save</button>
+      </div>
+      <h3 class="devices-h">People in the circle</h3>
+      <ul class="device-list" id="member-list"></ul>
+    </form>
+  </dialog>
+
   <dialog class="sheet" id="device-dialog" aria-labelledby="device-h">
     <div class="sheet-form">
-      <h2 id="device-h">Set up Aaji's device</h2>
-      <p class="muted" id="device-intro">Use an Echo Show, a tablet or an old phone. Keep it plugged in near where she sits.</p>
+      <h2 id="device-h">Set up their device</h2>
+      <p class="muted" id="device-intro">Use an Echo Show, a tablet or an old phone. Keep it plugged in near where they sit.</p>
       <ol class="pair-steps">
         <li><span>1</span><div>On that device, open <strong id="pair-url">saathi/device</strong>, or scan this code with its camera.</div></li>
         <li><span>2</span><div>Type this number:<p class="pair-code" id="pair-code" aria-live="polite">––– –––</p><p class="muted small" id="pair-expiry"></p></div></li>

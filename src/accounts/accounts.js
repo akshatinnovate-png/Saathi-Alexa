@@ -18,7 +18,7 @@ const PAIRING_MINUTES = 15;
 export const normaliseEmail = (email) => String(email ?? '').trim().toLowerCase();
 const hashToken = (token) => createHash('sha256').update(token).digest('hex');
 
-export function createAccounts({ store, services, cognito = null, demo = true, clock = () => new Date(), onInvite = null }) {
+export function createAccounts({ store, services, cognito = null, demo = false, clock = () => new Date(), onInvite = null }) {
   const publicAccount = (a) => a && ({
     email: a.email, name: a.name, householdId: a.householdId ?? null, memberId: a.memberId ?? null, role: a.role ?? null,
     provider: a.provider, avatar: a.avatar ?? null,
@@ -119,6 +119,23 @@ export function createAccounts({ store, services, cognito = null, demo = true, c
       return { link: sent.link, emailed: Boolean(sent.emailed), via: sent.via ?? null };
     },
 
+    async removeMember(ownerEmail, memberId) {
+      const owner = await store.get('accounts', normaliseEmail(ownerEmail));
+      if (owner?.role !== 'owner') throw new AuthError('forbidden', 'Only the person who set up this household can remove people.');
+      if (memberId === owner.memberId) throw new AuthError('forbidden', "You can't remove yourself while you own this household.");
+      const saathi = services.forHousehold(owner.householdId);
+      const member = await saathi.removeMember(memberId);
+      if (!member) throw new AuthError('member', 'That person is not in the circle.');
+      for (const account of (await store.list('accounts')).filter((a) => a.householdId === owner.householdId && a.memberId === memberId)) {
+        await store.update('accounts', account.email, { householdId: null, memberId: null, role: null });
+      }
+      if (member.email) {
+        await store.remove('invites', member.email);
+        for (const t of (await store.list('inviteTokens')).filter((x) => x.email === member.email)) await store.remove('inviteTokens', t.id);
+      }
+      return { removed: member.id };
+    },
+
     async pendingInvites(householdId) {
       return (await store.list('invites')).filter((i) => i.householdId === householdId).map((i) => ({ email: i.id, memberId: i.memberId, createdAt: i.createdAt }));
     },
@@ -206,6 +223,7 @@ export function createAccounts({ store, services, cognito = null, demo = true, c
     async login({ email, password }) {
       email = normaliseEmail(email);
       const local = await store.get('accounts', email);
+      if (local?.demo && !demo) throw new AuthError('credentials', 'Demo accounts are switched off here. Run "npm run demo" to try the demo family.');
       if (local && !local.passwordHash && local.provider === 'google') throw new AuthError('credentials', 'This account signs in with Google. Tap the Google button above.');
       if (local?.provider === 'local' || local?.passwordHash) {
         if (!(await verifyPassword(password ?? '', local.passwordHash))) throw new AuthError('credentials', 'That email and password do not match.');

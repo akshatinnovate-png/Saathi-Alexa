@@ -19,7 +19,7 @@ let accounts;
 
 before(async () => {
   services = testServices();
-  accounts = createAccounts({ store: services.store, services });
+  accounts = createAccounts({ store: services.store, services, demo: true });
   await accounts.ensureDemo();
   const app = createApp({
     config: testConfig({ host: '127.0.0.1', web: { requireLogin: true } }),

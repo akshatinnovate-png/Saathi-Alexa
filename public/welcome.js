@@ -7,6 +7,32 @@ const STEPS = [
 ];
 const LANGS = { mr: 'मराठी · Marathi', hi: 'हिन्दी · Hindi', en: 'English', ta: 'தமிழ் · Tamil', bn: 'বাংলা · Bengali', es: 'Español · Spanish', fr: 'Français · French', ar: 'العربية · Arabic' };
 let step = 1;
+let countries = {};
+
+function option(value, label, selected) {
+  const o = document.createElement('option');
+  o.value = value;
+  o.textContent = label;
+  o.selected = selected;
+  return o;
+}
+
+async function fillPlaces() {
+  const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const zones = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [browserZone];
+  $('e-tz').replaceChildren(...[...new Set([browserZone, ...zones])].sort().map((z) => option(z, z.replaceAll('_', ' '), z === browserZone)));
+  try {
+    countries = (await (await fetch('/api/reference')).json()).countries;
+  } catch {
+    countries = {};
+  }
+  const guess = Object.entries({ Kolkata: 'IN', Calcutta: 'IN', London: 'GB', Dubai: 'AE', Singapore: 'SG', Sydney: 'AU', Melbourne: 'AU', Toronto: 'CA', Auckland: 'NZ', Kathmandu: 'NP', Dhaka: 'BD', Karachi: 'PK', Tokyo: 'JP' }).find(([city]) => browserZone.includes(city))?.[1]
+    ?? (browserZone.startsWith('America/') ? 'US' : 'IN');
+  $('e-country').replaceChildren(...Object.entries(countries).sort((a, b) => a[1].name.localeCompare(b[1].name)).map(([code, c]) => option(code, c.name, code === guess)), option('', 'Somewhere else', false));
+  const syncNumber = () => { $('e-emergency').value = countries[$('e-country').value]?.emergency ?? ''; };
+  $('e-country').addEventListener('change', syncNumber);
+  syncNumber();
+}
 
 function fillLanguages(select, chosen) {
   select.replaceChildren(...Object.entries(LANGS).map(([code, label]) => {
@@ -59,6 +85,7 @@ function form() {
     elder: {
       name: $('e-name').value, preferredName: $('e-called').value, language: $('e-lang').value, city: $('e-city').value, home: $('e-home').value,
       memorySupport: $('e-memory').checked, hearingLoss: $('e-hearing').checked, lowVision: $('e-vision').checked,
+      pronoun: $('e-pronoun').value, country: $('e-country').value, timezone: $('e-tz').value, emergencyNumber: $('e-emergency').value,
     },
     owner: { name: $('o-name').value, relationship: $('o-rel').value, language: $('o-lang').value, city: $('o-city').value, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
     neighbour: $('n-name').value.trim() ? { name: $('n-name').value, language: $('n-lang').value, email: $('n-email').value } : null,
@@ -93,9 +120,11 @@ $('logout').addEventListener('click', async (e) => {
   location.href = '/login.html';
 });
 
-fillLanguages($('e-lang'), 'mr');
-fillLanguages($('o-lang'), 'en');
-fillLanguages($('n-lang'), 'mr');
+const browserLang = (navigator.languages ?? [navigator.language]).map((l) => l.slice(0, 2)).find((l) => LANGS[l]) ?? 'en';
+fillLanguages($('e-lang'), browserLang);
+fillLanguages($('o-lang'), browserLang);
+fillLanguages($('n-lang'), browserLang);
+fillPlaces();
 fetch('/api/session').then((r) => r.json()).then((s) => { if (s.user?.name) $('o-name').value = s.user.name; }).catch(() => {});
 addMed();
 show(1);

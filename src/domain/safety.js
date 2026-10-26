@@ -28,7 +28,7 @@ const URGENT = [
 
 const GENTLE = [
   { kind: 'loneliness', patterns: [/\blonely\b/i, /\balone\b/i, /\bnobody (?:calls|visits)\b/i, /\bno one (?:calls|visits)\b/i, 'अकेली', 'अकेला', 'अकेलापन', 'एकटं', 'एकटी', 'कोणी नाही', /\bakel[ai]\b/i, /\bekti\b/i] },
-  { kind: 'missing-family', patterns: [/\bmiss (?:you|her|him|them|my|riya|anand|\w+ so)\b/i, /\bi miss\b/i, 'याद आ', 'आठवण', /\byaad\b/i] },
+  { kind: 'missing-family', patterns: [/\bmiss (?:you|her|him|them|my|\w+ so|[A-Z]\w+)\b/i, /\bi miss\b/i, 'याद आ', 'आठवण', /\byaad\b/i] },
   { kind: 'low-mood', patterns: [/\bsad\b/i, /\bcry(?:ing)?\b/i, /\bdepressed\b/i, 'उदास', 'रोना', 'रडू', 'दुःखी', /\budaas\b/i] },
   { kind: 'unwell', patterns: [/\bdizzy\b/i, /\btired\b/i, /\bnot (?:feeling )?well\b/i, /\bfever\b/i, 'चक्कर', 'बुखार', 'ताप', 'बरं नाही', /\bthakan\b/i] },
   { kind: 'confusion', patterns: [/\bconfused\b/i, /\bforg[eo]t(?:ting)?\b/i, 'भूल', 'विसरले', 'विसरते', /\bbhool\b/i] },

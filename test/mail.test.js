@@ -38,7 +38,7 @@ before(async () => {
   const mailer = createMailer({ transport: fakeTransport });
   const familyMail = createFamilyMail({ store: services.store, mailer, google, vault: createVault('test-secret'), publicUrl: 'https://saathi.test' });
   services.attachMail(familyMail);
-  const accounts = createAccounts({ store: services.store, services, onInvite: (i) => familyMail.sendInvite(i) });
+  const accounts = createAccounts({ store: services.store, services, demo: true, onInvite: (i) => familyMail.sendInvite(i) });
   await accounts.ensureDemo();
   const app = createApp({
     config: testConfig({ host: '127.0.0.1', web: { requireLogin: true } }),

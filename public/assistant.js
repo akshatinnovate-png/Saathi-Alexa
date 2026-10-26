@@ -24,10 +24,10 @@ function greeting() {
   return h < 12 ? 'this morning' : h < 17 ? 'this afternoon' : 'this evening';
 }
 
-export function mountAssistant(root, { audience = 'family', name = 'there', elderName = 'Aaji', language = 'en', avatar = null, initial = null, onClose = null, speak = null }) {
+export function mountAssistant(root, { audience = 'family', name = 'there', elderName = 'them', language = 'en', avatar = null, initial = null, onClose = null, speak = null }) {
   const elder = audience === 'elder';
   const copy = ELDER_COPY[language] ?? ELDER_COPY.en;
-  const suggestions = elder ? copy.suggestions : [`How was ${elderName} this week?`, `Who is taking ${elderName} to the doctor?`, 'Does she need a refill?', 'Where are her glasses?'];
+  const suggestions = elder ? copy.suggestions : [`How was ${elderName} this week?`, `Who is taking ${elderName} to the doctor?`, `Does ${elderName} need a refill?`, `Where are ${elderName}'s glasses?`];
   const suggestIcons = elder ? ['calendar', 'pill', 'search', 'message'] : ['heart', 'calendar', 'pill', 'search'];
   const conversationId = Math.random().toString(36).slice(2);
 
@@ -83,7 +83,7 @@ export function mountAssistant(root, { audience = 'family', name = 'there', elde
       tiles.replaceChildren(
         tile('Tablets', 'pill', [el('p', {}, 'taken today'), el('p', { class: 'big' }, `${taken}/${s.medications.length}`)]),
         tile('Next visit', 'calendar', nextVisit ? [el('p', {}, nextVisit.with), el('div', { class: 'sub-card' }, `${nextVisit.title} · ${nextVisit.at.slice(5, 10)} ${nextVisit.at.slice(11, 16)}`)] : [el('p', {}, 'Nothing booked')]),
-        tile('Mood', 'heart', latest ? [el('p', {}, latest.sentiment === 'PRIVATE' ? 'Kept private, by her choice' : `Feeling ${latest.sentiment.toLowerCase()}`), el('div', { class: 'sub-card', lang: latest.language }, latest.sentiment === 'PRIVATE' ? '🤫' : `“${latest.text}”`)] : [el('p', {}, 'No check-in yet today')]),
+        tile('Mood', 'heart', latest ? [el('p', {}, latest.sentiment === 'PRIVATE' ? 'Kept private, by choice' : `Feeling ${latest.sentiment.toLowerCase()}`), el('div', { class: 'sub-card', lang: latest.language }, latest.sentiment === 'PRIVATE' ? '🤫' : `“${latest.text}”`)] : [el('p', {}, 'No check-in yet today')]),
         tile('Alerts', 'bell', [el('p', {}, unread ? 'need someone' : 'all quiet'), el('p', { class: 'big' }, String(unread))]),
       );
     } catch {

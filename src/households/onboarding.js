@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { SEED_VERSION } from '../domain/seed.js';
+import { PRONOUNS, COUNTRIES, isTimeZone } from '../domain/people.js';
 
 const slug = (s) => String(s ?? '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24);
 
@@ -25,6 +26,9 @@ export function validateOnboarding(form) {
   if (!clean(form?.elder?.language, 5)) problems.push('Choose the language they speak.');
   if (!clean(form?.owner?.name)) problems.push('Tell us your name.');
   if (!clean(form?.owner?.relationship, 40)) problems.push('Tell us how you are related.');
+  if (form?.elder?.timezone && !isTimeZone(form.elder.timezone)) problems.push('Choose their time zone from the list.');
+  if (form?.elder?.pronoun && !PRONOUNS.includes(form.elder.pronoun)) problems.push('Choose she, he or they.');
+  if (form?.elder?.country && !COUNTRIES[form.elder.country]) problems.push('Choose their country from the list.');
   for (const [i, m] of (form?.medications ?? []).entries()) {
     if (!clean(m.name) || !/^\d{2}:\d{2}$/.test(m.time ?? '')) problems.push(`Medicine ${i + 1} needs a name and a time.`);
   }
@@ -41,19 +45,32 @@ export async function buildHousehold(form, { ownerEmail, translate, now = new Da
     return t && t !== text ? { [language]: t } : {};
   };
 
+  const elderZone = isTimeZone(e.timezone) ? e.timezone : 'UTC';
+  const intro = async (relationship, name) => {
+    const fields = { relationship, aboutForElder: `${name} is your ${relationship}.` };
+    if (!translate || language === 'en') return {};
+    const out = {};
+    for (const [k, v] of Object.entries(fields)) {
+      const t = await translate(v, language);
+      if (t && t !== v) out[k] = t;
+    }
+    return Object.keys(out).length ? { [language]: out } : {};
+  };
   const owner = {
     id: uniqueId(form.owner.name, taken), name: clean(form.owner.name), relationship: clean(form.owner.relationship, 40).toLowerCase(),
     role: 'family', language: clean(form.owner.language, 5) || 'en', city: clean(form.owner.city), timezone: clean(form.owner.timezone, 60) || 'UTC',
     email: ownerEmail, aliases: [], escalationOrder: 1,
     aboutForElder: `${clean(form.owner.name)} is your ${clean(form.owner.relationship, 40).toLowerCase()}.`,
+    i18n: await intro(clean(form.owner.relationship, 40).toLowerCase(), clean(form.owner.name)),
   };
   const circle = [owner];
   if (clean(form.neighbour?.name)) {
     circle.push({
       id: uniqueId(form.neighbour.name, taken), name: clean(form.neighbour.name), relationship: 'neighbour', role: 'neighbour',
-      language: clean(form.neighbour.language, 5) || language, city: clean(e.city), timezone: clean(form.elder.timezone, 60) || 'Asia/Kolkata',
+      language: clean(form.neighbour.language, 5) || language, city: clean(e.city), timezone: elderZone,
       email: clean(form.neighbour.email).toLowerCase() || null, aliases: [], escalationOrder: 2,
       aboutForElder: `${clean(form.neighbour.name)} is your neighbour.`,
+      i18n: await intro('neighbour', clean(form.neighbour.name)),
     });
   }
 
@@ -76,6 +93,8 @@ export async function buildHousehold(form, { ownerEmail, translate, now = new Da
     profile: [{
       id: 'elder', name: clean(e.name), preferredName: clean(e.preferredName) || clean(e.name).split(' ')[0], language,
       secondaryLanguage: clean(e.secondaryLanguage, 5) || null, city: clean(e.city), home: clean(e.home) || clean(e.city),
+      pronoun: PRONOUNS.includes(e.pronoun) ? e.pronoun : 'they', timezone: elderZone, country: COUNTRIES[e.country] ? e.country : null,
+      emergencyNumber: clean(e.emergencyNumber, 15).replace(/[^\d+]/g, '') || null,
       accessibility: {
         memorySupport: Boolean(e.memorySupport), hearing: e.hearingLoss ? 'mild-loss' : 'typical', vision: e.lowVision ? 'low-vision' : 'typical',
         preferredPace: e.memorySupport || e.hearingLoss ? 'slow' : 'normal', largeText: Boolean(e.lowVision),

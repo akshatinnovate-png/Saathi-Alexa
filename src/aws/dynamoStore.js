@@ -2,7 +2,6 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
   DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand, BatchWriteCommand, DeleteCommand,
 } from '@aws-sdk/lib-dynamodb';
-import { seedData } from '../domain/seed.js';
 
 export function createDynamoStore({ tableName, region, client } = {}) {
   const doc = DynamoDBDocumentClient.from(client ?? new DynamoDBClient({ region }), {
@@ -61,8 +60,7 @@ export function createDynamoStore({ tableName, region, client } = {}) {
       await doc.send(new DeleteCommand({ TableName: tableName, Key: { pk: collection, sk: id } }));
       return true;
     },
-    async reset() {
-      const data = seedData();
+    async reset(data) {
       const writes = Object.entries(data).flatMap(([collection, items]) =>
         items.map((item) => ({ PutRequest: { Item: { pk: collection, sk: item.id, ...item } } })));
       for (let i = 0; i < writes.length; i += 25) {

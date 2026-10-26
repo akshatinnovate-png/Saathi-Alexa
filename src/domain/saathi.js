@@ -2,6 +2,7 @@ import { assessConcerns } from './safety.js';
 import { DEFAULT_HOUSEHOLD, collectionFor } from '../households/scope.js';
 import { languageName, LANGUAGES } from './languages.js';
 import { t, spokenLanguage, partOfDayName, joinNames, localized, localDigits } from './i18n.js';
+import { pronounsOf, emergencyNumberFor, isTimeZone, PRONOUNS, COUNTRIES } from './people.js';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -10,7 +11,7 @@ const invalid = (message) => Object.assign(new Error(message), { status: 400 });
 export function createSaathi(deps) {
   const { store, translator, sentiment, speech, events, notifier, media, metrics, config } = deps;
   const clock = deps.clock ?? (() => new Date());
-  const tz = config.timezone;
+  let tz = config.timezone;
 
   function localParts(date = clock()) {
     const f = new Intl.DateTimeFormat('en-GB', {
@@ -30,7 +31,9 @@ export function createSaathi(deps) {
   const id = (prefix) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
   async function elder() {
-    return store.get('profile', 'elder');
+    const me = await store.get('profile', 'elder');
+    tz = me?.timezone && isTimeZone(me.timezone) ? me.timezone : config.timezone;
+    return me;
   }
 
   async function voice(language) {
@@ -150,9 +153,10 @@ export function createSaathi(deps) {
     for (const med of meds.filter((m) => m.status === 'missed')) {
       const alertId = `dose-${med.id}-${now.date}`;
       if (await store.get('alerts', alertId)) continue;
-      await store.put('alerts', { id: alertId, type: 'dose-missed', severity: 'info', createdAt: clock().toISOString(), summary: `${me.preferredName} hasn't confirmed her ${med.purpose} tablet (${med.time}).`, acknowledged: false });
+      const p = pronounsOf(me);
+      await store.put('alerts', { id: alertId, type: 'dose-missed', severity: 'info', createdAt: clock().toISOString(), summary: `${me.preferredName} hasn't confirmed ${p.possessive} ${med.purpose} tablet (${med.time}).`, acknowledged: false });
       await events.publish('DoseMissed', { alertId, medicationId: med.id, medication: med.name });
-      await notifier.notify({ audience: 'family', severity: 'info', subject: `${me.preferredName}: ${med.purpose} tablet not confirmed`, message: `${me.preferredName} hasn't confirmed her ${med.name} (${med.time}). A gentle call might help.` });
+      await notifier.notify({ audience: 'family', severity: 'info', subject: `${me.preferredName}: ${med.purpose} tablet not confirmed`, message: `${me.preferredName} hasn't confirmed ${p.possessive} ${med.name} (${med.time}). A gentle call might help.` });
       metrics.emit('DoseMissed', 1);
       raised.push(alertId);
     }
@@ -184,7 +188,7 @@ export function createSaathi(deps) {
       await notifyCircle({
         audience: 'family', severity: 'gentle',
         subject: `${me.preferredName} could use a call today`,
-        english: `${quote} She may be feeling ${concerns.gentle.join(' and ').replace('-', ' ')}. A call or a voice note from you would mean a lot.`.trim(),
+        english: `${quote} ${pronounsOf(me).Subject} may be feeling ${concerns.gentle.join(' and ').replace('-', ' ')}. A call or a voice note from you would mean a lot.`.trim(),
       });
       const lonely = concerns.gentle.includes('loneliness') || concerns.gentle.includes('missing-family');
       return { ...entry, ...say(lonely ? 'checkLonely' : 'checkGentle') };
@@ -212,6 +216,8 @@ export function createSaathi(deps) {
     const me = await elder();
     const circle = await store.list('circle');
     const neighbour = circle.find((p) => p.role === 'neighbour');
+    const p = pronounsOf(me);
+    const number = emergencyNumberFor(me);
     const alert = {
       id: id('alert'), type: 'help', source, severity, reason, words, createdAt: clock().toISOString(),
       acknowledged: false, escalationStage: 'starting',
@@ -223,9 +229,9 @@ export function createSaathi(deps) {
       alertsKey: collectionFor(deps.householdId, 'alerts'),
       severity,
       subject: `Saathi: ${me.preferredName} needs you now`,
-      familyMessage: `${me.preferredName} (${me.name}) needs help: ${reason}. She said: "${words}". Please call her now and press "I'm on it" in the Saathi family app.`,
-      neighbourMessage: `${neighbour?.name ?? 'Neighbour'}, ${me.preferredName} in ${me.home} needs help (${reason}) and her family hasn't responded yet. Please check on her.`,
-      emergencyMessage: `No one has acknowledged ${me.preferredName}'s alert (${reason}). If you cannot reach her, call emergency services: 112 in India. Address: ${me.home}.`,
+      familyMessage: `${me.preferredName} (${me.name}) needs help: ${reason}. ${p.Subject} said: "${words}". Please call ${p.object} now and press "I'm on it" in the Saathi family app.`,
+      neighbourMessage: `${neighbour?.name ?? 'Neighbour'}, ${me.preferredName} in ${me.home} needs help (${reason}) and ${p.possessive} family hasn't responded yet. Please check on ${p.object}.`,
+      emergencyMessage: `No one has acknowledged ${me.preferredName}'s alert (${reason}). If you cannot reach ${p.object}, call emergency services${number ? ` on ${number}` : ''}. Address: ${me.home}.`,
       familyWait: config.escalation.familyAckWaitSeconds,
       neighbourWait: config.escalation.neighbourAckWaitSeconds,
     };
@@ -345,7 +351,7 @@ export function createSaathi(deps) {
         metrics.emit('SpeechFailure', 1, { language: l });
       }
     }
-    const story = { id: storyId, title: title || 'A story from Aaji', language: lang, text, translations, audio, createdAt: clock().toISOString() };
+    const story = { id: storyId, title: title || `A story from ${me.preferredName}`, language: lang, text, translations, audio, createdAt: clock().toISOString() };
     await store.put('stories', story);
     await onProgress(total, total, 'Shared with the family');
     await events.publish('StoryShared', { id: story.id, title: story.title });
@@ -386,19 +392,23 @@ export function createSaathi(deps) {
       doorbellAt: event.at,
       ...(neighbourDispatched ? { acknowledged: true, acknowledgedBy: 'front-door', acknowledgedAt: event.at } : {}),
     });
+    const me = await elder();
+    const p = pronounsOf(me);
+    const neighbour = (await store.list('circle')).find((m) => m.role === 'neighbour');
     await notifyCircle({
       audience: 'family', severity: 'high',
-      subject: 'Someone is at Aaji\'s door',
-      english: `The Ring doorbell at ${(await elder()).preferredName}'s front door just rang during her alert (${alert.reason}).${neighbourDispatched ? ' Meera was asked to come, so the alert is now marked as answered.' : ' Please confirm someone is with her.'}`,
+      subject: `Someone is at ${me.preferredName}'s door`,
+      english: `The doorbell at ${me.preferredName}'s front door just rang during ${p.possessive} alert (${alert.reason}).${neighbourDispatched ? ` ${neighbour?.name ?? 'The neighbour'} was asked to come, so the alert is now marked as answered.` : ` Please confirm someone is with ${p.object}.`}`,
     });
     if (neighbourDispatched) await events.publish('AlertAcknowledged', { alertId: alert.id, by: 'front-door' });
     const { lang } = await voice();
     const say = t(lang, 'doorDuringAlert');
-    await deliverToElder({ fromId: 'meera', text: say, language: lang, system: true });
+    await deliverToElder({ fromId: neighbour?.id ?? 'front-door', text: say, language: lang, system: true });
     return { event, alertId: alert.id, resolved: neighbourDispatched, sayLanguage: lang, say };
   }
 
   async function sweepQuietDay() {
+    await elder();
     const now = localParts();
     if (now.minutes < 11 * 60) return null;
     const alertId = `quiet-${now.date}`;
@@ -480,16 +490,17 @@ export function createSaathi(deps) {
   async function sweepAppointments() {
     const raised = [];
     const me = await elder();
+    const p = pronounsOf(me);
     for (const a of (await upcomingAppointments({ language: 'en', days: 1 })).appointments) {
       if (a.escort || a.daysAway > 1) continue;
       const alertId = `escort-${a.id}`;
       if (await store.get('alerts', alertId)) continue;
       await store.put('alerts', {
         id: alertId, type: 'appointment-escort', severity: 'info', appointmentId: a.id, createdAt: clock().toISOString(), acknowledged: false,
-        summary: `${me.preferredName} has her ${a.title.toLowerCase()} with ${a.with} ${a.daysAway === 0 ? 'today' : 'tomorrow'} at ${a.at.slice(11, 16)} (${a.place}). Who can take her?`,
+        summary: `${me.preferredName} has ${p.possessive} ${a.title.toLowerCase()} with ${a.with} ${a.daysAway === 0 ? 'today' : 'tomorrow'} at ${a.at.slice(11, 16)} (${a.place}). Who can take ${p.object}?`,
       });
       await events.publish('EscortNeeded', { alertId, appointmentId: a.id });
-      await notifyCircle({ audience: 'family', severity: 'info', subject: `Who can take ${me.preferredName} to ${a.with}?`, english: `${me.preferredName} has her ${a.title.toLowerCase()} with ${a.with} ${a.daysAway === 0 ? 'today' : 'tomorrow'} at ${a.at.slice(11, 16)}, at ${a.place}. Tap "I'll take her" in the Saathi app.` });
+      await notifyCircle({ audience: 'family', severity: 'info', subject: `Who can take ${me.preferredName} to ${a.with}?`, english: `${me.preferredName} has ${p.possessive} ${a.title.toLowerCase()} with ${a.with} ${a.daysAway === 0 ? 'today' : 'tomorrow'} at ${a.at.slice(11, 16)}, at ${a.place}. Tap "I'll take ${p.object}" in the Saathi app.` });
       raised.push(alertId);
     }
     return raised;
@@ -527,6 +538,7 @@ export function createSaathi(deps) {
 
   async function weeklyLetters({ send = true } = {}) {
     const me = await elder();
+    const p = pronounsOf(me);
     const now = clock();
     const today = localParts().date;
     const since = (iso) => iso && dayDiff(localParts(new Date(iso)).date, today) < 7;
@@ -546,14 +558,14 @@ export function createSaathi(deps) {
     const lines = [
       `Tablets: ${weekDoses} of ${expected} taken (${expected ? Math.round((weekDoses / expected) * 100) : 0}%).`,
       week.length
-        ? `Mood: she checked in ${week.length} time${week.length === 1 ? '' : 's'}${shared.length && mood[1] ? `, mostly ${mood[0].toLowerCase()}` : ''}${week.length - shared.length ? ` (${week.length - shared.length} kept private, by her choice)` : ''}.`
-        : 'Mood: she did not check in this week. A call might be welcome.',
+        ? `Mood: ${p.subject} checked in ${week.length} time${week.length === 1 ? '' : 's'}${shared.length && mood[1] ? `, mostly ${mood[0].toLowerCase()}` : ''}${week.length - shared.length ? ` (${week.length - shared.length} kept private, by ${p.possessive} choice)` : ''}.`
+        : `Mood: ${p.subject} did not check in this week. A call might be welcome.`,
       newStories.length ? `Memory book: ${newStories.length} new ${newStories.length === 1 ? 'story' : 'stories'}: ${newStories.map((st) => `"${st.title}"`).join(', ')}.` : 'Memory book: no new stories this week.',
       `Front door: activity on ${doorDays} of 7 days.`,
       helpAlerts.length
         ? `Alerts: ${helpAlerts.length} call${helpAlerts.length === 1 ? '' : 's'} for help, ${helpAlerts.filter((a) => a.acknowledged).length} answered${helpAlerts.filter((a) => a.acknowledgedBy).map((a) => ` by ${nameOf(a.acknowledgedBy)}`).join(',')}.`
         : 'Alerts: none this week.',
-      next.length ? `Coming up: ${next.map((a) => `${a.title} with ${a.with} on ${a.at.slice(0, 10)} at ${a.at.slice(11, 16)} (${a.escortName ? `${a.escortName} is taking her` : 'nobody is taking her yet'})`).join('; ')}.` : 'Coming up: no appointments in the next week.',
+      next.length ? `Coming up: ${next.map((a) => `${a.title} with ${a.with} on ${a.at.slice(0, 10)} at ${a.at.slice(11, 16)} (${a.escortName ? `${a.escortName} is taking ${p.object}` : `nobody is taking ${p.object} yet`})`).join('; ')}.` : 'Coming up: no appointments in the next week.',
     ];
     const letters = [];
     for (const p of circle.filter((m) => m.role === 'family')) {
@@ -569,6 +581,56 @@ export function createSaathi(deps) {
     return letters;
   }
 
+  const member0 = (relationship) => String(relationship ?? 'family').trim().toLowerCase().slice(0, 40);
+
+  async function introductions(fields) {
+    const me = await elder();
+    const lang = me?.language;
+    if (!lang || lang === 'en') return {};
+    const out = {};
+    for (const [key, text] of Object.entries(fields)) {
+      const tr = await translateTo(text, lang, 'en');
+      if (tr.translated) out[key] = tr.text;
+    }
+    return Object.keys(out).length ? { [lang]: out } : {};
+  }
+
+  async function removeMember(memberId) {
+    const member = await store.get('circle', memberId);
+    if (!member) return null;
+    await store.remove('circle', memberId);
+    await events.publish('MemberRemoved', { memberId });
+    return member;
+  }
+
+  async function updateProfile(patch = {}) {
+    const me = await elder();
+    const text = (v, max = 120) => String(v ?? '').trim().slice(0, max);
+    const next = {};
+    if ('name' in patch) { if (!text(patch.name)) throw invalid('Name cannot be empty.'); next.name = text(patch.name); }
+    if ('preferredName' in patch) next.preferredName = text(patch.preferredName, 40) || next.name || me.name.split(' ')[0];
+    if ('language' in patch) { if (!LANGUAGES[patch.language]) throw invalid('Choose a language from the list.'); next.language = patch.language; }
+    if ('city' in patch) next.city = text(patch.city);
+    if ('home' in patch) next.home = text(patch.home, 200);
+    if ('timezone' in patch) { if (!isTimeZone(patch.timezone)) throw invalid('Choose a time zone from the list.'); next.timezone = patch.timezone; }
+    if ('country' in patch) { if (patch.country && !COUNTRIES[patch.country]) throw invalid('Choose a country from the list.'); next.country = patch.country || null; }
+    if ('emergencyNumber' in patch) { const n = text(patch.emergencyNumber, 15).replace(/[^\d+]/g, ''); next.emergencyNumber = n || null; }
+    if ('pronoun' in patch) { if (!PRONOUNS.includes(patch.pronoun)) throw invalid('Choose she, he or they.'); next.pronoun = patch.pronoun; }
+    if ('pharmacy' in patch) next.pharmacy = text(patch.pharmacy?.name) ? { name: text(patch.pharmacy.name), phone: text(patch.pharmacy.phone, 30) } : null;
+    if ('accessibility' in patch) {
+      const a = patch.accessibility ?? {};
+      next.accessibility = {
+        ...me.accessibility,
+        memorySupport: Boolean(a.memorySupport), hearing: a.hearingLoss ? 'mild-loss' : 'typical', vision: a.lowVision ? 'low-vision' : 'typical',
+        preferredPace: a.memorySupport || a.hearingLoss ? 'slow' : 'normal', largeText: Boolean(a.lowVision),
+      };
+    }
+    if ('shareMoodWords' in patch) next.privacy = { ...me.privacy, shareMoodWords: Boolean(patch.shareMoodWords) };
+    const updated = await store.update('profile', 'elder', next);
+    await events.publish('ProfileUpdated', { fields: Object.keys(next) });
+    return updated;
+  }
+
   async function addMember({ name, relationship, language = 'en', role = 'family', email = null, city = '' }) {
     const circle = await store.list('circle');
     const base = String(name ?? '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'member';
@@ -578,6 +640,7 @@ export function createSaathi(deps) {
       id: memberId, name: String(name).trim().slice(0, 80), relationship: String(relationship ?? 'family').trim().toLowerCase().slice(0, 40),
       role: role === 'neighbour' ? 'neighbour' : 'family', language, city, email, aliases: [],
       escalationOrder: role === 'neighbour' ? 2 : 1, aboutForElder: `${String(name).trim()} is your ${String(relationship ?? 'family').trim().toLowerCase()}.`,
+      i18n: await introductions({ relationship: member0(relationship), aboutForElder: `${String(name).trim()} is your ${member0(relationship)}.` }),
     };
     await store.put('circle', member);
     await events.publish('MemberAdded', { memberId });
@@ -688,6 +751,7 @@ export function createSaathi(deps) {
 
   async function familySummary({ forMemberId } = {}) {
     const me = await elder();
+    const p = pronounsOf(me);
     const circle = await store.list('circle');
     const member = circle.find((p) => p.id === forMemberId);
     const today = localParts().date;
@@ -695,13 +759,13 @@ export function createSaathi(deps) {
     const checkins = (await store.list('checkins')).sort((a, b) => b.at.localeCompare(a.at))
       .map((c) => (c.private ? { ...c, text: 'A private check-in', english: 'A private check-in', sentiment: 'PRIVATE', scores: null, concerns: { level: 'none', urgent: [], gentle: [] } } : c));
     const alerts = (await store.list('alerts')).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    const todays = checkins.filter((c) => c.at.slice(0, 10) === today);
+    const todays = checkins.filter((c) => localParts(new Date(c.at)).date === today);
     const english = [
       `${me.preferredName} today: ${meds.filter((m) => m.status === 'taken').length} of ${meds.length} tablets taken`
         + (meds.some((m) => m.status === 'missed') ? ` (${meds.filter((m) => m.status === 'missed').map((m) => m.purpose).join(', ')} not confirmed)` : '') + '.',
-      !todays.length ? "She hasn't checked in yet today."
-        : todays[0].private ? `She checked in ${todays.length} time(s); her latest check-in is private, by her choice.`
-          : `She checked in ${todays.length} time(s); latest mood: ${todays[0].sentiment.toLowerCase()} - "${todays[0].english}".`,
+      !todays.length ? `${p.Subject} ${p.has === 'have' ? "haven't" : "hasn't"} checked in yet today.`
+        : todays[0].private ? `${p.Subject} checked in ${todays.length} time(s); ${p.possessive} latest check-in is private, by ${p.possessive} choice.`
+          : `${p.Subject} checked in ${todays.length} time(s); latest mood: ${todays[0].sentiment.toLowerCase()} - "${todays[0].english}".`,
       alerts.some((a) => !a.acknowledged) ? `${alerts.filter((a) => !a.acknowledged).length} alert(s) waiting for someone to respond.` : 'No open alerts.',
     ].join(' ');
     const translated = member ? await translateTo(english, member.language, 'en') : { text: english };
@@ -717,15 +781,19 @@ export function createSaathi(deps) {
     };
   }
 
-  return {
+  const withZone = (api) => Object.fromEntries(Object.entries(api).map(([k, v]) => [k, typeof v === 'function' && k !== 'elder'
+    ? async (...args) => { await elder(); return v(...args); }
+    : v]));
+
+  return withZone({
     elder, orientation, whoIs,
     medicationSchedule, medicationStatus, confirmMedication, sweepMissedDoses, sweepQuietDay, doorEvent,
     sweepSupplies, recordRefill, upcomingAppointments, sweepAppointments, claimEscort, addVoiceNote, weeklyLetters,
-    addMember, subscribeMember, setAvatar, media, householdId: deps.householdId ?? DEFAULT_HOUSEHOLD,
+    addMember, removeMember, updateProfile, subscribeMember, setAvatar, media, householdId: deps.householdId ?? DEFAULT_HOUSEHOLD,
     messages, doorActivity, homeMap, saveRooms, placeItem, removeItem, whereIs,
     checkIn, requestHelp, acknowledgeAlert,
     familyMessages, sendToFamily, messageFromFamily,
     saveStory, listStories, familySummary,
     circle: () => store.list('circle'),
-  };
+  });
 }

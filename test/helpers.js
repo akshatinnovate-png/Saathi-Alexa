@@ -8,6 +8,7 @@ export const quiet = { emit() {} };
 export function testConfig(patch = {}) {
   return {
     ...baseConfig,
+    demo: true,
     aws: Object.fromEntries(Object.keys(baseConfig.aws).map((k) => [k, false])),
     escalation: { familyAckWaitSeconds: 1, neighbourAckWaitSeconds: 1 },
     ...patch,
