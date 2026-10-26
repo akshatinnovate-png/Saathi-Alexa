@@ -4,6 +4,10 @@ import { createServices } from '../services.js';
 let services;
 export async function handler(_event, _context, overrides) {
   services ??= createServices(config, overrides);
-  const letters = await services.saathi.weeklyLetters({ send: true });
-  return { sent: letters.map((l) => ({ memberId: l.memberId, language: l.language })) };
+  const sent = [];
+  for (const householdId of await services.householdIds()) {
+    const letters = await services.forHousehold(householdId).weeklyLetters({ send: true });
+    sent.push(...letters.map((l) => ({ householdId, memberId: l.memberId, language: l.language })));
+  }
+  return { sent };
 }

@@ -49,6 +49,14 @@ export const config = {
     clientIds: (env.SAATHI_COGNITO_CLIENT_IDS ?? '').split(',').filter(Boolean),
     domain: env.SAATHI_COGNITO_DOMAIN,
     publicUrl: env.SAATHI_PUBLIC_URL,
+    webClientId: env.SAATHI_COGNITO_WEB_CLIENT_ID,
+    socialProviders: (env.SAATHI_SOCIAL_PROVIDERS ?? '').split(',').map((p) => p.trim()).filter(Boolean),
+  },
+
+  web: {
+    requireLogin: env.SAATHI_REQUIRE_LOGIN !== 'false',
+    sessionSecret: env.SAATHI_SESSION_SECRET || undefined,
+    demoAccounts: env.SAATHI_DEMO_ACCOUNTS !== 'false',
   },
 
   ring: {

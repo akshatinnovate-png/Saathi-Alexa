@@ -7,6 +7,7 @@ import { createLocalEventBus, createLocalNotifier, createLocalMedia } from './lo
 import { createLocalEscalation } from './escalation/localEscalation.js';
 import { createMetrics } from './aws/metrics.js';
 import { createSaathi } from './domain/saathi.js';
+import { DEFAULT_HOUSEHOLD, isHouseholdId, scopeStore, scopeEvents, scopeNotifier } from './households/scope.js';
 
 export function createServices(config, overrides = {}) {
   const { aws, resources, region } = config;
@@ -48,10 +49,35 @@ export function createServices(config, overrides = {}) {
     });
   }
 
-  const saathi = createSaathi({ store, translator, sentiment, speech, events, notifier, media, metrics, config, clock: overrides.clock });
+  const saathi = createSaathi({ store, translator, sentiment, speech, events, notifier, media, metrics, config, clock: overrides.clock, householdId: DEFAULT_HOUSEHOLD });
+  const households = new Map([[DEFAULT_HOUSEHOLD, saathi]]);
+
+  function forHousehold(householdId = DEFAULT_HOUSEHOLD) {
+    if (!isHouseholdId(householdId)) throw new Error(`Invalid household ${householdId}`);
+    if (!households.has(householdId)) {
+      households.set(householdId, createSaathi({
+        store: scopeStore(store, householdId),
+        translator, sentiment, speech, media, metrics, config, clock: overrides.clock, householdId,
+        events: scopeEvents(events, householdId),
+        notifier: scopeNotifier(notifier, householdId),
+      }));
+    }
+    return households.get(householdId);
+  }
+
+  async function resetDemo(seed) {
+    for (const [collection, items] of Object.entries(seed)) {
+      for (const old of await store.list(collection)) await store.remove(collection, old.id);
+      for (const item of items) await store.put(collection, item);
+    }
+  }
+
+  async function householdIds() {
+    return [DEFAULT_HOUSEHOLD, ...(await store.list('households')).map((h) => h.id).filter((id) => id !== DEFAULT_HOUSEHOLD)];
+  }
 
   return {
-    saathi, store, translator, sentiment, speech, events, localBus, notifier, media, escalation, metrics,
+    saathi, forHousehold, householdIds, resetDemo, store, translator, sentiment, speech, events, localBus, notifier, media, escalation, metrics,
     describe: () => ({
       store: store.kind, translate: translator.kind, sentiment: sentiment.kind, speech: speech.kind,
       events: events.kind, notifications: notifier.kind, media: media.kind, escalation: escalation.kind,
@@ -62,6 +88,7 @@ export function createServices(config, overrides = {}) {
 function withMirror(notifier, bus) {
   return {
     kind: notifier.kind,
+    subscribe: (subscription) => notifier.subscribe(subscription),
     async notify(n) {
       const id = await notifier.notify(n);
       await bus.publish('NotificationSent', { id, ...n }, { mirrorOnly: true });

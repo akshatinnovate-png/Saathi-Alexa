@@ -26,6 +26,10 @@ export function createLocalEventBus() {
 export function createLocalNotifier({ bus }) {
   return {
     kind: 'local-notifier',
+    async subscribe(subscription) {
+      await bus.publish('NotificationSubscription', subscription);
+      return `local:${subscription.householdId}:${subscription.email}`;
+    },
     async notify(notification) {
       const id = crypto.randomUUID();
       await bus.publish('NotificationSent', { id, ...notification });

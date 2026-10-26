@@ -2,11 +2,14 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { config } from '../config.js';
 import { createServices } from '../services.js';
 import { buildMcpServer } from '../mcp/server.js';
-import { createVerifier, cognitoIssuer } from '../auth/verifier.js';
+import { createVerifier, createHouseholdVerifier, cognitoIssuer } from '../auth/verifier.js';
+import { createAccounts } from '../accounts/accounts.js';
+import { DEFAULT_HOUSEHOLD } from '../households/scope.js';
 import { ALL_SCOPES } from '../auth/scopes.js';
 
 let services;
 let verifier;
+let optionalVerifier;
 
 export function toRequest(event) {
   const headers = new Headers();
@@ -45,7 +48,15 @@ function protectedResourceMetadata(request) {
 }
 
 async function authenticate(request) {
-  if (!verifier) return { authInfo: undefined };
+  if (!verifier) {
+    const header = request.headers.get('authorization') ?? '';
+    if (!/^Bearer\s+sth_/i.test(header)) return { authInfo: undefined };
+    try {
+      return { authInfo: await optionalVerifier.verifyAccessToken(header.replace(/^Bearer\s+/i, '')) };
+    } catch {
+      return { response: json(401, { error: 'invalid_token' }) };
+    }
+  }
   const header = request.headers.get('authorization') ?? '';
   const metadataUrl = `${new URL(resourceUrl(request)).origin}/.well-known/oauth-protected-resource/mcp`;
   const challenge = (error) => json(401, { error, error_description: 'A valid Saathi access token is required' }, {
@@ -63,7 +74,12 @@ async function authenticate(request) {
 
 export async function handler(event, _context, overrides) {
   services ??= createServices(config, overrides);
-  verifier ??= overrides?.verifier ?? createVerifier(config.auth);
+  if (verifier === undefined) {
+    const accounts = createAccounts({ store: services.store, services, demo: false });
+    const base = createVerifier(config.auth);
+    verifier = overrides?.verifier ?? (base ? createHouseholdVerifier({ base, accounts }) : null);
+    optionalVerifier = createHouseholdVerifier({ base: null, accounts });
+  }
   const request = toRequest(event);
 
   if (new URL(request.url).pathname.startsWith('/.well-known/oauth-protected-resource')) {
@@ -73,7 +89,7 @@ export async function handler(event, _context, overrides) {
   const { authInfo, response } = await authenticate(request);
   if (response) return response;
 
-  const server = buildMcpServer(services.saathi);
+  const server = buildMcpServer(services.forHousehold(authInfo?.extra?.householdId ?? DEFAULT_HOUSEHOLD));
   const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
   await server.connect(transport);
   try {
@@ -86,4 +102,5 @@ export async function handler(event, _context, overrides) {
 export function _reset() {
   services = undefined;
   verifier = undefined;
+  optionalVerifier = undefined;
 }

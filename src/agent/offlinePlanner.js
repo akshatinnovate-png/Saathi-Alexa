@@ -5,6 +5,7 @@ const RULES = [
     const urgent = assessConcerns(t).urgent;
     return { reason: t, urgency: urgent.some((k) => ['chest-pain', 'breathing', 'bleeding'].includes(k)) ? 'critical' : 'high' };
   } },
+  { tool: 'where_is', test: /where (?:is|are) my|where did i (?:put|keep)|कहाँ (?:है|रखा|रखी)|कुठे (?:आहे|ठेवल)|kahan hai|kuthe aahe/i, args: (t) => ({ item: t }) },
   { tool: 'get_upcoming_appointments', test: /doctor|appointment|clinic|check-?up|डॉक्टर|डॉक्टरकडे|अपॉइंटमेंट|दवाखान|हॉस्पिटल|अस्पताल/i, args: () => ({}) },
   { tool: 'confirm_medication_taken', test: /(took|taken|had) (my )?(tablet|pill|medicine)|गोली (ले|खा)ली|गोळी घेतली|दवा ले ली/i, args: () => ({}) },
   { tool: 'get_medication_schedule', test: /tablet|pill|medicine|दवा|गोली|गोळी|औषध/i, args: () => ({}) },

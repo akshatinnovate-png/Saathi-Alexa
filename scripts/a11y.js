@@ -27,9 +27,9 @@ const browser = await chromium.launch(process.env.CHROME_PATH || existsSync(LOCA
   : { channel: 'chrome' });
 
 const scenarios = [
-  { name: 'Alexa+ simulator', path: '/' },
-  { name: 'Alexa+ simulator, high contrast', path: '/', contrast: true },
-  { name: 'Alexa+ simulator, confirming a message', path: '/', confirm: true },
+  { name: 'Alexa+ simulator', path: '/alexa.html' },
+  { name: 'Alexa+ simulator, high contrast', path: '/alexa.html', contrast: true },
+  { name: 'Alexa+ simulator, confirming a message', path: '/alexa.html', confirm: true },
   { name: 'Family Circle app', path: '/family.html' },
   { name: 'Family Circle app, phone width', path: '/family.html', width: 390 },
 ];

@@ -24,7 +24,7 @@ before(async () => {
   const app = createApp({
     config: testConfig({ host: '127.0.0.1', ring: { webhookSecret: RING_SECRET } }),
     services,
-    simulator: { turn: (...a) => simulator.turn(...a), answer: (...a) => simulator.answer(...a), reset: () => {} },
+    simulatorFor: async () => ({ brain: 'offline-planner', turn: (...a) => simulator.turn(...a), answer: (...a) => simulator.answer(...a), reset: () => {} }),
     verifier: createStaticVerifier({ elderToken: ELDER, familyToken: FAMILY }),
     ringSimulator: { trigger: (...a) => ring.trigger(...a) },
   });

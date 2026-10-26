@@ -26,7 +26,8 @@ export async function handler(event, _context, overrides) {
   } catch (err) {
     return { statusCode: 400, body: JSON.stringify({ error: err.message }) };
   }
-  const result = await services.saathi.doorEvent(ringEvent);
+  const device = await services.store.get('ringDevices', ringEvent.deviceId);
+  const result = await services.forHousehold(device?.householdId ?? 'default').doorEvent(ringEvent);
   return { statusCode: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(result) };
 }
 

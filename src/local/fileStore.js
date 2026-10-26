@@ -63,6 +63,13 @@ export function createFileStore({ file, seed = () => seedData(), persist = true 
       await save();
       return structuredClone(item);
     },
+    async remove(collection, id) {
+      const db = await load();
+      const before = (db[collection] ?? []).length;
+      db[collection] = (db[collection] ?? []).filter((x) => x.id !== id);
+      if (db[collection].length !== before) await save();
+      return db[collection].length !== before;
+    },
     async reset() {
       data = seed();
       await save();

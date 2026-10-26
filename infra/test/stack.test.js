@@ -53,7 +53,9 @@ test('Cognito is the OAuth server: saathi/elder and saathi/family scopes, per-de
     Identifier: 'saathi',
     Scopes: [{ ScopeName: 'elder', ScopeDescription: Match.anyValue() }, { ScopeName: 'family', ScopeDescription: Match.anyValue() }],
   });
-  template.resourceCountIs('AWS::Cognito::UserPoolClient', 3);
+  template.resourceCountIs('AWS::Cognito::UserPoolClient', 4);
+  template.hasResourceProperties('AWS::Cognito::UserPool', { AutoVerifiedAttributes: ['email'] });
+  template.hasResourceProperties('AWS::Cognito::UserPoolClient', { GenerateSecret: false, ExplicitAuthFlows: Match.arrayWith(['ALLOW_USER_PASSWORD_AUTH']) });
   template.hasResourceProperties('AWS::Lambda::Function', {
     Handler: 'mcp.handler',
     Environment: { Variables: Match.objectLike({ SAATHI_AUTH_MODE: 'cognito' }) },

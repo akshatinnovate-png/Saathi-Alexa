@@ -1,6 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
-  DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand, BatchWriteCommand,
+  DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand, BatchWriteCommand, DeleteCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { seedData } from '../domain/seed.js';
 
@@ -56,6 +56,10 @@ export function createDynamoStore({ tableName, region, client } = {}) {
         throw err;
       });
       return strip(out.Attributes);
+    },
+    async remove(collection, id) {
+      await doc.send(new DeleteCommand({ TableName: tableName, Key: { pk: collection, sk: id } }));
+      return true;
     },
     async reset() {
       const data = seedData();

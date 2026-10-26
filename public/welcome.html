@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Set up Saathi</title>
+  <meta name="description" content="Set up Saathi for someone you love.">
+  <link rel="icon" href="assets/logo-favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="auth.css">
+</head>
+<body class="auth-body">
+  <header class="auth-top">
+    <a class="auth-back" href="#" id="logout">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Log out
+    </a>
+    <a class="auth-brand" href="/" aria-label="Saathi home"><img src="assets/logo-ink.svg" alt=""><span>Saathi</span></a>
+    <a class="auth-support" href="mailto:akshat.innovate@gmail.com?subject=Saathi%20support">Contact support</a>
+  </header>
+
+  <main class="auth-main">
+    <section class="auth-card wide" aria-labelledby="w-title">
+      <p class="w-step" id="w-step">Step 1 of 4</p>
+      <h1 class="auth-title" id="w-title">Who are you caring for?</h1>
+      <p class="auth-sub" id="w-sub">Saathi will speak to them in their language, at their pace.</p>
+
+      <form class="auth-form" id="w-form" novalidate>
+        <fieldset class="w-panel" data-step="1">
+          <legend class="sr-only">About them</legend>
+          <div class="row">
+            <div class="field"><label for="e-name">Full name</label><input id="e-name" required autocomplete="off"></div>
+            <div class="field"><label for="e-called">What the family calls them</label><input id="e-called" placeholder="Aaji, Nani, Appa…" autocomplete="off"></div>
+          </div>
+          <div class="row">
+            <div class="field"><label for="e-lang">Language they speak</label><select id="e-lang"></select></div>
+            <div class="field"><label for="e-city">City</label><input id="e-city" autocomplete="off"></div>
+          </div>
+          <div class="field"><label for="e-home">Home (shown to the neighbour in an emergency)</label><input id="e-home" placeholder="Flat, building, area" autocomplete="off"></div>
+          <div class="checks" role="group" aria-label="Support they need">
+            <label><input type="checkbox" id="e-memory"> Memory support</label>
+            <label><input type="checkbox" id="e-hearing"> Hearing loss</label>
+            <label><input type="checkbox" id="e-vision"> Low vision</label>
+          </div>
+        </fieldset>
+
+        <fieldset class="w-panel" data-step="2" hidden>
+          <legend class="sr-only">About you</legend>
+          <div class="row">
+            <div class="field"><label for="o-name">Your name</label><input id="o-name" required autocomplete="given-name"></div>
+            <div class="field"><label for="o-rel">You are their…</label><input id="o-rel" placeholder="daughter, grandson…" required autocomplete="off"></div>
+          </div>
+          <div class="row">
+            <div class="field"><label for="o-lang">Your language</label><select id="o-lang"></select></div>
+            <div class="field"><label for="o-city">Where you live</label><input id="o-city" autocomplete="address-level2"></div>
+          </div>
+        </fieldset>
+
+        <fieldset class="w-panel" data-step="3" hidden>
+          <legend class="sr-only">Neighbour</legend>
+          <p class="w-note">If nobody in the family answers an emergency, Saathi asks a neighbour to check on them. You can skip this and add someone later.</p>
+          <div class="row">
+            <div class="field"><label for="n-name">Neighbour's name</label><input id="n-name" autocomplete="off"></div>
+            <div class="field"><label for="n-lang">Their language</label><select id="n-lang"></select></div>
+          </div>
+          <div class="field"><label for="n-email">Their email (we'll invite them)</label><input id="n-email" type="email" autocomplete="off"></div>
+        </fieldset>
+
+        <fieldset class="w-panel" data-step="4" hidden>
+          <legend class="sr-only">Medicines</legend>
+          <p class="w-note">Describe each tablet the way they'd recognise it. You can add more later.</p>
+          <div id="meds"></div>
+          <button class="link-btn" type="button" id="add-med">+ Add a medicine</button>
+        </fieldset>
+
+        <p class="auth-error" id="w-error" role="alert" hidden></p>
+        <div class="w-actions">
+          <button class="ghost-btn" type="button" id="w-back" hidden>Back</button>
+          <button class="auth-submit" type="submit" id="w-next">Continue</button>
+        </div>
+      </form>
+    </section>
+  </main>
+  <div class="auth-art" aria-hidden="true"></div>
+
+  <template id="med-row">
+    <div class="med-row" role="group" aria-label="Medicine">
+      <div class="row">
+        <div class="field"><label>Medicine</label><input data-k="name" placeholder="Amlodipine 5 mg" autocomplete="off"></div>
+        <div class="field"><label>For</label><input data-k="purpose" placeholder="blood pressure" autocomplete="off"></div>
+      </div>
+      <div class="row three">
+        <div class="field"><label>Time</label><input data-k="time" type="time" value="09:00"></div>
+        <div class="field"><label>Looks like</label><input data-k="description" placeholder="small white round tablet" autocomplete="off"></div>
+        <div class="field"><label>Tablets left</label><input data-k="remaining" type="number" min="0" value="30"></div>
+      </div>
+      <label class="inline"><input type="checkbox" data-k="withFood"> Take with food</label>
+    </div>
+  </template>
+  <script type="module" src="welcome.js"></script>
+</body>
+</html>

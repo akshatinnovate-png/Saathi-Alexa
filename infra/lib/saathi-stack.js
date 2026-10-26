@@ -115,8 +115,11 @@ export class SaathiStack extends Stack {
     });
 
     const userPool = new cognito.UserPool(this, 'Users', {
-      selfSignUpEnabled: false,
+      selfSignUpEnabled: true,
       signInAliases: { email: true },
+      autoVerify: { email: true },
+      standardAttributes: { email: { required: true, mutable: true }, fullname: { required: false, mutable: true } },
+      accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
       passwordPolicy: { minLength: 12 },
       mfa: cognito.Mfa.OPTIONAL,
       mfaSecondFactor: { otp: true, sms: false },
@@ -146,6 +149,22 @@ export class SaathiStack extends Stack {
         callbackUrls,
       },
       accessTokenValidity: Duration.hours(1),
+    });
+    const publicUrl = this.node.tryGetContext('publicUrl') || 'http://localhost:8787';
+    const webClient = userPool.addClient('WebApp', {
+      generateSecret: false,
+      authFlows: { userPassword: true, userSrp: true },
+      preventUserExistenceErrors: true,
+      oAuth: {
+        flows: { authorizationCodeGrant: true },
+        scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
+        callbackUrls: [`${publicUrl}/auth/callback`],
+        logoutUrls: [`${publicUrl}/login.html`],
+      },
+      supportedIdentityProviders: [cognito.UserPoolClientIdentityProvider.COGNITO, ...list('socialProviders').map((p) => cognito.UserPoolClientIdentityProvider.custom(p))],
+      accessTokenValidity: Duration.hours(1),
+      idTokenValidity: Duration.hours(1),
+      refreshTokenValidity: Duration.days(30),
     });
     const serviceClient = userPool.addClient('Service', {
       generateSecret: true,
@@ -309,6 +328,7 @@ export class SaathiStack extends Stack {
     new CfnOutput(this, 'ElderDeviceClientId', { value: elderClient.userPoolClientId });
     new CfnOutput(this, 'FamilyDeviceClientId', { value: familyClient.userPoolClientId });
     new CfnOutput(this, 'ServiceClientId', { value: serviceClient.userPoolClientId });
+    new CfnOutput(this, 'WebClientId', { value: webClient.userPoolClientId, description: 'SAATHI_COGNITO_WEB_CLIENT_ID for the website' });
     new CfnOutput(this, 'RingWebhookUrl', { value: `${httpApi.apiEndpoint}/ring/events` });
     new CfnOutput(this, 'RingWebhookSecretArn', { value: ringSecret.secretArn });
     new CfnOutput(this, 'TableName', { value: table.tableName });

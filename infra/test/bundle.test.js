@@ -44,7 +44,7 @@ test('the MCP Lambda bundle answers initialize, tools/list and a Marathi tools/c
   `, { SAATHI_AUTH_MODE: 'none' });
   assert.equal(result.init, 200);
   assert.equal(result.version, '2025-11-25');
-  assert.equal(result.tools, 16);
+  assert.equal(result.tools, 17);
   assert.match(result.say, /आज/);
   assert.equal(result.meta, 200);
 });

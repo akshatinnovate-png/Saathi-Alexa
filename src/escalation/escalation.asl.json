@@ -6,7 +6,7 @@
       "Resource": "arn:aws:states:::dynamodb:updateItem",
       "Parameters": {
         "TableName": "${TableName}",
-        "Key": { "pk": { "S": "alerts" }, "sk": { "S.$": "$.alertId" } },
+        "Key": { "pk": { "S.$": "$.alertsKey" }, "sk": { "S.$": "$.alertId" } },
         "UpdateExpression": "SET escalationStage = :s",
         "ExpressionAttributeValues": { ":s": { "S": "family-notified" } }
       },
@@ -22,7 +22,8 @@
         "Message.$": "$.familyMessage",
         "MessageAttributes": {
           "audience": { "DataType": "String", "StringValue": "family" },
-          "severity": { "DataType": "String", "StringValue.$": "$.severity" }
+          "severity": { "DataType": "String", "StringValue.$": "$.severity" },
+          "household": { "DataType": "String", "StringValue.$": "$.householdId" }
         }
       },
       "ResultPath": null,
@@ -35,7 +36,7 @@
       "Resource": "arn:aws:states:::dynamodb:getItem",
       "Parameters": {
         "TableName": "${TableName}",
-        "Key": { "pk": { "S": "alerts" }, "sk": { "S.$": "$.alertId" } }
+        "Key": { "pk": { "S.$": "$.alertsKey" }, "sk": { "S.$": "$.alertId" } }
       },
       "ResultPath": "$.ack",
       "Next": "FamilyAcknowledged"
@@ -58,7 +59,7 @@
       "Resource": "arn:aws:states:::dynamodb:updateItem",
       "Parameters": {
         "TableName": "${TableName}",
-        "Key": { "pk": { "S": "alerts" }, "sk": { "S.$": "$.alertId" } },
+        "Key": { "pk": { "S.$": "$.alertsKey" }, "sk": { "S.$": "$.alertId" } },
         "UpdateExpression": "SET escalationStage = :s",
         "ExpressionAttributeValues": { ":s": { "S": "neighbour-notified" } }
       },
@@ -74,7 +75,8 @@
         "Message.$": "$.neighbourMessage",
         "MessageAttributes": {
           "audience": { "DataType": "String", "StringValue": "neighbour" },
-          "severity": { "DataType": "String", "StringValue": "high" }
+          "severity": { "DataType": "String", "StringValue": "high" },
+          "household": { "DataType": "String", "StringValue.$": "$.householdId" }
         }
       },
       "ResultPath": null,
@@ -87,7 +89,7 @@
       "Resource": "arn:aws:states:::dynamodb:getItem",
       "Parameters": {
         "TableName": "${TableName}",
-        "Key": { "pk": { "S": "alerts" }, "sk": { "S.$": "$.alertId" } }
+        "Key": { "pk": { "S.$": "$.alertsKey" }, "sk": { "S.$": "$.alertId" } }
       },
       "ResultPath": "$.ack",
       "Next": "NeighbourAcknowledged"
@@ -110,7 +112,7 @@
       "Resource": "arn:aws:states:::dynamodb:updateItem",
       "Parameters": {
         "TableName": "${TableName}",
-        "Key": { "pk": { "S": "alerts" }, "sk": { "S.$": "$.alertId" } },
+        "Key": { "pk": { "S.$": "$.alertsKey" }, "sk": { "S.$": "$.alertId" } },
         "UpdateExpression": "SET escalationStage = :s",
         "ExpressionAttributeValues": { ":s": { "S": "emergency-guidance-sent" } }
       },
@@ -126,7 +128,8 @@
         "Message.$": "$.emergencyMessage",
         "MessageAttributes": {
           "audience": { "DataType": "String", "StringValue": "everyone" },
-          "severity": { "DataType": "String", "StringValue": "critical" }
+          "severity": { "DataType": "String", "StringValue": "critical" },
+          "household": { "DataType": "String", "StringValue.$": "$.householdId" }
         }
       },
       "ResultPath": null,
@@ -137,7 +140,7 @@
       "Resource": "arn:aws:states:::dynamodb:updateItem",
       "Parameters": {
         "TableName": "${TableName}",
-        "Key": { "pk": { "S": "alerts" }, "sk": { "S.$": "$.alertId" } },
+        "Key": { "pk": { "S.$": "$.alertsKey" }, "sk": { "S.$": "$.alertId" } },
         "UpdateExpression": "SET escalationStage = :s",
         "ExpressionAttributeValues": { ":s": { "S": "resolved" } }
       },

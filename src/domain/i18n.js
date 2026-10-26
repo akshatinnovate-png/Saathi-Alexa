@@ -10,6 +10,8 @@ const AND = { en: ' and ', hi: ' और ', mr: ' आणि ' };
 
 const MESSAGES = {
   en: {
+    whereIs: ({ item, room, note }) => `Your ${item}: in the ${room}${note ? `, ${note}` : ''}.`,
+    whereUnknown: () => "I'm not sure where that is kept. I'll ask your family to add it to the house map.",
     voiceNote: ({ from }) => `${from} sent you a voice message. Here it is.`,
     refillArranged: ({ name, short }) => `${name} has arranged more of your ${short}. You don't need to worry about it.`,
     apptWhen: ({ kind, date, lower }) => (kind === 'today' ? (lower ? 'today' : 'Today') : kind === 'tomorrow' ? (lower ? 'tomorrow' : 'Tomorrow') : `${lower ? 'on' : 'On'} ${date}`),
@@ -47,6 +49,8 @@ const MESSAGES = {
     idle: () => "I'm here. You can ask me what day it is, about your tablets, for messages from your family, or tell me a story.",
   },
   hi: {
+    whereIs: ({ item, room, note }) => `${item}: ${room} में${note ? `, ${note}` : ''}।`,
+    whereUnknown: () => 'मुझे पक्का नहीं पता वह कहाँ रखा है। मैं परिवार से उसे घर के नक्शे में जोड़ने को कहूँगी।',
     voiceNote: ({ from }) => `${from} ने आपको आवाज़ में संदेश भेजा है। सुनिए।`,
     refillArranged: ({ name, short }) => `${name} ने आपकी ${short} और मँगवा दी है। आपको चिंता करने की ज़रूरत नहीं।`,
     apptWhen: ({ kind, date }) => (kind === 'today' ? 'आज' : kind === 'tomorrow' ? 'कल' : `${date} को`),
@@ -84,6 +88,8 @@ const MESSAGES = {
     idle: () => 'मैं यहीं हूँ। आप पूछ सकती हैं कि आज कौन सा दिन है, अपनी दवा के बारे में, परिवार के संदेश, या कोई कहानी सुना सकती हैं।',
   },
   mr: {
+    whereIs: ({ item, room, note }) => `${item}: ${room}मध्ये${note ? `, ${note}` : ''}.`,
+    whereUnknown: () => 'ते कुठे ठेवलं आहे ते मला नक्की माहीत नाही. मी घरच्यांना घराच्या नकाशात ते जोडायला सांगते.',
     voiceNote: ({ from }) => `${from} यांनी तुम्हाला आवाजात निरोप पाठवला आहे. ऐका.`,
     refillArranged: ({ name, short }) => `${name} यांनी तुमची ${short} आणखी मागवली आहे. काळजी करू नका.`,
     apptWhen: ({ kind, date }) => (kind === 'today' ? 'आज' : kind === 'tomorrow' ? 'उद्या' : `${date} रोजी`),

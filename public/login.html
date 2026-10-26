@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log in to Saathi</title>
+  <meta name="description" content="Log in to your family's Saathi circle.">
+  <link rel="icon" href="assets/logo-favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="auth.css">
+</head>
+<body class="auth-body">
+  <header class="auth-top">
+    <a class="auth-back" href="/">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Back
+    </a>
+    <a class="auth-brand" href="/" aria-label="Saathi home">
+      <img src="assets/logo-ink.svg" alt="">
+      <span>Saathi</span>
+    </a>
+    <a class="auth-support" href="mailto:akshat.innovate@gmail.com?subject=Saathi%20support">Contact support</a>
+  </header>
+
+  <main class="auth-main">
+    <section class="auth-card" aria-labelledby="auth-title">
+      <h1 class="auth-title" id="auth-title">Log in to Saathi</h1>
+      <p class="auth-sub" id="auth-sub">Your family, closer every day</p>
+
+      <div class="auth-social" id="auth-social" role="group" aria-label="Continue with another account">
+        <a class="social-btn" href="/auth/social/X" data-provider="X" aria-label="Continue with X">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.75 3h3.07l-6.71 7.67L22 21h-6.18l-4.84-6.33L5.44 21H2.37l7.18-8.2L2 3h6.33l4.38 5.78zm-1.08 16.18h1.7L7.4 4.72H5.57z"/></svg>
+        </a>
+        <a class="social-btn" href="/auth/social/SignInWithApple" data-provider="SignInWithApple" aria-label="Continue with Apple">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.37 12.6c-.02-2.3 1.88-3.4 1.97-3.46-1.07-1.57-2.74-1.78-3.33-1.8-1.42-.15-2.77.83-3.49.83-.73 0-1.83-.81-3.01-.79-1.55.02-2.98.9-3.78 2.29-1.61 2.8-.41 6.93 1.16 9.2.77 1.11 1.68 2.35 2.88 2.31 1.16-.05 1.59-.75 2.99-.75 1.39 0 1.79.75 3.01.72 1.25-.02 2.04-1.13 2.8-2.24.88-1.29 1.24-2.54 1.26-2.6-.03-.01-2.42-.93-2.46-3.71zM14.08 5.84c.63-.77 1.06-1.83.94-2.89-.91.04-2.01.61-2.67 1.37-.58.67-1.09 1.76-.96 2.79 1.02.08 2.06-.52 2.69-1.27z"/></svg>
+        </a>
+        <a class="social-btn" href="/auth/social/Google" data-provider="Google" aria-label="Continue with Google">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.5 12.27c0-.79-.07-1.54-.2-2.27H12v4.3h5.9a5.05 5.05 0 0 1-2.2 3.31v2.75h3.55c2.08-1.92 3.25-4.74 3.25-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.55-2.75c-.98.66-2.24 1.05-3.73 1.05-2.87 0-5.3-1.94-6.17-4.54H2.16v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.83 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.16a11 11 0 0 0 0 9.88z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.07.56 4.21 1.64l3.15-3.15A10.97 10.97 0 0 0 12 1 11 11 0 0 0 2.16 7.06L5.83 9.9C6.7 7.3 9.13 5.38 12 5.38z"/></svg>
+        </a>
+      </div>
+
+      <div class="auth-or" aria-hidden="true"><span>or</span></div>
+
+      <form class="auth-form" id="auth-form" novalidate>
+        <div class="field" id="field-name" hidden>
+          <label for="name">Your name</label>
+          <input id="name" name="name" type="text" autocomplete="name">
+        </div>
+        <div class="field" id="field-email">
+          <label for="email">Email address</label>
+          <input id="email" name="email" type="email" autocomplete="email" required>
+        </div>
+        <div class="field" id="field-password">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <div class="field" id="field-code" hidden>
+          <label for="code">Confirmation code</label>
+          <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code">
+        </div>
+        <p class="auth-error" id="auth-error" role="alert" hidden></p>
+        <button class="auth-submit" id="auth-submit" type="submit">Continue with Email</button>
+      </form>
+
+      <p class="auth-switch" id="auth-switch">Don't have an account? <a href="#signup" id="switch-link">Sign up</a></p>
+    </section>
+    <p class="auth-demo" id="auth-demo" hidden></p>
+  </main>
+
+  <div class="auth-art" aria-hidden="true"></div>
+  <script type="module" src="login.js"></script>
+</body>
+</html>

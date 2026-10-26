@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { InvalidTokenError } from '@modelcontextprotocol/sdk/server/auth/errors.js';
 import { ALL_SCOPES, SCOPES } from './scopes.js';
+import { DEFAULT_HOUSEHOLD } from '../households/scope.js';
 
 export function createVerifier(auth) {
   switch (auth.mode) {
@@ -76,5 +77,27 @@ export function cognitoOAuthMetadata({ region, userPoolId, domain }) {
     code_challenge_methods_supported: ['S256'],
     token_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post', 'none'],
     scopes_supported: ALL_SCOPES,
+  };
+}
+
+export function createHouseholdVerifier({ base, accounts }) {
+  return {
+    async verifyAccessToken(token) {
+      const device = await accounts?.verifyDeviceToken(token);
+      if (device) {
+        return {
+          token, clientId: `device:${device.label}`, scopes: device.scopes,
+          expiresAt: Math.floor(Date.now() / 1000) + 3600, extra: { householdId: device.householdId },
+        };
+      }
+      if (!base) throw new InvalidTokenError('Unknown token');
+      const info = await base.verifyAccessToken(token);
+      let householdId = DEFAULT_HOUSEHOLD;
+      if (info.extra?.username && accounts) {
+        const account = await accounts.bySub(info.extra.sub);
+        if (account?.householdId) householdId = account.householdId;
+      }
+      return { ...info, extra: { ...info.extra, householdId } };
+    },
   };
 }

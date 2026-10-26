@@ -1,5 +1,5 @@
 import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
-import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
+import { SNSClient, PublishCommand, SubscribeCommand } from '@aws-sdk/client-sns';
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn';
@@ -26,7 +26,7 @@ export function createAwsNotifier({ region, topicArn, client } = {}) {
   const sns = client ?? new SNSClient({ region });
   return {
     kind: 'amazon-sns',
-    async notify({ audience, subject, message, severity = 'info', recipientId }) {
+    async notify({ audience, subject, message, severity = 'info', recipientId, householdId }) {
       const out = await sns.send(new PublishCommand({
         TopicArn: topicArn,
         Subject: subject.slice(0, 99),
@@ -35,9 +35,26 @@ export function createAwsNotifier({ region, topicArn, client } = {}) {
           audience: { DataType: 'String', StringValue: audience },
           severity: { DataType: 'String', StringValue: severity },
           ...(recipientId ? { recipient: { DataType: 'String', StringValue: recipientId } } : {}),
+          ...(householdId ? { household: { DataType: 'String', StringValue: householdId } } : {}),
         },
       }));
       return out.MessageId;
+    },
+    async subscribe({ email, householdId, memberId, audiences }) {
+      const out = await sns.send(new SubscribeCommand({
+        TopicArn: topicArn,
+        Protocol: 'email',
+        Endpoint: email,
+        ReturnSubscriptionArn: true,
+        Attributes: {
+          FilterPolicy: JSON.stringify({
+            household: [householdId],
+            audience: audiences,
+            ...(memberId ? { recipient: [memberId, { exists: false }] } : {}),
+          }),
+        },
+      }));
+      return out.SubscriptionArn;
     },
   };
 }

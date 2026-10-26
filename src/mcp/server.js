@@ -18,6 +18,7 @@ Family members can also use this server from their own Alexa+ devices (family_su
 const STORY_THEMES = ['childhood', 'wedding', 'festivals', 'cooking', 'school days', 'monsoon', 'first home', 'your children', 'music', 'travel'];
 
 const RESOURCE_EVENTS = {
+  'saathi://home': ['HomeMapUpdated', 'HomeItemPlaced', 'HomeItemRemoved', 'DemoReset'],
   'saathi://today': ['DoseTaken', 'DoseMissed', 'CheckInRecorded', 'HelpRequested', 'AlertAcknowledged', 'DoorActivity', 'QuietDay', 'DemoReset'],
   'saathi://circle': ['DemoReset'],
 };
@@ -212,6 +213,13 @@ export function buildMcpServer(saathi, { bus } = {}) {
     return reply(letter ? { say: letter.text, english: letter.english } : { say: 'I could not find that family member.' });
   });
 
+  tool('where_is', {
+    title: 'Where is my…?',
+    description: 'Finds where something is usually kept at home (glasses, keys, tablet box, photo album), from the house map the family built. Answers in her language. A memory aid: never imply she should have remembered.',
+    inputSchema: { item: z.string().min(1).describe('The thing she is looking for, in any language'), language: lang },
+    annotations: { readOnlyHint: true, openWorldHint: false },
+  }, async ({ item, language }) => reply(await saathi.whereIs(item, { language })));
+
   tool('family_summary', {
     title: 'How is she today? (family)',
     description: "For a family member's Alexa+: today's tablets, mood and open alerts, in that member's language. Private check-ins stay private.",
@@ -256,6 +264,12 @@ export function buildMcpServer(saathi, { bus } = {}) {
     mimeType: 'application/json',
   }, async (uri) => json(uri, { orientation: await saathi.orientation(), medications: await saathi.medicationStatus() }));
 
+  server.registerResource('home-map', 'saathi://home', {
+    title: 'House map',
+    description: 'Rooms (floor polygons in metres), where things are kept, and where the Echo and Ring devices are.',
+    mimeType: 'application/json',
+  }, async (uri) => json(uri, await saathi.homeMap()));
+
   server.registerResource('story', new ResourceTemplate('saathi://stories/{storyId}', {
     list: async () => ({
       resources: (await saathi.listStories()).map((s) => ({ uri: `saathi://stories/${s.id}`, name: s.title, mimeType: 'application/json', description: `A memory from ${s.createdAt.slice(0, 10)}` })),
@@ -286,17 +300,18 @@ export function buildMcpServer(saathi, { bus } = {}) {
     messages: [{ role: 'user', content: { type: 'text', text: `Invite her, warmly and without pressure, to share a memory${theme ? ` about ${theme}` : ''}. Listen, ask one gentle follow-up, then save it with save_memory_story and tell her who will get to hear it.` } }],
   }));
 
-  if (bus) attachLiveUpdates(server, bus);
+  if (bus) attachLiveUpdates(server, bus, saathi.householdId ?? 'default');
   return server;
 }
 
-function attachLiveUpdates(server, bus) {
+function attachLiveUpdates(server, bus, householdId) {
   const subscriptions = new Set();
   server.server.setRequestHandler(SubscribeRequestSchema, async ({ params }) => { subscriptions.add(params.uri); return {}; });
   server.server.setRequestHandler(UnsubscribeRequestSchema, async ({ params }) => { subscriptions.delete(params.uri); return {}; });
 
   const unsubscribe = bus.subscribe(async (event) => {
     if (!server.isConnected()) return;
+    if ((event.detail?.householdId ?? 'default') !== householdId) return;
     const type = event['detail-type'];
     try {
       for (const [uri, types] of Object.entries(RESOURCE_EVENTS)) {

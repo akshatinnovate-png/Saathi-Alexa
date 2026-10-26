@@ -6,6 +6,7 @@ export function createLocalEscalation({ store, notifier, bus, sleep }) {
   const tasks = {
     'arn:aws:states:::sns:publish': async (p) => {
       const id = await notifier.notify({
+        householdId: p.MessageAttributes?.household?.StringValue,
         audience: p.MessageAttributes?.audience?.StringValue ?? 'family',
         severity: p.MessageAttributes?.severity?.StringValue ?? 'info',
         subject: p.Subject,
@@ -14,7 +15,7 @@ export function createLocalEscalation({ store, notifier, bus, sleep }) {
       return { MessageId: id };
     },
     'arn:aws:states:::dynamodb:getItem': async (p) => {
-      const item = await store.get('alerts', p.Key.sk.S);
+      const item = await store.get(p.Key.pk.S, p.Key.sk.S);
       if (!item) return {};
       return { Item: { acknowledged: { BOOL: Boolean(item.acknowledged) }, escalationStage: { S: item.escalationStage ?? '' } } };
     },
@@ -25,7 +26,7 @@ export function createLocalEscalation({ store, notifier, bus, sleep }) {
         const v = p.ExpressionAttributeValues[placeholder];
         patch[attr] = v.S ?? v.BOOL ?? (v.N !== undefined ? Number(v.N) : undefined);
       }
-      await store.update('alerts', p.Key.sk.S, patch);
+      await store.update(p.Key.pk.S, p.Key.sk.S, patch);
       return {};
     },
   };
@@ -39,10 +40,10 @@ export function createLocalEscalation({ store, notifier, bus, sleep }) {
       const execution = runStateMachine(definition, input, {
         tasks,
         sleep,
-        onTransition: ({ state }) => bus.publish('EscalationStep', { alertId: input.alertId, state }),
+        onTransition: ({ state }) => bus.publish('EscalationStep', { householdId: input.householdId, alertId: input.alertId, state }),
       }).then(
-        (result) => bus.publish('EscalationFinished', { alertId: input.alertId, status: result.status, path: result.history }),
-        (err) => bus.publish('EscalationFinished', { alertId: input.alertId, status: 'FAILED', error: err.message }),
+        (result) => bus.publish('EscalationFinished', { householdId: input.householdId, alertId: input.alertId, status: result.status, path: result.history }),
+        (err) => bus.publish('EscalationFinished', { householdId: input.householdId, alertId: input.alertId, status: 'FAILED', error: err.message }),
       ).finally(() => running.delete(input.alertId));
       running.set(input.alertId, execution);
       return executionArn;

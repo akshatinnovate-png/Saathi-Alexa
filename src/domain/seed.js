@@ -1,4 +1,4 @@
-export const SEED_VERSION = 5;
+export const SEED_VERSION = 6;
 
 function localDateTime(now, daysAhead, hhmm, timeZone = 'Asia/Kolkata') {
   const day = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' })
@@ -108,7 +108,7 @@ export function seedData(now = new Date()) {
     stories: [],
     messages: [
       {
-        id: 'msg-seed-1', from: 'riya', to: 'elder', language: 'en', createdAt: new Date(Date.now() - 3 * 3600e3).toISOString(),
+        id: 'msg-seed-1', from: 'riya', to: 'elder', language: 'en', createdAt: new Date(now.getTime() - 3 * 3600e3).toISOString(),
         text: 'Good morning Aaji! I passed my design review today. I wish I could eat your puran poli to celebrate. Call you on Wednesday!',
         translations: {
           mr: 'सुप्रभात आजी! आज माझं डिझाइन रिव्ह्यू पास झालं. हे साजरं करायला तुमची पुरणपोळी खायला मिळाली असती तर किती छान झालं असतं. बुधवारी फोन करते!',
@@ -138,5 +138,20 @@ export function seedData(now = new Date()) {
       },
     ],
     letters: [],
+    rooms: [
+      { id: 'living', name: 'Living room', type: 'living', polygon: [[0, 0], [5, 0], [5, 4], [0, 4]], i18n: { hi: { name: 'बैठक' }, mr: { name: 'बैठकीची खोली' } } },
+      { id: 'kitchen', name: 'Kitchen', type: 'kitchen', polygon: [[5, 0], [8.5, 0], [8.5, 3.2], [5, 3.2]], i18n: { hi: { name: 'रसोई' }, mr: { name: 'स्वयंपाकघर' } } },
+      { id: 'passage', name: 'Passage', type: 'hall', polygon: [[5, 3.2], [8.5, 3.2], [8.5, 4.6], [5, 4.6]], i18n: { hi: { name: 'गलियारा' }, mr: { name: 'पॅसेज' } } },
+      { id: 'bedroom', name: 'Bedroom', type: 'bedroom', polygon: [[0, 4], [4.4, 4], [4.4, 8], [0, 8]], i18n: { hi: { name: 'सोने का कमरा' }, mr: { name: 'झोपायची खोली' } } },
+      { id: 'puja', name: 'Puja room', type: 'puja', polygon: [[4.4, 4.6], [6.2, 4.6], [6.2, 8], [4.4, 8]], i18n: { hi: { name: 'पूजा घर' }, mr: { name: 'देवघर' } } },
+      { id: 'bathroom', name: 'Bathroom', type: 'bathroom', polygon: [[6.2, 4.6], [8.5, 4.6], [8.5, 7], [6.2, 7]], i18n: { hi: { name: 'बाथरूम' }, mr: { name: 'न्हाणीघर' } } },
+    ],
+    homeItems: [
+      { id: 'glasses', name: 'reading glasses', roomId: 'bedroom', x: 3.6, z: 7.2, note: 'on the table beside the bed', aliases: ['glasses', 'spectacles', 'चष्मा', 'चश्मा', 'chashma'], i18n: { hi: { name: 'चश्मा', note: 'पलंग के पास वाली मेज़ पर' }, mr: { name: 'चष्मा', note: 'पलंगाजवळच्या टेबलावर' } } },
+      { id: 'tablet-box', name: 'tablet box', roomId: 'kitchen', x: 8, z: 0.6, note: 'in the cupboard above the fridge', aliases: ['tablets', 'medicine', 'pill box', 'गोळ्या', 'दवा', 'गोळ्यांचा डबा'], i18n: { hi: { name: 'दवा का डिब्बा', note: 'फ्रिज के ऊपर वाली अलमारी में' }, mr: { name: 'गोळ्यांचा डबा', note: 'फ्रिजच्या वरच्या कपाटात' } } },
+      { id: 'keys', name: 'house keys', roomId: 'passage', x: 8.2, z: 3.9, note: 'on the hook by the door', aliases: ['keys', 'key', 'किल्ली', 'चाबी', 'chavi'], i18n: { hi: { name: 'घर की चाबी', note: 'दरवाज़े के पास की खूँटी पर' }, mr: { name: 'घराची किल्ली', note: 'दाराजवळच्या खुंटीवर' } } },
+      { id: 'album', name: 'photo album', roomId: 'living', x: 0.6, z: 1.2, note: 'in the cupboard under the TV', aliases: ['album', 'photos', 'अल्बम', 'फोटो'], i18n: { hi: { name: 'फोटो अल्बम', note: 'टीवी के नीचे वाली अलमारी में' }, mr: { name: 'फोटो अल्बम', note: 'टीव्हीखालच्या कपाटात' } } },
+    ],
+    homeMeta: [{ id: 'map', source: 'demo', updatedAt: now.toISOString(), devices: [{ id: 'echo', kind: 'alexa', label: 'Echo Show', roomId: 'living', x: 2.5, z: 0.5 }, { id: 'front-door', kind: 'ring', label: 'Ring doorbell', roomId: 'passage', x: 8.5, z: 3.9 }] }],
   };
 }

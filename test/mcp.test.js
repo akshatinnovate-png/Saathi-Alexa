@@ -24,7 +24,7 @@ before(async () => {
   const config = testConfig({ host: '127.0.0.1', ring: { webhookSecret: RING_SECRET } });
   const proxy = { turn: (...a) => simulator.turn(...a), answer: (...a) => simulator.answer(...a), reset: (...a) => simulator.reset(...a) };
   const ringProxy = { trigger: (...a) => ringSimulator.trigger(...a) };
-  const app = createApp({ config, services, simulator: proxy, verifier, ringSimulator: ringProxy });
+  const app = createApp({ config, services, simulatorFor: async () => proxy, verifier, ringSimulator: ringProxy });
   await new Promise((resolve) => { server = app.listen(0, '127.0.0.1', resolve); });
   base = `http://127.0.0.1:${server.address().port}`;
   simulator = createAlexaSimulator({
@@ -75,7 +75,7 @@ test('an MCP client can list and call every kind of capability', async () => {
   assert.deepEqual(tools.map((t) => t.name).sort(), [
     'acknowledge_alert', 'ask_family_for_help', 'claim_appointment_escort', 'confirm_medication_taken', 'daily_check_in', 'family_summary',
     'get_family_messages', 'get_medication_schedule', 'get_upcoming_appointments', 'list_memory_stories', 'record_refill',
-    'save_memory_story', 'send_message_to_family', 'weekly_family_letter', 'what_day_is_it', 'who_is',
+    'save_memory_story', 'send_message_to_family', 'weekly_family_letter', 'what_day_is_it', 'where_is', 'who_is',
   ]);
   assert.equal(tools.find((t) => t.name === 'what_day_is_it').annotations.readOnlyHint, true);
 
@@ -87,7 +87,7 @@ test('an MCP client can list and call every kind of capability', async () => {
   assert.equal(bad.isError, true);
 
   const { resources } = await client.listResources();
-  assert.deepEqual(resources.map((r) => r.uri).sort(), ['saathi://circle', 'saathi://elder/profile', 'saathi://today']);
+  assert.deepEqual(resources.map((r) => r.uri).filter((u) => !u.startsWith('saathi://stories/')).sort(), ['saathi://circle', 'saathi://elder/profile', 'saathi://home', 'saathi://today']);
   const profile = JSON.parse((await client.readResource({ uri: 'saathi://elder/profile' })).contents[0].text);
   assert.equal(profile.preferredName, 'Aaji');
 

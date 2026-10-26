@@ -1,4 +1,5 @@
 import { assessConcerns } from './safety.js';
+import { DEFAULT_HOUSEHOLD, collectionFor } from '../households/scope.js';
 import { languageName, LANGUAGES } from './languages.js';
 import { t, spokenLanguage, partOfDayName, joinNames, localized, localDigits } from './i18n.js';
 
@@ -216,6 +217,8 @@ export function createSaathi(deps) {
     await store.put('alerts', alert);
     const escalation = {
       alertId: alert.id,
+      householdId: deps.householdId ?? DEFAULT_HOUSEHOLD,
+      alertsKey: collectionFor(deps.householdId, 'alerts'),
       severity,
       subject: `Saathi: ${me.preferredName} needs you now`,
       familyMessage: `${me.preferredName} (${me.name}) needs help: ${reason}. She said: "${words}". Please call her now and press "I'm on it" in the Saathi family app.`,
@@ -564,6 +567,112 @@ export function createSaathi(deps) {
     return letters;
   }
 
+  async function addMember({ name, relationship, language = 'en', role = 'family', email = null, city = '' }) {
+    const circle = await store.list('circle');
+    const base = String(name ?? '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'member';
+    let memberId = base === 'elder' ? 'member' : base;
+    for (let n = 2; circle.some((p) => p.id === memberId); n++) memberId = `${base}-${n}`;
+    const member = {
+      id: memberId, name: String(name).trim().slice(0, 80), relationship: String(relationship ?? 'family').trim().toLowerCase().slice(0, 40),
+      role: role === 'neighbour' ? 'neighbour' : 'family', language, city, email, aliases: [],
+      escalationOrder: role === 'neighbour' ? 2 : 1, aboutForElder: `${String(name).trim()} is your ${String(relationship ?? 'family').trim().toLowerCase()}.`,
+    };
+    await store.put('circle', member);
+    await events.publish('MemberAdded', { memberId });
+    return member;
+  }
+
+  async function subscribeMember({ email, memberId, role = 'family' }) {
+    if (!email || !notifier.subscribe) return null;
+    return notifier.subscribe({ email, memberId, audiences: role === 'neighbour' ? ['neighbour', 'everyone'] : ['family', 'everyone'] });
+  }
+
+  async function setAvatar({ memberId, image, contentType }) {
+    const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[contentType];
+    if (!ext) throw new Error('Use a PNG, JPEG or WebP image.');
+    const ref = await media.save(`avatars/${memberId}-${Date.now().toString(36)}.${ext}`, image, contentType);
+    if (memberId === 'elder') return store.update('profile', 'elder', { avatar: ref });
+    return store.update('circle', memberId, { avatar: ref });
+  }
+
+  async function messages() {
+    return store.list('messages');
+  }
+
+  async function doorActivity() {
+    return (await store.list('door')).sort((a, b) => b.at.localeCompare(a.at));
+  }
+
+  const validPoint = (p) => Array.isArray(p) && p.length === 2 && p.every((n) => Number.isFinite(n) && Math.abs(n) < 200);
+
+  async function homeMap() {
+    const [rooms, items, meta] = await Promise.all([store.list('rooms'), store.list('homeItems'), store.get('homeMeta', 'map')]);
+    const area = (poly) => Math.abs(poly.reduce((a, [x1, z1], i) => { const [x2, z2] = poly[(i + 1) % poly.length]; return a + x1 * z2 - x2 * z1; }, 0)) / 2;
+    return {
+      rooms: rooms.map((r) => ({ ...r, areaM2: Math.round(area(r.polygon) * 10) / 10 })),
+      items,
+      devices: meta?.devices ?? [],
+      source: meta?.source ?? null,
+      updatedAt: meta?.updatedAt ?? null,
+      totalAreaM2: Math.round(rooms.reduce((a, r) => a + area(r.polygon), 0) * 10) / 10,
+    };
+  }
+
+  async function saveRooms({ rooms, source = 'manual', by }) {
+    if (!Array.isArray(rooms) || !rooms.length || rooms.length > 30) throw new Error('Send between 1 and 30 rooms.');
+    const cleaned = rooms.map((r, i) => {
+      if (!Array.isArray(r.polygon) || r.polygon.length < 3 || r.polygon.length > 40 || !r.polygon.every(validPoint)) throw new Error(`Room ${i + 1} needs at least three corners.`);
+      const name = String(r.name ?? `Room ${i + 1}`).trim().slice(0, 40) || `Room ${i + 1}`;
+      const base = name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `room-${i + 1}`;
+      return { id: r.id && /^[a-z0-9-]{1,40}$/.test(r.id) ? r.id : `${base}-${i + 1}`, name, type: String(r.type ?? 'room').slice(0, 20), polygon: r.polygon.map(([x, z]) => [Math.round(x * 100) / 100, Math.round(z * 100) / 100]), i18n: r.i18n ?? {} };
+    });
+    for (const old of await store.list('rooms')) await store.remove('rooms', old.id);
+    for (const room of cleaned) await store.put('rooms', room);
+    const meta = (await store.get('homeMeta', 'map')) ?? { id: 'map', devices: [] };
+    await store.put('homeMeta', { ...meta, source, updatedAt: clock().toISOString(), updatedBy: by ?? null });
+    await events.publish('HomeMapUpdated', { rooms: cleaned.length, source });
+    return homeMap();
+  }
+
+  async function placeItem({ name, roomId, x, z, note = '', aliases = [] }) {
+    const room = await store.get('rooms', roomId);
+    if (!room) throw new Error('Choose a room on the map first.');
+    const label = String(name ?? '').trim().slice(0, 40);
+    if (!label) throw new Error('Give the thing a name, like "reading glasses".');
+    const itemId = `${label.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'item'}-${Date.now().toString(36)}`;
+    const item = { id: itemId, name: label, roomId, x: Number(x) || 0, z: Number(z) || 0, note: String(note).trim().slice(0, 80), aliases: aliases.map(String).slice(0, 8), i18n: {} };
+    const { lang } = await voice();
+    if (lang !== 'en') {
+      const n = await translateTo(label, lang, 'en');
+      const t2 = item.note ? await translateTo(item.note, lang, 'en') : null;
+      if (n.translated) item.i18n[lang] = { name: n.text, ...(t2?.translated ? { note: t2.text } : {}) };
+    }
+    await store.put('homeItems', item);
+    await events.publish('HomeItemPlaced', { itemId, roomId });
+    return item;
+  }
+
+  async function removeItem(itemId) {
+    const removed = await store.remove('homeItems', itemId);
+    if (removed) await events.publish('HomeItemRemoved', { itemId });
+    return removed;
+  }
+
+  async function whereIs(query, { language } = {}) {
+    const { lang } = await voice(language);
+    const q = String(query ?? '').toLowerCase();
+    const [items, rooms] = await Promise.all([store.list('homeItems'), store.list('rooms')]);
+    const names = (i) => [i.name, ...(i.aliases ?? []), ...Object.values(i.i18n ?? {}).map((v) => v.name)].filter(Boolean).map((n) => n.toLowerCase());
+    const item = items.find((i) => names(i).some((n) => q.includes(n) || n.includes(q)));
+    if (!item) return { found: false, sayLanguage: lang, say: t(lang, 'whereUnknown') };
+    const room = rooms.find((r) => r.id === item.roomId);
+    return {
+      found: true, item: { id: item.id, name: item.name, roomId: item.roomId, x: item.x, z: item.z }, room: room?.name ?? null,
+      sayLanguage: lang,
+      say: t(lang, 'whereIs', { item: localized(item, 'name', lang), room: localized(room, 'name', lang) ?? item.roomId, note: localized(item, 'note', lang) }),
+    };
+  }
+
   async function familySummary({ forMemberId } = {}) {
     const me = await elder();
     const circle = await store.list('circle');
@@ -598,6 +707,8 @@ export function createSaathi(deps) {
     elder, orientation, whoIs,
     medicationSchedule, medicationStatus, confirmMedication, sweepMissedDoses, sweepQuietDay, doorEvent,
     sweepSupplies, recordRefill, upcomingAppointments, sweepAppointments, claimEscort, addVoiceNote, weeklyLetters,
+    addMember, subscribeMember, setAvatar, media, householdId: deps.householdId ?? DEFAULT_HOUSEHOLD,
+    messages, doorActivity, homeMap, saveRooms, placeItem, removeItem, whereIs,
     checkIn, requestHelp, acknowledgeAlert,
     familyMessages, sendToFamily, messageFromFamily,
     saveStory, listStories, familySummary,
