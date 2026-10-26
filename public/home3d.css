@@ -48,3 +48,7 @@
   .h3-body { grid-template-columns: 1fr; }
   .h3-stage-wrap { height: 460px; }
 }
+@media (max-width: 640px) {
+  .h3-room, .h3-item { font-size: 0.62rem; padding: 2px 6px; }
+  .h3-device { display: none; }
+}

@@ -25,6 +25,26 @@ Inclusion runs through the whole design, not a single feature. Saathi is built f
 
 ---
 
+## Screenshots
+
+| | |
+|---|---|
+| <img src="docs/screenshots/01-intro.webp" alt="Intro: the forest video with the halftone dots and the Saathi logo"><br><sub>Intro: the forest video with the halftone dots and the Saathi logo</sub> | <img src="docs/screenshots/02-landing.webp" alt="Landing page with the photo slideshow and "Ask Saathi""><br><sub>Landing page with the photo slideshow and "Ask Saathi"</sub> |
+| <img src="docs/screenshots/03-login.webp" alt="Log in"><br><sub>Log in</sub> | <img src="docs/screenshots/04-signup.webp" alt="Create an account"><br><sub>Create an account</sub> |
+| <img src="docs/screenshots/05-onboarding.webp" alt="Setting up a household, step 1 of 4"><br><sub>Setting up a household, step 1 of 4</sub> | <img src="docs/screenshots/06-family-overview.webp" alt="Family app: today's tablets, Saathi AI summary, the family, what's next"><br><sub>Family app: today's tablets, Saathi AI summary, the family, what's next</sub> |
+| <img src="docs/screenshots/07-family-care.webp" alt="Care: tablets with days of supply left, doctor visits and who is taking her"><br><sub>Care: tablets with days of supply left, doctor visits and who is taking her</sub> | <img src="docs/screenshots/08-family-messages.webp" alt="Messages: write in your language, she hears hers. Voice notes"><br><sub>Messages: write in your language, she hears hers. Voice notes</sub> |
+| <img src="docs/screenshots/09-family-memories.webp" alt="Memories: the weekly letter and her memory book"><br><sub>Memories: the weekly letter and her memory book</sub> | <img src="docs/screenshots/10-family-assistant.webp" alt="Family assistant: answers by calling the MCP tools"><br><sub>Family assistant: answers by calling the MCP tools</sub> |
+| <img src="docs/screenshots/11-home-3d.webp" alt="My Home in 3D: rooms, the Echo and Ring doorbell, things she looks for"><br><sub>My Home in 3D: rooms, the Echo and Ring doorbell, things she looks for</sub> | <img src="docs/screenshots/12-home-2d.webp" alt="The same house as a 2D plan"><br><sub>The same house as a 2D plan</sub> |
+| <img src="docs/screenshots/13-walkaround.webp" alt="Walk the house: an ARCore Android phone captures each room"><br><sub>Walk the house: an ARCore Android phone captures each room</sub> | <img src="docs/screenshots/14-walkaround-draw.webp" alt="Or draw the rooms by hand"><br><sub>Or draw the rooms by hand</sub> |
+| <img src="docs/screenshots/15-alexa.webp" alt="Aaji's Alexa+ in Marathi, with large text and slower speech"><br><sub>Aaji's Alexa+ in Marathi, with large text and slower speech</sub> | <img src="docs/screenshots/16-alexa-confirm.webp" alt="Nothing leaves the house until she says "yes, send it""><br><sub>Nothing leaves the house until she says "yes, send it"</sub> |
+| <img src="docs/screenshots/17-alexa-assistant.webp" alt="Aaji's Saathi assistant, answering in Marathi"><br><sub>Aaji's Saathi assistant, answering in Marathi</sub> |  |
+
+On a phone:
+
+| | | | |
+|---|---|---|---|
+| <img src="docs/screenshots/21-phone-landing.webp" alt="Landing"><br><sub>Landing</sub> | <img src="docs/screenshots/18-phone-family.webp" alt="Family app"><br><sub>Family app</sub> | <img src="docs/screenshots/19-phone-home.webp" alt="My Home"><br><sub>My Home</sub> | <img src="docs/screenshots/20-phone-alexa.webp" alt="Aaji's Alexa+"><br><sub>Aaji's Alexa+</sub> |
+
 ## What's in this repository
 
 | Piece | What it is | Where |

@@ -181,7 +181,8 @@ async function createScene(host, { onPick }) {
     sun.shadow.camera.right = sun.shadow.camera.top = span;
     sun.shadow.camera.updateProjectionMatrix();
     if (!render.framed) {
-      camera.position.set(span * 0.9, span * 1.35, span * 1.6);
+      const fit = Math.max(1, 1.1 / camera.aspect);
+      camera.position.set(span * 0.9 * fit, span * 1.35 * fit, span * 1.6 * fit);
       controls.target.set(0, 0, 0);
       render.framed = true;
     }
