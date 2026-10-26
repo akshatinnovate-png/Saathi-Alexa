@@ -755,6 +755,39 @@ export function createSaathi(deps) {
     return updated;
   }
 
+  async function sweepReminders() {
+    const now = localParts();
+    const { lang } = await voice();
+    const sent = [];
+    const due = (await medicationStatus()).filter((m) => m.status === 'due' && now.minutes >= toMinutes(m.time) && now.minutes - toMinutes(m.time) <= 30);
+    const fresh = [];
+    for (const m of due) {
+      const reminderId = `tablet-${m.slotId}-${now.date}`;
+      if (await store.get('reminders', reminderId)) continue;
+      await store.put('reminders', { id: reminderId, at: clock().toISOString() });
+      fresh.push(m);
+    }
+    if (fresh.length) {
+      const say = t(lang, 'medsDue', { list: fresh.map((m) => localized(m, 'phrase', lang)).join(t(lang, 'medsDueJoin')), withFood: fresh.some((m) => m.withFood) });
+      await events.publish('TabletReminder', { say, sayLanguage: lang, medications: fresh.map((m) => m.slotId) });
+      sent.push(...fresh.map((m) => m.slotId));
+    }
+    const soon = (await upcomingAppointments({ language: lang, days: 0 })).appointments
+      .filter((a) => { const left = toMinutes(a.at.slice(11, 16)) - now.minutes; return left > 0 && left <= 120; });
+    for (const a of soon) {
+      const reminderId = `visit-${a.id}-${now.date}`;
+      if (await store.get('reminders', reminderId)) continue;
+      await store.put('reminders', { id: reminderId, at: clock().toISOString() });
+      const circle = await store.list('circle');
+      const escort = a.escort ? localized(circle.find((p) => p.id === a.escort), 'name', lang) ?? null : null;
+      const raw = (await store.get('appointments', a.id)) ?? a;
+      const say = localDigits(lang, t(lang, 'apptLine', { when: t(lang, 'apptWhen', { kind: 'today', date: '' }), time: a.at.slice(11, 16), with: localized(raw, 'with', lang), place: localized(raw, 'place', lang) || '', escort }));
+      await events.publish('VisitReminder', { say, sayLanguage: lang, appointmentId: a.id });
+      sent.push(a.id);
+    }
+    return sent;
+  }
+
   async function sweepWeeklyLetter() {
     const now = localParts();
     if (now.dayIndex !== 0 || now.minutes < 18 * 60) return null;
@@ -920,7 +953,7 @@ export function createSaathi(deps) {
   return withZone({
     elder, orientation, whoIs,
     medicationSchedule, medicationStatus, confirmMedication, sweepMissedDoses, sweepQuietDay, doorEvent,
-    sweepSupplies, sweepWeeklyLetter, recordRefill, upcomingAppointments, sweepAppointments, claimEscort, addVoiceNote, weeklyLetters,
+    sweepSupplies, sweepWeeklyLetter, sweepReminders, recordRefill, upcomingAppointments, sweepAppointments, claimEscort, addVoiceNote, weeklyLetters,
     addMember, removeMember, updateProfile, saveMedication, removeMedication, saveAppointment, removeAppointment, saveRoutine, careSetup, subscribeMember, setAvatar, media, householdId: deps.householdId ?? DEFAULT_HOUSEHOLD,
     messages, doorActivity, homeMap, saveRooms, placeItem, removeItem, whereIs,
     checkIn, requestHelp, acknowledgeAlert,

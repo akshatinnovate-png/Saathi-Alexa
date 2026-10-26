@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Saathi on Alexa+</title>
-  <meta name="description" content="Simulated Alexa+ device talking to the Saathi MCP server.">
+  <title>Saathi</title>
+  <meta name="description" content="Saathi, a voice companion for your elder, on a tablet or Echo Show.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Atkinson+Hyperlegible:wght@400;700&family=Noto+Sans+Devanagari:wght@400;500&display=swap" rel="stylesheet">
@@ -14,11 +14,11 @@
   <link rel="stylesheet" href="assistant.css">
 </head>
 <body>
-  <a class="skip" href="#talk-input">Skip to talking with Alexa</a>
+  <a class="skip" href="#talk-input">Skip to talking with Saathi</a>
   <header class="topbar">
     <div class="brand">
       <img class="brand-mark" src="assets/logo-ink.svg" alt="" width="36" height="36">
-      <h1 class="brand-title">Saathi on Alexa+ <small>Aaji's Echo, in Pune</small></h1>
+      <h1 class="brand-title">Saathi <small></small></h1>
     </div>
     <div class="controls" role="group" aria-label="Accessibility and language">
       <label class="muted" for="language">Language</label>
@@ -31,8 +31,9 @@
     </div>
   </header>
 
+  <p class="preview-note" id="preview-note" hidden>You are previewing the elder's Saathi screen. Anything you say or tap here is recorded as them. <a href="/family.html">Back to the family app</a></p>
   <main class="sim">
-    <section class="device" aria-label="Alexa+ device screen">
+    <section class="device" aria-label="Saathi screen">
       <div class="device-head">
         <div>
           <div class="device-clock" id="clock">--:--</div>
@@ -42,16 +43,16 @@
       </div>
 
       <div class="ring-wrap">
-        <div class="ring" id="ring" data-state="idle" role="img" aria-label="Alexa is idle"></div>
+        <div class="ring" id="ring" data-state="idle" role="img" aria-label="Saathi is idle"></div>
         <div class="progress-line" id="progress" aria-live="polite"></div>
       </div>
 
       <div class="captions" aria-live="polite" aria-atomic="true">
         <div class="you-said" id="you-said"></div>
-        <div class="alexa-said" id="alexa-said">Namaste, Aaji. I'm here whenever you want to talk.</div>
+        <div class="alexa-said" id="alexa-said"></div>
       </div>
 
-      <div class="confirm" id="confirm" hidden role="group" aria-label="Alexa is asking you to confirm">
+      <div class="confirm" id="confirm" hidden role="group" aria-label="Saathi is asking you to confirm">
         <button class="confirm-yes" id="confirm-yes" type="button"></button>
         <button class="confirm-no" id="confirm-no" type="button"></button>
       </div>
@@ -62,21 +63,21 @@
 
       <form class="talk" id="talk-form">
         <button class="mic" id="mic" type="button" aria-pressed="false" aria-label="Hold a conversation by voice">🎙</button>
-        <label class="skip" for="talk-input">Say something to Alexa</label>
+        <label class="skip" for="talk-input">Say something to Saathi</label>
         <input id="talk-input" type="text" autocomplete="off" placeholder="Type or tap the microphone, then speak…">
         <button class="btn" type="submit">Say</button>
       </form>
     </section>
 
-    <aside class="panel" aria-label="Under the hood">
+    <aside class="panel" id="dev-panel" aria-label="Under the hood" hidden>
       <div class="card">
-        <h2>Under the hood</h2>
-        <p class="muted">This device is an MCP client. Every reply below came from the Saathi MCP server over Streamable HTTP (spec 2025-11-25).</p>
+        <h2>Under the hood <span class="muted">(for developers)</span></h2>
+        <p class="muted">This screen talks to the Saathi MCP server over Streamable HTTP (spec 2025-11-25), exactly as Alexa+ does. Every reply below came from it.</p>
         <div class="services" id="services"></div>
         <p class="muted tail">Alexa+ brain: <strong id="brain">…</strong> · MCP auth: <strong id="auth">…</strong></p>
       </div>
-      <div class="card">
-        <h2>Front door <span class="muted">(Ring Video Doorbell, simulated)</span></h2>
+      <div class="card" id="ring-card">
+        <h2>Front door <span class="muted">(demo doorbell)</span></h2>
         <p class="muted">Signed webhooks to <code>/ring/events</code>. A ring after the neighbour has been sent for closes an emergency; no activity all morning nudges the family.</p>
         <div class="row">
           <button class="btn secondary" id="ring-ding" type="button">🔔 Someone rings the bell</button>
@@ -91,7 +92,7 @@
         <h2>Live events <span class="muted">(EventBridge bus)</span></h2>
         <ul class="events" id="events"></ul>
         <div class="row">
-          <button class="btn secondary" id="sweep" type="button">Run missed-dose sweep</button>
+          <button class="btn secondary" id="sweep" type="button">Check reminders and alerts now</button>
           <button class="btn secondary" id="reset" type="button">Reset demo</button>
         </div>
       </div>

@@ -182,7 +182,7 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     res.json({
       services: services.describe(), auth: config.auth.mode, brain: simulatorFor ? (await simulatorFor(req.householdId)).brain : 'offline-planner',
       languages: LANGUAGES, elder: await withAvatar(elder), circle: await Promise.all(circle.map(withAvatar)),
-      householdId: req.householdId, me: req.user ?? null, memberId: req.memberId, device: req.device ? { id: req.device.id, label: req.device.label } : null,
+      demo: Boolean(config.demo), householdId: req.householdId, me: req.user ?? null, memberId: req.memberId, device: req.device ? { id: req.device.id, label: req.device.label } : null,
     });
   }));
 

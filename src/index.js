@@ -79,7 +79,7 @@ const app = createApp({ config, services, simulatorFor, assistantFor, verifier, 
 app.listen(config.port, config.host, () => {
   console.log(`\n  Saathi is running${config.demo ? ' in DEMO mode (fictional family, short escalation waits, data in data/demo.json)' : ''}\n`);
   console.log(`  Open this in your browser:                   ${publicUrl}/`);
-  console.log(`  Aaji's tablet or Echo Show (pairing code):   ${publicUrl}/device.html`);
+  console.log(`  Elder's tablet or Echo Show (pairing code):  ${publicUrl}/device.html`);
   console.log(`  MCP endpoint (Streamable HTTP, 2025-11-25):  ${baseUrl}/mcp   [auth: ${config.auth.mode}]`);
   console.log(`  Ring doorbell webhook (HMAC-signed):         ${baseUrl}/ring/events`);
   console.log(`  Accounts: ${cognito ? 'Amazon Cognito' : 'local (scrypt)'}${google ? ' + Google sign-in' : ''}${config.web.demoAccounts ? ' + demo accounts (riya@saathi.demo)' : ''}`);
@@ -87,6 +87,16 @@ app.listen(config.port, config.host, () => {
   console.log(`  Alexa+ brain: ${llm ? `${llm.provider} (${llm.model})` : 'offline-planner'}`);
   console.log(`  Services: ${JSON.stringify(services.describe())}\n`);
 });
+
+setInterval(async () => {
+  for (const householdId of await services.householdIds()) {
+    try {
+      await services.forHousehold(householdId).sweepReminders();
+    } catch (err) {
+      console.error(`reminders failed for ${householdId}`, err);
+    }
+  }
+}, 60 * 1000).unref();
 
 setInterval(async () => {
   for (const householdId of await services.householdIds()) {

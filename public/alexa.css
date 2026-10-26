@@ -164,3 +164,5 @@ select, input[type="text"] {
 .kiosk .panel, .kiosk .topbar a.btn { display: none; }
 .kiosk .sim { grid-template-columns: minmax(0, 960px); justify-content: center; }
 .kiosk .device { min-height: calc(100svh - 140px); }
+.preview-note { margin: 0 clamp(16px, 3vw, 32px) 14px; padding: 12px 16px; border-radius: 16px; background: #fff3dc; color: #5a3a06; font-size: 0.95rem; }
+.preview-note a { color: inherit; font-weight: 600; }
