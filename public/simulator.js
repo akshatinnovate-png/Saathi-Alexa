@@ -33,6 +33,7 @@ const LABELS = {
   hi: { day: '📅 आज क्या दिन है?', tablets: '💊 मेरी दवा', took: '✅ दवा ले ली', messages: '💌 संदेश', who: '👧 रिया कौन है?', feel: '💛 मेरा मन', story: '📖 एक कहानी', send: '📨 रिया को संदेश', private: '🤫 सिर्फ़ हमारे बीच', doctor: '🩺 डॉक्टर', help: '🆘 मदद' },
   mr: { day: '📅 आज कोणता दिवस?', tablets: '💊 माझ्या गोळ्या', took: '✅ गोळी घेतली', messages: '💌 निरोप', who: '👧 रिया कोण?', feel: '💛 माझं मन', story: '📖 एक गोष्ट', send: '📨 रियाला निरोप', private: '🤫 आपल्यातच ठेवा', doctor: '🩺 डॉक्टर', help: '🆘 मदत' },
 };
+const ASSISTANT_LABEL = { en: 'Talk to Saathi', hi: 'साथी से बात करें', mr: 'साथीशी बोला' };
 const YES_NO = { en: ['Yes, send it', 'No, not now'], hi: ['हाँ, भेज दो', 'नहीं, अभी नहीं'], mr: ['हो, पाठवा', 'नको, आत्ता नको'] };
 
 function setRing(state, label) {
@@ -44,6 +45,7 @@ function renderQuick() {
   const lang = PHRASES[settings.language] ? settings.language : 'en';
   $('quick').replaceChildren(...Object.keys(PHRASES.en).map((key) =>
     el('button', { type: 'button', class: key === 'help' ? 'help' : undefined, onclick: () => say(PHRASES[lang][key]) }, LABELS[lang][key])));
+  $('open-assistant-label').textContent = ASSISTANT_LABEL[lang];
 }
 
 function tickClock() {
@@ -235,6 +237,23 @@ $('reset').addEventListener('click', async () => {
   $('alexa-said').textContent = "Namaste, Aaji. I'm here whenever you want to talk.";
   setRing('idle', 'Alexa is idle');
   refreshNext();
+});
+
+let assistant = null;
+$('open-assistant').addEventListener('click', async () => {
+  const dialog = $('assistant-dialog');
+  const { mountAssistant } = await import('./assistant.js');
+  const lang = PHRASES[settings.language] ? settings.language : 'en';
+  if (!assistant || assistant.language !== lang) {
+    assistant = mountAssistant($('assistant-root'), {
+      audience: 'elder', name: 'Aaji', language: lang,
+      onClose: () => dialog.close(),
+      speak: (text) => speak(text).then(() => setRing('idle', 'Alexa is idle')),
+    });
+    assistant.language = lang;
+  }
+  dialog.showModal();
+  assistant.focus();
 });
 
 onEvents(addEvent);

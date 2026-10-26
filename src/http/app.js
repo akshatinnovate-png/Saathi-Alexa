@@ -222,6 +222,7 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
 
   app.use((err, _req, res, _next) => {
     if (err.code && err.constructor?.name === 'AuthError') return res.status(err.code === 'forbidden' ? 403 : 400).json({ error: err.message, code: err.code });
+    if (err.status === 400) return res.status(400).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Something went wrong', detail: err.message });
   });

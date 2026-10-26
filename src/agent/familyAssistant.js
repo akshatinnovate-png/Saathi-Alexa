@@ -44,6 +44,7 @@ export function createFamilyAssistant({ mcpUrl, headers, llm }) {
     const args = rule.args(memberId, message);
     const result = await call(rule.tool, args);
     trace.push({ tool: rule.tool, args, result: result.data });
+    if (rule.tool === 'where_is') return result.say.replace(/^Your /, `${elder.preferredName}'s `);
     return result.say;
   }
 

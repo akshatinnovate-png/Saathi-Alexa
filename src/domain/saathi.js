@@ -5,6 +5,8 @@ import { t, spokenLanguage, partOfDayName, joinNames, localized, localDigits } f
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+const invalid = (message) => Object.assign(new Error(message), { status: 400 });
+
 export function createSaathi(deps) {
   const { store, translator, sentiment, speech, events, notifier, media, metrics, config } = deps;
   const clock = deps.clock ?? (() => new Date());
@@ -315,7 +317,7 @@ export function createSaathi(deps) {
   async function messageFromFamily({ fromId, text, language }) {
     const circle = await store.list('circle');
     const sender = circle.find((p) => p.id === fromId);
-    if (!sender) throw new Error(`Unknown family member ${fromId}`);
+    if (!sender) throw invalid(`Unknown family member ${fromId}`);
     return deliverToElder({ fromId, text, language: language ?? sender.language });
   }
 
@@ -515,7 +517,7 @@ export function createSaathi(deps) {
 
   async function addVoiceNote({ fromId, audio, contentType = 'audio/webm', durationSec }) {
     const sender = (await store.list('circle')).find((p) => p.id === fromId);
-    if (!sender) throw new Error(`Unknown family member ${fromId}`);
+    if (!sender) throw invalid(`Unknown family member ${fromId}`);
     const ext = { 'audio/webm': 'webm', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a', 'audio/mpeg': 'mp3', 'audio/wav': 'wav' }[contentType.split(';')[0]] ?? 'webm';
     const noteId = id('voice');
     const ref = await media.save(`voice/${noteId}.${ext}`, audio, contentType);
@@ -589,7 +591,7 @@ export function createSaathi(deps) {
 
   async function setAvatar({ memberId, image, contentType }) {
     const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[contentType];
-    if (!ext) throw new Error('Use a PNG, JPEG or WebP image.');
+    if (!ext) throw invalid('Use a PNG, JPEG or WebP image.');
     const ref = await media.save(`avatars/${memberId}-${Date.now().toString(36)}.${ext}`, image, contentType);
     if (memberId === 'elder') return store.update('profile', 'elder', { avatar: ref });
     return store.update('circle', memberId, { avatar: ref });
@@ -619,9 +621,9 @@ export function createSaathi(deps) {
   }
 
   async function saveRooms({ rooms, source = 'manual', by }) {
-    if (!Array.isArray(rooms) || !rooms.length || rooms.length > 30) throw new Error('Send between 1 and 30 rooms.');
+    if (!Array.isArray(rooms) || !rooms.length || rooms.length > 30) throw invalid('Send between 1 and 30 rooms.');
     const cleaned = rooms.map((r, i) => {
-      if (!Array.isArray(r.polygon) || r.polygon.length < 3 || r.polygon.length > 40 || !r.polygon.every(validPoint)) throw new Error(`Room ${i + 1} needs at least three corners.`);
+      if (!Array.isArray(r.polygon) || r.polygon.length < 3 || r.polygon.length > 40 || !r.polygon.every(validPoint)) throw invalid(`Room ${i + 1} needs at least three corners.`);
       const name = String(r.name ?? `Room ${i + 1}`).trim().slice(0, 40) || `Room ${i + 1}`;
       const base = name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `room-${i + 1}`;
       return { id: r.id && /^[a-z0-9-]{1,40}$/.test(r.id) ? r.id : `${base}-${i + 1}`, name, type: String(r.type ?? 'room').slice(0, 20), polygon: r.polygon.map(([x, z]) => [Math.round(x * 100) / 100, Math.round(z * 100) / 100]), i18n: r.i18n ?? {} };
@@ -636,9 +638,9 @@ export function createSaathi(deps) {
 
   async function placeItem({ name, roomId, x, z, note = '', aliases = [] }) {
     const room = await store.get('rooms', roomId);
-    if (!room) throw new Error('Choose a room on the map first.');
+    if (!room) throw invalid('Choose a room on the map first.');
     const label = String(name ?? '').trim().slice(0, 40);
-    if (!label) throw new Error('Give the thing a name, like "reading glasses".');
+    if (!label) throw invalid('Give the thing a name, like "reading glasses".');
     const itemId = `${label.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'item'}-${Date.now().toString(36)}`;
     const item = { id: itemId, name: label, roomId, x: Number(x) || 0, z: Number(z) || 0, note: String(note).trim().slice(0, 80), aliases: aliases.map(String).slice(0, 8), i18n: {} };
     const { lang } = await voice();
@@ -673,6 +675,17 @@ export function createSaathi(deps) {
     };
   }
 
+  async function adherence(days = 7) {
+    const [meds, doses] = await Promise.all([store.list('medications'), store.list('doses')]);
+    const today = localParts().date;
+    const out = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date(Date.parse(`${today}T12:00:00Z`) - i * 86400e3).toISOString().slice(0, 10);
+      out.push({ date, weekday: DAY_NAMES[new Date(`${date}T12:00:00Z`).getUTCDay()].slice(0, 3), today: i === 0, taken: doses.filter((d) => d.date === date).length, expected: meds.length });
+    }
+    return out;
+  }
+
   async function familySummary({ forMemberId } = {}) {
     const me = await elder();
     const circle = await store.list('circle');
@@ -699,6 +712,7 @@ export function createSaathi(deps) {
       alerts: alerts.slice(0, 10),
       stories: await Promise.all((await listStories()).slice(0, 10).map(withPlayableAudio)),
       appointments: (await upcomingAppointments({ language: 'en' })).appointments,
+      adherence: await adherence(3),
       letter: (await store.list('letters')).filter((l) => l.memberId === forMemberId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null,
     };
   }

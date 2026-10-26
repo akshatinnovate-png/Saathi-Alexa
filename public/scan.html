@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Walk the house · Saathi</title>
+  <meta name="description" content="Walk around the house with an Android phone and Saathi draws the floor plan.">
+  <link rel="icon" href="assets/logo-favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="scan.css">
+  <script type="importmap">{ "imports": { "three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/" } }</script>
+</head>
+<body class="scan">
+  <header class="scan-top">
+    <a class="scan-back" href="/family.html#home">← Back to the map</a>
+    <img src="assets/logo-ink.svg" alt="Saathi" width="28" height="28">
+  </header>
+
+  <main class="scan-main" id="main">
+    <section class="scan-intro" id="intro" aria-labelledby="scan-h">
+      <h1 id="scan-h">Walk around the house</h1>
+      <p>Hold the phone at chest height and point it at the floor. In each room, walk to every corner and tap <strong>Add corner</strong>. When the room is closed, give it a name and move on to the next one. Saathi joins the rooms into one map.</p>
+      <ol class="scan-steps">
+        <li><span>1</span>Start in the living room</li>
+        <li><span>2</span>Tap each corner where the walls meet the floor</li>
+        <li><span>3</span>Name the room, then walk to the next</li>
+      </ol>
+      <p class="scan-support" id="support" aria-live="polite">Checking this phone…</p>
+      <div class="scan-actions">
+        <button class="scan-btn dark" id="start-ar" type="button" disabled>Start walking</button>
+        <button class="scan-btn" id="start-draw" type="button">Draw it by hand instead</button>
+      </div>
+    </section>
+
+    <section class="scan-draw" id="draw" aria-labelledby="draw-h" hidden>
+      <h1 id="draw-h">Draw the rooms</h1>
+      <p>Each square is one metre. Tap the corners of a room, then name it.</p>
+      <div class="scan-grid-wrap"><svg id="grid" class="scan-grid" role="img" aria-label="Floor plan drawing grid"></svg></div>
+    </section>
+
+    <section class="scan-review" id="review" aria-labelledby="review-h" hidden>
+      <h2 id="review-h">Rooms so far</h2>
+      <ul id="room-list" class="scan-rooms"></ul>
+      <p class="scan-error" id="save-error" role="alert" hidden></p>
+      <div class="scan-actions">
+        <button class="scan-btn" id="undo-room" type="button">Remove last room</button>
+        <button class="scan-btn dark" id="save" type="button">Save the map</button>
+      </div>
+    </section>
+  </main>
+
+  <div class="scan-overlay" id="overlay" hidden>
+    <div class="scan-hud">
+      <p class="scan-msg" id="hud-msg" aria-live="polite">Move the phone slowly so it can find the floor.</p>
+      <svg id="mini" class="scan-mini" aria-hidden="true"></svg>
+    </div>
+    <div class="scan-controls">
+      <button class="scan-btn ghost" id="undo-corner" type="button">Undo</button>
+      <button class="scan-btn big" id="add-corner" type="button" disabled>Add corner</button>
+      <button class="scan-btn ghost" id="close-room" type="button" disabled>Close room</button>
+    </div>
+    <button class="scan-btn ghost done" id="finish" type="button">Done walking</button>
+  </div>
+
+  <dialog class="scan-name" id="name-dialog" aria-labelledby="name-h">
+    <form method="dialog" id="name-form">
+      <h2 id="name-h">What is this room?</h2>
+      <div class="scan-types" id="types"></div>
+      <label>Name<input name="name" id="room-name" required autocomplete="off"></label>
+      <p class="muted" id="room-area"></p>
+      <div class="scan-actions">
+        <button class="scan-btn" value="cancel" formnovalidate>Discard</button>
+        <button class="scan-btn dark" value="ok">Save room</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="scan.js"></script>
+</body>
+</html>
