@@ -155,16 +155,20 @@ npm start
 
 To use another port: `PORT=3000 npm start` (PowerShell: `$env:PORT=3000; npm start`).
 
-### 3. Turn on real email and Google sign-in (optional, 3 minutes)
+### 3. Turn on "Sign in with Google" (once, about 5 minutes)
 
 ```bash
 npm run setup
 ```
 
-It asks a few questions and saves your answers in a private `.env` file:
+Google only lets apps that are registered in Google Cloud use "Sign in with Google", so the person running Saathi registers it once. The setup walks through it link by link: create a project, enable the Gmail API, publish the consent screen, and make a Web client with the redirect address it shows you. Paste the Client ID and secret, and that's it.
 
-- **Email.** The easiest choice is a Gmail account with an [app password](https://myaccount.google.com/apppasswords). You can also use Amazon SES or any SMTP provider. Until then, Saathi prints each email and its link in the terminal, so invites still work.
-- **Sign in with Google.** It walks you through creating a Google OAuth client. The same client lets the person who set up the household tap **Send from my Gmail**, so invites and alerts come from their own address.
+After that, nobody types a password or sets up email:
+
+- Everyone in the family taps **Continue with Google**.
+- At the end of sign-up, the person setting up the family taps **Connect Gmail**. Invites, calls for help, missed-tablet nudges and the Sunday letter are then sent automatically from their own Gmail. Saathi can only send, never read.
+
+`npm run setup` can also use one Gmail account with an app password, Amazon SES or any SMTP provider instead, and add Claude or Amazon Translate for translation. Without any email set up, invites can still be shared on WhatsApp from the app.
 
 ### 4. Open it
 

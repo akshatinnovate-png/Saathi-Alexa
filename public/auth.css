@@ -143,3 +143,8 @@ label.inline { border: 0; padding: 0; }
 #auth-social[data-count="1"] { grid-template-columns: 1fr; }
 #auth-social[data-count="2"] { grid-template-columns: 1fr 1fr; }
 .social-btn.wide { display: flex; gap: 10px; justify-content: center; align-items: center; font: 500 0.95rem var(--sans); text-decoration: none; }
+.w-gmail { display: grid; gap: 14px; }
+.w-gmail .join-google { height: 52px; font-size: 1rem; }
+.w-skip { margin: 0; text-align: center; font-size: 0.9rem; }
+.w-skip a { color: #4b5366; }
+.w-gmail .muted { margin: 0; font-size: 0.85rem; color: #5f636b; }

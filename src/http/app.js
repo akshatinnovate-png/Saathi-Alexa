@@ -20,6 +20,14 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
 
   if (allowedHosts?.length) app.use(hostHeaderValidation(allowedHosts));
   else if (['127.0.0.1', 'localhost', '::1'].includes(config.host)) app.use(localhostHostValidation());
+  if (config.web?.canonicalLocalhost && google && !config.auth.publicUrl) {
+    app.use((req, res, next) => {
+      if (req.method === 'GET' && req.hostname === '127.0.0.1' && !req.path.startsWith('/mcp') && !req.path.startsWith('/api/')) {
+        return res.redirect(`http://localhost:${req.socket.localPort}${req.originalUrl}`);
+      }
+      next();
+    });
+  }
   app.use(express.json({ limit: '1mb', verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); } }));
 
   mountMcp(app, services, { verifier, optionalVerifier, bus: localBus, auth: config.auth });

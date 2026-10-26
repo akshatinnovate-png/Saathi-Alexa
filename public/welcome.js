@@ -103,6 +103,13 @@ $('w-form').addEventListener('submit', async (e) => {
     const res = await fetch('/api/onboarding', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(form()) });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error);
+    if (googleReady) {
+      $('w-form').hidden = true;
+      for (const id of ['w-step', 'w-title', 'w-sub']) $(id).hidden = true;
+      $('w-gmail').hidden = false;
+      $('w-gmail-title').focus();
+      return;
+    }
     location.href = json.next;
   } catch (err) {
     $('w-error').textContent = err.message || 'Something went wrong.';
@@ -125,6 +132,10 @@ fillLanguages($('e-lang'), browserLang);
 fillLanguages($('o-lang'), browserLang);
 fillLanguages($('n-lang'), browserLang);
 fillPlaces();
-fetch('/api/session').then((r) => r.json()).then((s) => { if (s.user?.name) $('o-name').value = s.user.name; }).catch(() => {});
+let googleReady = false;
+fetch('/api/session').then((r) => r.json()).then((s) => {
+  if (s.user?.name) $('o-name').value = s.user.name;
+  googleReady = (s.providers?.social ?? []).includes('Google');
+}).catch(() => {});
 addMed();
 show(1);

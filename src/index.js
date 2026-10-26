@@ -76,6 +76,7 @@ const configuredHosts = process.env.SAATHI_ALLOWED_HOSTS?.split(',').map((h) => 
 const allowedHosts = configuredHosts.length || config.auth.publicUrl
   ? [...new Set([...configuredHosts, ...(config.auth.publicUrl ? [new URL(config.auth.publicUrl).hostname, 'localhost', '127.0.0.1'] : [])])]
   : undefined;
+config.web.canonicalLocalhost = true;
 const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell });
 
 doorbell.startAll().catch((err) => console.error('Ring listeners failed to start:', err.message));
