@@ -3,97 +3,85 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Saathi on Alexa+</title>
-  <meta name="description" content="Simulated Alexa+ device talking to the Saathi MCP server.">
+  <title>Saathi</title>
+  <meta name="description" content="Saathi keeps elders and the families who love them close, in every language.">
+  <link rel="icon" href="assets/logo-favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2248%22 fill=%22%23c2410c%22/%3E%3Ctext x=%2250%22 y=%2268%22 font-size=%2256%22 text-anchor=%22middle%22 fill=%22white%22%3E%E0%A4%B8%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Newsreader:opsz,wght@6..72,300;6..72,400&family=Noto+Sans+Devanagari:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="preload" as="video" href="assets/intro.mp4" type="video/mp4">
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="landing.css">
 </head>
-<body>
-  <a class="skip" href="#talk-input">Skip to talking with Alexa</a>
-  <header class="topbar">
-    <div class="brand">
-      <span class="brand-mark" aria-hidden="true">स</span>
-      <h1 class="brand-title">Saathi on Alexa+ <small>Aaji's Echo, in Pune</small></h1>
+<body class="landing-body">
+  <div class="intro" id="intro" aria-hidden="true">
+    <video class="intro-video" id="intro-video" muted playsinline preload="auto" poster="assets/intro-poster.jpg">
+      <source src="assets/intro.webm" type="video/webm">
+      <source src="assets/intro.mp4" type="video/mp4">
+    </video>
+    <div class="intro-shade"></div>
+    <canvas class="halftone" id="intro-dots"></canvas>
+    <div class="intro-logo" id="intro-logo">
+      <img src="assets/logo-cream.svg" alt="">
+      <span class="logo-word">Saathi</span>
     </div>
-    <div class="controls" role="group" aria-label="Accessibility and language">
-      <label class="muted" for="language">Language</label>
-      <select id="language"></select>
-      <button class="toggle" id="t-large" type="button" aria-pressed="false">Large text</button>
-      <button class="toggle" id="t-contrast" type="button" aria-pressed="false">High contrast</button>
-      <button class="toggle" id="t-slow" type="button" aria-pressed="false">Slower voice</button>
-      <button class="toggle" id="t-voice" type="button" aria-pressed="true">Speak replies</button>
-      <a class="btn secondary" href="family.html" target="_blank" rel="noopener">Family app ↗</a>
-    </div>
+    <button class="intro-skip" id="intro-skip" type="button" tabindex="-1">Skip</button>
+  </div>
+
+  <div class="slides" id="slides" aria-hidden="true"></div>
+  <div class="slides-shade" aria-hidden="true"></div>
+  <canvas class="halftone landing-dots" id="landing-dots" aria-hidden="true"></canvas>
+
+  <header class="landing-top">
+    <a class="logo landing-logo" href="/" aria-label="Saathi home">
+      <img src="assets/logo-cream.svg" alt="">
+      <span class="logo-word">Saathi</span>
+    </a>
+    <nav class="landing-nav" aria-label="Main">
+      <a href="/alexa.html">Aaji's Alexa</a>
+      <a href="/family.html">Family Circle</a>
+      <a class="landing-signin" id="signin" href="/login.html">Sign in</a>
+    </nav>
   </header>
 
-  <main class="sim">
-    <section class="device" aria-label="Alexa+ device screen">
-      <div class="device-head">
-        <div>
-          <div class="device-clock" id="clock">--:--</div>
-          <div class="device-date" id="date">&nbsp;</div>
-        </div>
-        <div class="device-next" id="next" aria-live="polite">&nbsp;</div>
-      </div>
-
-      <div class="ring-wrap">
-        <div class="ring" id="ring" data-state="idle" role="img" aria-label="Alexa is idle"></div>
-        <div class="progress-line" id="progress" aria-live="polite"></div>
-      </div>
-
-      <div class="captions" aria-live="polite" aria-atomic="true">
-        <div class="you-said" id="you-said"></div>
-        <div class="alexa-said" id="alexa-said">Namaste, Aaji. I'm here whenever you want to talk.</div>
-      </div>
-
-      <div class="confirm" id="confirm" hidden role="group" aria-label="Alexa is asking you to confirm">
-        <button class="confirm-yes" id="confirm-yes" type="button"></button>
-        <button class="confirm-no" id="confirm-no" type="button"></button>
-      </div>
-
-      <div class="quick" id="quick" role="group" aria-label="Things you can say"></div>
-
-      <form class="talk" id="talk-form">
-        <button class="mic" id="mic" type="button" aria-pressed="false" aria-label="Hold a conversation by voice">🎙</button>
-        <label class="skip" for="talk-input">Say something to Alexa</label>
-        <input id="talk-input" type="text" autocomplete="off" placeholder="Type or tap the microphone, then speak…">
-        <button class="btn" type="submit">Say</button>
-      </form>
-    </section>
-
-    <aside class="panel" aria-label="Under the hood">
-      <div class="card">
-        <h2>Under the hood</h2>
-        <p class="muted" style="margin:0 0 10px">This device is an MCP client. Every reply below came from the Saathi MCP server over Streamable HTTP (spec 2025-11-25).</p>
-        <div class="services" id="services"></div>
-        <p class="muted" style="margin:10px 0 0">Alexa+ brain: <strong id="brain">…</strong> · MCP auth: <strong id="auth">…</strong></p>
-      </div>
-      <div class="card">
-        <h2>Front door <span class="muted">(Ring Video Doorbell, simulated)</span></h2>
-        <p class="muted" style="margin:0 0 10px">Signed webhooks to <code>/ring/events</code>. A ring after the neighbour has been sent for closes an emergency; no activity all morning nudges the family.</p>
-        <div style="display:flex; gap:8px; flex-wrap:wrap">
-          <button class="btn secondary" id="ring-ding" type="button">🔔 Someone rings the bell</button>
-          <button class="btn secondary" id="ring-motion" type="button">🚶 Motion at the door</button>
-        </div>
-      </div>
-      <div class="card">
-        <h2>MCP tool calls</h2>
-        <div class="trace" id="trace"><p class="empty">Say something to see which tools Alexa+ calls.</p></div>
-      </div>
-      <div class="card">
-        <h2>Live events <span class="muted">(EventBridge bus)</span></h2>
-        <ul class="events" id="events"></ul>
-        <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap">
-          <button class="btn secondary" id="sweep" type="button">Run missed-dose sweep</button>
-          <button class="btn secondary" id="reset" type="button">Reset demo</button>
-        </div>
-      </div>
-    </aside>
+  <main class="landing-main">
+    <h1 class="landing-title">Closer, in every language.</h1>
+    <p class="landing-sub">An Alexa+ companion for the people who raised us, and a circle for everyone who loves them.</p>
+    <form class="ask" id="ask" role="search" action="/family.html" method="get">
+      <label class="sr-only" for="ask-input">Ask Saathi</label>
+      <svg class="ask-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" fill="currentColor"/></svg>
+      <input id="ask-input" name="ask" type="text" autocomplete="off" placeholder="Ask Saathi how Aaji is today…">
+      <button class="ask-go" type="submit" aria-label="Ask">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </form>
+    <ul class="ask-chips" aria-label="Try asking">
+      <li><button type="button" data-q="How was Aaji this week?">How was Aaji this week?</button></li>
+      <li><button type="button" data-q="Who is taking Aaji to the doctor?">Who is taking her to the doctor?</button></li>
+      <li><button type="button" data-q="Does Aaji need any tablets refilled?">Any tablets to refill?</button></li>
+    </ul>
   </main>
 
-  <script type="module" src="simulator.js"></script>
+  <footer class="landing-foot">
+    <section class="caption" aria-live="polite" aria-label="About this image">
+      <span class="caption-kicker">Today's view</span>
+      <strong class="caption-title" id="caption-title"></strong>
+      <span class="caption-place" id="caption-place"></span>
+    </section>
+    <div class="slide-controls" role="group" aria-label="Background images">
+      <button type="button" id="slide-prev" aria-label="Previous image">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="slide-dots" id="slide-dots"></div>
+      <button type="button" id="slide-pause" aria-label="Pause slideshow" aria-pressed="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M15 6v12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <button type="button" id="slide-next" aria-label="Next image">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </footer>
+
+  <script type="module" src="landing.js"></script>
 </body>
 </html>

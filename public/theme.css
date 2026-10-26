@@ -1,0 +1,78 @@
+:root {
+  --cream: #f3ebdd;
+  --cream-soft: rgb(243 235 221 / 70%);
+  --ink: #16181d;
+  --ink-2: #3c4250;
+  --ink-3: #5a6172;
+  --line: rgb(22 24 29 / 10%);
+  --paper: #f6f7f8;
+  --white: #ffffff;
+  --glass: rgb(255 255 255 / 72%);
+  --glass-strong: rgb(255 255 255 / 88%);
+  --glass-line: rgb(255 255 255 / 85%);
+  --lavender: #e7e3fb;
+  --sky: #d9e6fb;
+  --blue: #1f5fbf;
+  --blue-soft: #d6e5ff;
+  --orange: #f2a14a;
+  --orange-ink: #7a3e06;
+  --peach: #fbe7cf;
+  --pink: #f2d7e4;
+  --green: #12703a;
+  --green-soft: #d8f1e1;
+  --red: #b42318;
+  --red-soft: #fde4e1;
+  --serif: "Newsreader", "Iowan Old Style", Georgia, serif;
+  --sans: "Inter", "Noto Sans Devanagari", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --radius: 22px;
+  --radius-sm: 14px;
+  --shadow: 0 1px 2px rgb(30 40 80 / 6%), 0 10px 30px rgb(30 40 80 / 8%);
+  --scale: 1;
+  font-size: calc(16px * var(--scale));
+}
+
+:root[data-large="true"] { --scale: 1.25; }
+
+:root[data-contrast="high"] {
+  --ink: #000;
+  --ink-2: #000;
+  --ink-3: #000;
+  --line: #000;
+  --glass: #fff;
+  --glass-strong: #fff;
+  --glass-line: #000;
+  --blue: #0033a0;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; }
+
+body {
+  font-family: var(--sans);
+  color: var(--ink);
+  background: var(--paper);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+[lang="mr"], [lang="hi"] { line-height: 1.6; }
+
+a { color: inherit; }
+
+:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; border-radius: 10px; }
+:root[data-contrast="high"] :focus-visible { outline: 4px solid #000; box-shadow: 0 0 0 7px #ffd400; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+.logo { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
+.logo img, .logo svg { width: 1.6em; height: 1.6em; }
+.logo-word { font-family: var(--serif); font-weight: 400; letter-spacing: -0.01em; }
+
+.halftone { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}
