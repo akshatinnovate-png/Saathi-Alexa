@@ -10,6 +10,8 @@ on:
 permissions:
   contents: write
   packages: write
+  id-token: write
+  attestations: write
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -17,11 +19,14 @@ jobs:
       VERSION: ${{ inputs.version || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm test
         env:
           SAATHI_METRICS: 'off'
@@ -32,14 +37,48 @@ jobs:
           echo "PLAIN=$version" >> "$GITHUB_ENV"
           awk -v v="$version" '$0 ~ "^## \\[?"v"\\]?" {on=1; next} on && /^## / {exit} on' CHANGELOG.md > notes.md
           test -s notes.md
+      - name: Software bill of materials and source archive
+        run: |
+          npm sbom --omit=dev --sbom-format cyclonedx > "saathi-$PLAIN.cdx.json"
+          npm sbom --omit=dev --sbom-format spdx > "saathi-$PLAIN.spdx.json"
+          git archive --format=tar.gz --prefix="saathi-$PLAIN/" -o "saathi-$PLAIN.tar.gz" HEAD
+          sha256sum "saathi-$PLAIN.tar.gz" "saathi-$PLAIN.cdx.json" "saathi-$PLAIN.spdx.json" > SHA256SUMS
       - name: Publish the Docker image
+        id: image
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
         run: |
           image="ghcr.io/${GITHUB_REPOSITORY,,}"
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-          docker build -t "$image:$PLAIN" -t "$image:latest" .
+          echo "$REGISTRY_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          docker build --label "org.opencontainers.image.revision=$GITHUB_SHA" --label "org.opencontainers.image.version=$PLAIN" -t "$image:$PLAIN" -t "$image:latest" .
           docker push "$image:$PLAIN"
           docker push "$image:latest"
+          echo "name=$image" >> "$GITHUB_OUTPUT"
+          echo "digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$image:$PLAIN" | cut -d@ -f2)" >> "$GITHUB_OUTPUT"
+      - name: Prove where the source archive came from
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            saathi-${{ env.PLAIN }}.tar.gz
+            saathi-${{ env.PLAIN }}.cdx.json
+            saathi-${{ env.PLAIN }}.spdx.json
+      - name: Prove where the Docker image came from
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ steps.image.outputs.name }}
+          subject-digest: ${{ steps.image.outputs.digest }}
+          push-to-registry: true
+      - name: Attach the SBOM to the Docker image
+        uses: actions/attest-sbom@v2
+        with:
+          subject-name: ${{ steps.image.outputs.name }}
+          subject-digest: ${{ steps.image.outputs.digest }}
+          sbom-path: saathi-${{ env.PLAIN }}.spdx.json
+          push-to-registry: true
       - name: Create the GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "$TAG" --title "Saathi $TAG" --notes-file notes.md --target "$GITHUB_SHA"
+        run: |
+          gh release create "$TAG" --title "Saathi $TAG" --notes-file notes.md --target "$GITHUB_SHA" \
+            "saathi-$PLAIN.tar.gz" "saathi-$PLAIN.cdx.json" "saathi-$PLAIN.spdx.json" SHA256SUMS

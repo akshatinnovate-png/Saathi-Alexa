@@ -60,6 +60,7 @@ export const config = {
 
   web: {
     requireLogin: env.SAATHI_REQUIRE_LOGIN !== 'false',
+    trustProxy: env.SAATHI_TRUST_PROXY ?? (env.RENDER ? 1 : 'loopback'),
     sessionSecret: env.SAATHI_SESSION_SECRET || undefined,
     demoAccounts: demo && env.SAATHI_DEMO_ACCOUNTS !== 'false',
   },

@@ -1,6 +1,9 @@
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import QRCode from 'qrcode';
+import { securityHeaders } from '../security/headers.js';
+import { crossSiteGuard, createRateLimiter, RATE_RULES, safeJsonReviver, errorHandler } from '../security/guards.js';
+import { mountSecurity } from './securityRoutes.js';
 import { COUNTRIES, PRONOUNS } from '../domain/people.js';
 import { hostHeaderValidation, localhostHostValidation } from '@modelcontextprotocol/sdk/server/middleware/hostHeaderValidation.js';
 import { mountMcp } from './mcpRoute.js';
@@ -8,20 +11,30 @@ import { mountAuth } from './authRoutes.js';
 import { LANGUAGES } from '../domain/languages.js';
 import { seedData } from '../domain/seed.js';
 import { DEFAULT_HOUSEHOLD } from '../households/scope.js';
-import { verifySignature, normaliseRingEvent, SIGNATURE_HEADER, TIMESTAMP_HEADER } from '../ring/webhook.js';
+import { createReplayGuard, verifySignature, normaliseRingEvent, SIGNATURE_HEADER, TIMESTAMP_HEADER } from '../ring/webhook.js';
 
 const PROTECTED_PAGES = ['/family.html', '/alexa.html', '/welcome.html', '/scan.html'];
 
-export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell }) {
+export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null }) {
   const { localBus, store } = services;
   const app = express();
-  app.set('trust proxy', 'loopback');
+  app.set('trust proxy', config.web?.trustProxy ?? 'loopback');
+  app.disable('x-powered-by');
+  const publicUrl = config.auth.publicUrl ?? null;
+  app.use(securityHeaders({
+    publicDir: fileURLToPath(new URL('../../public', import.meta.url)),
+    https: Boolean(publicUrl?.startsWith('https://')),
+    mediaHosts: config.aws?.s3 ? ['https://*.amazonaws.com'] : [],
+  }));
+  const limiter = createRateLimiter();
+  if (config.web?.rateLimit !== false) app.use(limiter.middleware(config.web?.rateRules ?? RATE_RULES));
+  app.use(crossSiteGuard({ allowedOrigins: publicUrl ? [new URL(publicUrl).origin] : [] }));
   app.get('/healthz', (_req, res) => res.json({ ok: true }));
   const requireLogin = config.web?.requireLogin !== false && Boolean(accounts && sessions);
 
   if (allowedHosts?.length) app.use(hostHeaderValidation(allowedHosts));
   else if (['127.0.0.1', 'localhost', '::1'].includes(config.host)) app.use(localhostHostValidation());
-  if (config.web?.canonicalLocalhost && google && !config.auth.publicUrl) {
+  if (config.web?.canonicalLocalhost && !config.auth.publicUrl) {
     app.use((req, res, next) => {
       if (req.method === 'GET' && req.hostname === '127.0.0.1' && !req.path.startsWith('/mcp') && !req.path.startsWith('/api/')) {
         return res.redirect(`http://localhost:${req.socket.localPort}${req.originalUrl}`);
@@ -29,13 +42,14 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
       next();
     });
   }
-  app.use(express.json({ limit: '1mb', verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); } }));
+  app.use(express.json({ limit: '1mb', reviver: safeJsonReviver, verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); } }));
 
-  mountMcp(app, services, { verifier, optionalVerifier, bus: localBus, auth: config.auth });
+  mountMcp(app, services, { verifier, optionalVerifier, bus: localBus, auth: config.auth, requireToken: Boolean(config.web?.exposed) });
 
+  const ringReplay = createReplayGuard();
   app.post('/ring/events', async (req, res, next) => {
     try {
-      const check = verifySignature({ secret: config.ring.webhookSecret, signature: req.get(SIGNATURE_HEADER), timestamp: req.get(TIMESTAMP_HEADER), rawBody: req.rawBody ?? '' });
+      const check = verifySignature({ secret: config.ring.webhookSecret, signature: req.get(SIGNATURE_HEADER), timestamp: req.get(TIMESTAMP_HEADER), rawBody: req.rawBody ?? '', replay: ringReplay });
       if (!check.ok) return res.status(401).json({ error: check.reason });
       let event;
       try { event = normaliseRingEvent(req.body); } catch (err) { return res.status(400).json({ error: err.message }); }
@@ -57,7 +71,9 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     }
   });
 
-  if (accounts && sessions) mountAuth(app, { config, accounts, sessions, google, familyMail });
+  if (accounts && sessions) mountAuth(app, { config, accounts, sessions, security, google, familyMail, audit });
+  if (accounts && sessions && security && audit) mountSecurity(app, { accounts, sessions, security, audit });
+  const record = (req, action, detail = {}) => audit?.append({ householdId: req.householdId ?? null, actor: req.user?.email ?? req.device?.id ?? null, action, detail, ip: req.ip }).catch(() => {});
 
   app.use((req, _res, next) => {
     const fallback = requireLogin ? null : DEFAULT_HOUSEHOLD;
@@ -100,9 +116,23 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
   api.post('/devices/pairing-code', wrap(async (req, res) => {
     if (!familyOnly(req, res)) return;
     const { code, expiresAt } = await accounts.createPairingCode(req.user.email);
+    record(req, 'pairing-code-made');
     const url = `${originOf(req)}/device.html`;
     const qr = await QRCode.toString(`${url}?code=${code}`, { type: 'svg', margin: 1, color: { dark: '#16181d', light: '#ffffff' } });
     res.json({ code, expiresAt, url, qr });
+  }));
+
+  api.get('/devices/requests', wrap(async (req, res) => {
+    if (!familyOnly(req, res)) return;
+    res.json(await accounts.pairRequests(req.householdId));
+  }));
+
+  api.post('/devices/requests/:id', wrap(async (req, res) => {
+    if (!familyOnly(req, res)) return;
+    const approve = req.body?.approve === true;
+    const out = await accounts.decidePairRequest(req.user.email, req.params.id, approve);
+    record(req, approve ? 'device-approved' : 'device-refused', { emoji: out.emoji.join('') });
+    res.json({ status: out.status });
   }));
 
   api.get('/devices', wrap(async (req, res) => {
@@ -112,7 +142,12 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
 
   api.delete('/devices/:id', wrap(async (req, res) => {
     if (!familyOnly(req, res)) return;
-    res.json({ removed: Boolean(await accounts.removeDevice(req.householdId, req.params.id)) });
+    const removed = Boolean(await accounts.removeDevice(req.householdId, req.params.id));
+    if (removed) {
+      await sessions?.revokeWhere((s) => s.kind === 'device' && s.deviceId === req.params.id);
+      record(req, 'device-removed', { device: req.params.id });
+    }
+    res.json({ removed });
   }));
 
   api.get('/mail', wrap(async (req, res) => {
@@ -127,7 +162,9 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
 
   api.delete('/mail/gmail', wrap(async (req, res) => {
     if (!ownerOnly(req, res) || !familyMail) return;
-    res.json({ removed: Boolean(await familyMail.disconnectGmail(req.householdId)) });
+    const removed = Boolean(await familyMail.disconnectGmail(req.householdId));
+    record(req, 'gmail-disconnected');
+    res.json({ removed });
   }));
 
   const careEditor = async (req, res) => {
@@ -184,7 +221,9 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
 
   api.post('/doorbell/hook', wrap(async (req, res) => {
     if (!ownerOnly(req, res) || !doorbell) return;
-    res.json({ hookUrl: await doorbell.newHook(req.householdId) });
+    const hookUrl = await doorbell.newHook(req.householdId);
+    record(req, 'doorbell-link-made');
+    res.json({ hookUrl });
   }));
 
   api.post('/doorbell/ring', wrap(async (req, res) => {
@@ -204,12 +243,17 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
 
   api.put('/household/profile', wrap(async (req, res) => {
     if (!ownerOnly(req, res)) return;
-    res.json(await req.saathi.updateProfile(req.body ?? {}));
+    const profile = await req.saathi.updateProfile(req.body ?? {});
+    record(req, 'profile-changed', { fields: Object.keys(req.body ?? {}).slice(0, 20) });
+    res.json(profile);
   }));
 
   api.delete('/household/members/:memberId', wrap(async (req, res) => {
     if (!ownerOnly(req, res)) return;
-    res.json(await accounts.removeMember(req.user.email, req.params.memberId));
+    const out = await accounts.removeMember(req.user.email, req.params.memberId);
+    for (const email of out.accounts) await sessions?.revokeWhere((s) => s.kind === 'user' && s.email === email);
+    record(req, 'member-removed', { member: out.removed });
+    res.json(out);
   }));
 
   api.get('/household/invites', wrap(async (req, res) => {
@@ -345,12 +389,15 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
 
   api.post('/household/invite', wrap(async (req, res) => {
     if (!accounts || !req.user) return res.status(401).json({ error: 'Please log in.' });
-    res.json(await accounts.invite(req.user.email, req.body ?? {}));
+    const member = await accounts.invite(req.user.email, req.body ?? {});
+    record(req, 'member-invited', { member: member.id, emailed: member.invite?.emailed ?? false });
+    res.json(member);
   }));
 
   api.post('/household/device-token', wrap(async (req, res) => {
     if (!accounts || !req.user) return res.status(401).json({ error: 'Please log in.' });
     const token = await accounts.issueDeviceToken(req.user.email, { label: String(req.body?.label ?? 'Alexa+ device').slice(0, 60) });
+    record(req, 'alexa-key-made');
     res.json({ token, mcpUrl: `${config.auth.publicUrl ?? `${req.protocol}://${req.get('host')}`}/mcp` });
   }));
 
@@ -382,16 +429,20 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
 
   app.get('/api/reference', (_req, res) => res.json({ countries: COUNTRIES, pronouns: PRONOUNS, languages: LANGUAGES }));
   app.use('/api', api);
-  app.use('/media', express.static(config.mediaDir ?? fileURLToPath(new URL('../../data/media', import.meta.url))));
+  app.get('/media/*path', async (req, res, next) => {
+    try {
+      if (!services.media.read) return res.status(404).end();
+      if (!services.media.verify?.(req.path, req.query)) return res.status(403).json({ error: 'This link has expired. Open it again from Saathi.' });
+      const file = await services.media.read(decodeURIComponent(req.path.slice('/media/'.length)));
+      if (!file) return res.status(404).end();
+      res.set({ 'Content-Type': file.contentType, 'Cache-Control': 'private, max-age=300', 'Content-Disposition': 'inline' }).send(file.body);
+    } catch (err) { next(err); }
+  });
+  app.use('/vendor/webauthn', express.static(fileURLToPath(new URL('../../node_modules/@simplewebauthn/browser/esm', import.meta.url)), { index: false }));
   app.use('/vendor/three', express.static(fileURLToPath(new URL('../../node_modules/three', import.meta.url)), { index: false }));
   app.use(express.static(fileURLToPath(new URL('../../public', import.meta.url))));
 
-  app.use((err, _req, res, _next) => {
-    if (err.code && err.constructor?.name === 'AuthError') return res.status(err.code === 'forbidden' ? 403 : 400).json({ error: err.message, code: err.code });
-    if (err.status === 400) return res.status(400).json({ error: err.message });
-    console.error(err);
-    res.status(500).json({ error: 'Something went wrong', detail: err.message });
-  });
+  app.use(errorHandler());
 
   return app;
 }

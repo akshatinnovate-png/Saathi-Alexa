@@ -15,9 +15,16 @@ export function doorKind(input) {
 export function createDoorbell({ store, services, vault, publicUrl, ring = null, log = console }) {
   const listeners = new Map();
   const pending = new Map();
-  const loadRing = async () => ring ?? {
-    RingApi: (await import('ring-client-api')).RingApi,
-    RingRestClient: (await import('ring-client-api/rest-client')).RingRestClient,
+  const loadRing = async () => {
+    if (ring) return ring;
+    try {
+      return {
+        RingApi: (await import('ring-client-api')).RingApi,
+        RingRestClient: (await import('ring-client-api/rest-client')).RingRestClient,
+      };
+    } catch {
+      throw Object.assign(new Error('Ring support is not installed on this Saathi. Whoever runs it can add it with: npm run add-ring'), { status: 400, code: 'ring-missing' });
+    }
   };
 
   const settings = async (householdId) => (await store.get('doorbellSettings', householdId)) ?? { id: householdId };

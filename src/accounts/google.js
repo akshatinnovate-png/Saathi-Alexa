@@ -48,13 +48,14 @@ export function createGoogle({ clientId, clientSecret, fetchImpl = fetch, jwks }
   }
 
   return {
-    authUrl({ redirectUri, state, challenge, gmail = false, loginHint }) {
+    authUrl({ redirectUri, state, challenge, nonce, gmail = false, loginHint }) {
       const params = new URLSearchParams({
         client_id: clientId,
         redirect_uri: redirectUri,
         response_type: 'code',
         scope: ['openid', 'email', 'profile', ...(gmail ? [GMAIL_SEND_SCOPE] : [])].join(' '),
         state,
+        ...(nonce ? { nonce } : {}),
         code_challenge: challenge,
         code_challenge_method: 'S256',
         prompt: gmail ? 'consent' : 'select_account',
@@ -64,9 +65,10 @@ export function createGoogle({ clientId, clientSecret, fetchImpl = fetch, jwks }
       return `${AUTH_URL}?${params}`;
     },
 
-    async finish({ code, verifier, redirectUri }) {
+    async finish({ code, verifier, redirectUri, nonce }) {
       const tokens = await token({ grant_type: 'authorization_code', code, code_verifier: verifier, redirect_uri: redirectUri });
       const { payload } = await jwtVerify(tokens.id_token, keys, { issuer: ['https://accounts.google.com', 'accounts.google.com'], audience: clientId });
+      if (nonce && payload.nonce !== nonce) throw new Error('The Google sign-in did not match this request.');
       if (!payload.email || payload.email_verified === false) throw new Error('Google did not confirm an email address for this account.');
       return {
         identity: { email: String(payload.email).toLowerCase(), name: payload.name ?? payload.given_name ?? null, sub: `google:${payload.sub}`, picture: payload.picture ?? null },

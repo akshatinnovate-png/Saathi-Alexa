@@ -22,6 +22,11 @@
 .dev-pad button:active { background: rgb(255 255 255 / 18%); }
 .dev-pad .go { background: #f3ebdd; color: #16181d; border: 0; }
 .dev-error { margin: 0; padding: 12px 16px; border-radius: 16px; background: #5c1d17; color: #ffd9d4; font-size: 1.1rem; }
+.dev-wait { display: grid; gap: 10px; font-size: 1.25rem; line-height: 1.5; }
+.dev-wait[hidden] { display: none; }
+.dev-wait p { margin: 0; }
+.dev-emoji { font-size: clamp(3.4rem, 16vw, 5.2rem); letter-spacing: 0.2em; line-height: 1.2; padding: 18px 10px; border-radius: 28px; background: rgb(255 255 255 / 8%); border: 1px solid rgb(255 255 255 / 16%); }
+.dev-wait-note { color: #aab1bf; font-size: 1.05rem; }
 .dev-done { display: grid; gap: 6px; font-size: 1.4rem; }
 .dev-check { margin: 0; width: 96px; height: 96px; border-radius: 50%; display: grid; place-items: center; background: #2bb673; color: #04210f; font-size: 3rem; justify-self: center; }
 .dev-help { margin-top: 18px; color: #aab1bf; font-size: 1rem; line-height: 1.5; }

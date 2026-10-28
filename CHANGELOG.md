@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased]
+
+### Security
+- The data file, voice notes and photos are encrypted at rest with AES-256-GCM, keys derived with HKDF from one master key (`data/saathi.key` or `SAATHI_MASTER_KEY`). Existing plain files are encrypted on first start.
+- Passwords: scrypt with a secret pepper, silent upgrade of older hashes, breached-password check (k-anonymity), common-password and name checks, equal timing, progressive lockout.
+- Two-step sign-in with authenticator apps and single-use recovery codes. Passkeys with cloned-key detection.
+- Server-side sessions: list every sign-in, sign out one or all others; changing a password ends every other session. Sensitive changes need a recent sign-in.
+- New devices need family approval of three matching pictures, not just a pairing code.
+- Strict Content Security Policy with hashed scripts, Trusted Types, HSTS, cross-origin isolation, Fetch-Metadata CSRF protection, rate limits and safe JSON parsing.
+- Tamper-evident security history (HMAC chain) for the household owner.
+- Signed, expiring media links; replay-proof doorbell webhooks; MCP refuses anonymous callers when reachable from the network; unsafe configurations refuse to start; Google sign-in uses a nonce.
+- Supply chain: `npm audit`, registry signatures, lockfile-origin and secret scans in CI, CodeQL, OpenSSF Scorecard, Dependabot, SBOMs and signed build provenance on releases. Ring support is now opt-in (`npm run add-ring`) because its dependency chain had a high-severity advisory.
+- SECURITY.md and a full threat model. 17 new security tests.
+
 ## [1.0.0] - 2026-10-28
 
 The first release of Saathi: a companion for elders living with memory loss, disability or a language gap, and the family circle around them.

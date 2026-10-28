@@ -181,7 +181,7 @@ test('invites: a real email with a one-time link that joins whoever opens it', a
   const kabir = agent();
   const preview = await kabir.call(`/api/invite/${encodeURIComponent(token)}`);
   assert.deepEqual([preview.json.elderName, preview.json.inviterName, preview.json.email, preview.json.google], ['Aaji', 'Riya', 'kabir@family.test', true]);
-  const signup = await kabir.call('/auth/signup', { method: 'POST', body: { email: 'kabir.personal@family.test', password: 'kabir-loves-aaji-7', name: 'Kabir', invite: token } });
+  const signup = await kabir.call('/auth/signup', { method: 'POST', body: { email: 'kabir.personal@family.test', password: 'grandson-visits-7', name: 'Kabir', invite: token } });
   assert.equal(signup.status, 200);
   assert.equal(signup.json.next, '/family.html');
   const status = (await kabir.call('/api/status')).json;
@@ -260,11 +260,32 @@ test('pairing Aaji\'s tablet: six digits, no passwords, and it only opens her sc
 
   const tablet = agent();
   assert.equal((await tablet.call('/auth/device', { method: 'POST', body: { code: '000000' === pairing.code ? '111111' : '000000' } })).status, 400);
-  const paired = await tablet.call('/auth/device', { method: 'POST', body: { code: `${pairing.code.slice(0, 3)} ${pairing.code.slice(3)}` } });
-  assert.equal(paired.status, 200);
+  const asked = await tablet.call('/auth/device', { method: 'POST', body: { code: `${pairing.code.slice(0, 3)} ${pairing.code.slice(3)}` } });
+  assert.equal(asked.status, 200);
+  assert.equal(asked.json.status, 'pending');
+  assert.equal(asked.json.emoji.length, 3);
+  assert.equal((await agent().call('/auth/device', { method: 'POST', body: { code: pairing.code } })).status, 400, 'codes work once');
+  assert.equal((await tablet.call('/auth/device/status')).json.status, 'pending');
+  assert.equal((await tablet.call('/alexa.html')).status, 302, 'a correct code alone opens nothing');
+
+  const requests = (await owner.call('/api/devices/requests')).json;
+  assert.equal(requests.length, 1);
+  assert.deepEqual(requests[0].emoji, asked.json.emoji, 'the family sees the same three pictures as the tablet');
+  assert.equal(requests[0].secretHash, undefined);
+  assert.equal((await owner.call(`/api/devices/requests/${requests[0].id}`, { method: 'POST', body: { approve: true } })).json.status, 'approved');
+  const paired = await tablet.call('/auth/device/status');
+  assert.equal(paired.json.status, 'approved');
   assert.equal(paired.json.next, '/alexa.html');
   assert.equal(paired.json.device.label, "Aaji's Saathi");
-  assert.equal((await agent().call('/auth/device', { method: 'POST', body: { code: pairing.code } })).status, 400, 'codes work once');
+  assert.equal((await tablet.call('/auth/device/status')).json.status, 'unknown', 'the approval can be collected only once');
+
+  const { json: second } = await owner.call('/api/devices/pairing-code', { method: 'POST', body: {} });
+  const stranger = agent();
+  await stranger.call('/auth/device', { method: 'POST', body: { code: second.code } });
+  const strangerRequest = (await owner.call('/api/devices/requests')).json[0];
+  assert.equal((await owner.call(`/api/devices/requests/${strangerRequest.id}`, { method: 'POST', body: { approve: false } })).json.status, 'denied');
+  assert.equal((await stranger.call('/auth/device/status')).json.status, 'denied');
+  assert.equal((await stranger.call('/api/status')).status, 401, 'a refused device gets nothing');
 
   assert.equal((await tablet.call('/alexa.html')).status, 200);
   assert.equal((await tablet.call('/family.html')).location, '/alexa.html');

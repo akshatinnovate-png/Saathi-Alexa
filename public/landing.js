@@ -1,3 +1,4 @@
+import { svg } from './trusted.js';
 import { createHalftone } from './halftone.js';
 
 const SLIDES = [
@@ -59,9 +60,9 @@ function setupSlides() {
   const syncPause = () => {
     pause.setAttribute('aria-pressed', String(paused));
     pause.setAttribute('aria-label', paused ? 'Play slideshow' : 'Pause slideshow');
-    pause.innerHTML = paused
+    pause.innerHTML = svg(paused
       ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z" fill="currentColor"/></svg>'
-      : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M15 6v12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+      : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M15 6v12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>');
   };
   pause.addEventListener('click', () => { paused = !paused; syncPause(); restart(); });
   syncPause();

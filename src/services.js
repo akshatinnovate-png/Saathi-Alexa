@@ -18,7 +18,7 @@ export function createServices(config, overrides = {}) {
 
   const store = overrides.store ?? (aws.dynamodb
     ? createDynamoStore({ tableName: resources.tableName, region })
-    : createFileStore({ file: config.dataFile, seed: config.demo ? () => seedData() : () => ({}) }));
+    : createFileStore({ file: config.dataFile, seed: config.demo ? () => seedData() : () => ({}), key: overrides.storeKey ?? null }));
 
   const translator = overrides.translator ?? (aws.translate
     ? createAwsTranslator({ region })
@@ -46,7 +46,7 @@ export function createServices(config, overrides = {}) {
 
   const media = overrides.media ?? (aws.s3
     ? createAwsMedia({ region, bucket: resources.mediaBucket })
-    : createLocalMedia({ dir: config.mediaDir ?? fileURLToPath(new URL('../data/media', import.meta.url)) }));
+    : createLocalMedia({ dir: config.mediaDir ?? fileURLToPath(new URL('../data/media', import.meta.url)), signingKey: overrides.mediaSigningKey ?? null, encryptionKey: overrides.mediaEncryptionKey ?? null }));
 
   const escalation = overrides.escalation ?? (aws.stepfunctions
     ? createAwsEscalation({ region, stateMachineArn: resources.escalationStateMachineArn })
@@ -68,7 +68,8 @@ export function createServices(config, overrides = {}) {
     if (!households.has(householdId)) {
       households.set(householdId, createSaathi({
         store: scopeStore(store, householdId),
-        translator, sentiment, speech, media, metrics, config, clock: overrides.clock, householdId,
+        translator, sentiment, speech, metrics, config, clock: overrides.clock, householdId,
+        media: scopeMedia(media, householdId),
         events: scopeEvents(events, householdId),
         notifier: scopeNotifier(notifier, householdId),
       }));
@@ -93,6 +94,15 @@ export function createServices(config, overrides = {}) {
       store: store.kind, translate: translator.kind, sentiment: sentiment.kind, speech: speech.kind,
       events: events.kind, notifications: notifier.kind, media: media.kind, escalation: escalation.kind,
     }),
+  };
+}
+
+function scopeMedia(media, householdId) {
+  return {
+    ...media,
+    kind: media.kind,
+    save: (key, body, contentType) => media.save(`${householdId}/${key}`, body, contentType),
+    playbackUrl: (ref) => media.playbackUrl?.(ref) ?? ref,
   };
 }
 

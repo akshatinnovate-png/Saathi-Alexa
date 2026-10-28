@@ -2,11 +2,46 @@ name: CI
 on:
   push:
   pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: No known vulnerabilities in what ships
+        run: npm audit --omit=dev --audit-level=high
+      - name: Every installed package has a valid registry signature
+        run: npm audit signatures
+      - name: Lockfile only resolves from the npm registry over https
+        run: |
+          node -e '
+            const lock = require("./package-lock.json");
+            const bad = Object.entries(lock.packages).filter(([k, p]) => k && p.resolved && !p.resolved.startsWith("https://registry.npmjs.org/"));
+            if (bad.length) { console.error(bad.map(([k, p]) => `${k} -> ${p.resolved}`).join("\n")); process.exit(1); }
+            console.log(`${Object.keys(lock.packages).length - 1} packages, all from registry.npmjs.org`);
+          '
+      - name: No secrets committed
+        run: |
+          if git grep -nE '(AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|sk-ant-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{36}|xox[baprs]-[A-Za-z0-9-]{10,})' -- ':!test/**' ':!*.md'; then
+            echo "A secret-looking value is committed. Remove it and rotate it."; exit 1
+          fi
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -34,6 +69,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - run: docker build -t saathi:ci .
       - run: docker run -d --name saathi -p 8787:8787 saathi:ci
       - run: |

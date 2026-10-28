@@ -1,5 +1,7 @@
+import { svg } from './trusted.js';
 import { api, loadSettings, saveSettings, applyDisplay, bindToggle, onEvents, el, timeOf, pronounsOf } from './common.js';
 import { icon, iconEl } from './icons.js';
+import { setupSecurity, setupPairApprovals } from './security.js';
 
 const settings = loadSettings({ member: 'riya', large: false, contrast: false });
 applyDisplay(settings);
@@ -368,7 +370,7 @@ function setupDevices() {
       const { code, expiresAt, url, qr } = await api('/devices/pairing-code', {});
       $('pair-code').textContent = `${code.slice(0, 3)} ${code.slice(3)}`;
       $('pair-url').textContent = url.replace(/^https?:\/\//, '');
-      $('pair-qr').innerHTML = qr;
+      $('pair-qr').innerHTML = svg(qr);
       clearInterval(countdown);
       const tick = () => {
         const left = Math.max(0, Math.round((new Date(expiresAt) - Date.now()) / 1000));
@@ -777,8 +779,8 @@ function decorateRail() {
   const icons = { overview: 'overview', care: 'bell', memories: 'letter', messages: 'users', assistant: 'sparkle', home: 'home' };
   document.querySelectorAll('[data-nav]').forEach((a) => a.prepend(iconEl(icons[a.dataset.nav])));
   document.querySelectorAll('[data-icon]').forEach((b) => b.prepend(iconEl(b.dataset.icon)));
-  $('live').innerHTML = icon('signal', { size: 22 });
-  document.querySelector('#compose .round-btn').innerHTML = icon('send', { size: 20 });
+  $('live').innerHTML = svg(icon('signal', { size: 22 }));
+  document.querySelector('#compose .round-btn').innerHTML = svg(icon('send', { size: 20 }));
 }
 
 async function init(first = true) {
@@ -805,6 +807,11 @@ async function init(first = true) {
     setupDevices();
     setupSettings();
     setupCareEditing();
+    if (status.me) {
+      setupSecurity({ isOwner: () => status.me?.role === 'owner', toast });
+      setupPairApprovals({ toast, canApprove: () => Boolean(status.me) && status.me.role !== 'neighbour' });
+    }
+    $('open-security').hidden = !status.me;
     showReturnNotice();
     $('open-invite').hidden = status.me && status.me.role !== 'owner';
   }

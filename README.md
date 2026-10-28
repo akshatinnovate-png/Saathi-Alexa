@@ -15,7 +15,7 @@ Kamala is 78. Everyone calls her **Aaji**. She lives alone in Pune, speaks Marat
 | **Online, for the whole family** | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/akshatinnovate-png/Saathi-Alexa) Saathi gets its own web address that everyone can open, including the tablet by your elder's chair. |
 | **Docker** | `docker run -p 8787:8787 -v saathi-data:/data ghcr.io/akshatinnovate-png/saathi-alexa` |
 
-Then open Saathi, tap **Continue with Google** (or use an email and password), and answer four short steps about the person you care for. On their tablet or Echo Show, open `/device.html` and type the six-digit code from the family app. That's all.
+Then open Saathi, tap **Continue with Google** (or use an email and password), and answer four short steps about the person you care for. On their tablet or Echo Show, open `/device.html` and type the six-digit code from the family app, then tap **Approve** when the family app shows the same three pictures as the device. That's all.
 
 Deploying to Render uses its paid *Starter* plan, because Saathi keeps your family's data on a small disk and Render's free plan erases disks on every restart. Add `SAATHI_GOOGLE_CLIENT_ID` and `SAATHI_GOOGLE_CLIENT_SECRET` in Render to switch on Google sign-in, with `https://<your-app>.onrender.com/auth/google/callback` as the redirect address.
 
@@ -71,7 +71,7 @@ On a phone:
 | **House walkaround** | WebXR `immersive-ar` with hit-testing on an ARCore Android phone: corners become room polygons, squared up and joined into one plan. Draw-by-hand fallback for everything else | `public/scan.html`, `public/scan.js` |
 | **Real accounts** | Sign up with email or Google (OpenID Connect with PKCE, ID tokens verified against Google's keys), onboard a household, and invite family. Every household's data is isolated. scrypt passwords locally, Amazon Cognito on AWS | `src/accounts/`, `src/households/` |
 | **Real email** | Invites (in each person's language, with a one-time join link), alerts and weekly letters. Sent through Amazon SES, Gmail, any SMTP provider, or the family's own Gmail through the Gmail API (refresh token encrypted with AES-256-GCM) | `src/mail/` |
-| **Device pairing** | A six-digit code (or QR) turns any tablet, Echo Show or phone into Aaji's Saathi screen. No passwords on her device, family-only actions blocked, removable from the family app | `public/device.html`, `src/accounts/accounts.js` |
+| **Device pairing** | A six-digit code (or QR) plus a family approval of three matching pictures turns any tablet, Echo Show or phone into Aaji's Saathi screen. No passwords on her device, family-only actions blocked, removable from the family app | `public/device.html`, `src/accounts/accounts.js` |
 | **Landing, intro and login** | Video intro with an animated halftone, a photo slideshow, and the login page | `public/index.html`, `public/login.html` |
 | **Escalation workflow** | One Amazon States Language definition. It is deployed to AWS Step Functions **and** executed offline by a built-in ASL interpreter | `src/escalation/` |
 | **Infrastructure as code** | AWS CDK stack: 65 resources across 15 AWS services, four esbuild-bundled Lambdas. The template passes `cfn-lint` and the state machine passes `asl-validator`, both in CI | `infra/` |
@@ -199,7 +199,7 @@ After that, nobody types a password or sets up email:
 
 1. **Set up.** One person signs up (email or Google) and answers four short steps about their elder: name, language, pronouns, country (which sets the emergency number), time zone, tablets and a neighbour.
 2. **Invite the family.** In the family app, tap the *invite* button. Each person gets an email in their own language with a **Join** button. You can also copy the link or send it on WhatsApp. The link works once, for 30 days.
-3. **Set up their device.** Tap the *tablet* button. On an Echo Show (Silk browser), a tablet or an old phone, open `/device.html` or scan the QR code, and type the six numbers. That device becomes their Saathi screen: big text, their language, no logins and no settings to get lost in. It speaks tablet reminders when they are due, reminds them about visits, and reads new messages and plays voice notes as they arrive. You can remove it from the family app at any time.
+3. **Set up their device.** Tap the *tablet* button. On an Echo Show (Silk browser), a tablet or an old phone, open `/device.html` or scan the QR code, and type the six numbers. The device shows three pictures; the family app pops up the same three, and you tap **Approve**. That device becomes their Saathi screen: big text, their language, no logins and no settings to get lost in. It speaks tablet reminders when they are due, reminds them about visits, and reads new messages and plays voice notes as they arrive. You can remove it from the family app at any time.
 4. **Keep it up to date.** In *Care*, manage medicines (up to six times a day, on chosen weekdays, with supply tracking), doctor visits and the daily routine. In *Settings*, change their details, remove someone from the circle, and connect the front door: a Ring account (with its 2-step code) or a private link for any other smart doorbell.
 5. **That's it.** Alerts, nudges and the weekly letter (Sunday evening in their time zone) arrive by email. Emergencies go to the neighbour too, even if they never made an account.
 
@@ -227,13 +227,13 @@ npm run inspect      # MCP Inspector; connect to http://127.0.0.1:8787/mcp (Stre
 ### Tests, evals and audits
 
 ```bash
-npm test                    # 75 tests: MCP protocol, OAuth, Ring, dignity, retry safety, localisation, care logistics, Lambda, escalation, AWS adapters
+npm test                    # 92 tests: MCP protocol, OAuth, Ring, dignity, retry safety, localisation, care logistics, Lambda, escalation, AWS adapters, and 17 security tests
 npm run eval                # multilingual safety + routing evals with a per-language report
 npm run a11y                # axe-core accessibility audit in Chromium (CHROME_PATH=... to pick a browser)
 cd infra && npm install && npm test   # 12 tests: CDK assertions + the real Lambda bundles
 ```
 
-CI runs all four on every push.
+CI runs all four on every push, plus `npm audit`, registry signature checks, a lockfile-origin check and a committed-secrets scan. CodeQL and OpenSSF Scorecard run on their own schedule.
 
 ### Authentication modes
 
@@ -342,6 +342,24 @@ The server also sends `instructions` on initialize: short, warm sentences, never
 - Eight languages: English, Hindi, Marathi, Tamil, Bengali, Spanish, French and Arabic. Polly neural voices where they exist, the browser's voice otherwise
 - Works on a phone (the family app is what Riya actually opens)
 
+## Security
+
+Saathi is built for people scammers like to target, so it is deliberately over-engineered. The short version (the full version is [SECURITY.md](SECURITY.md) and the attacker-by-attacker [threat model](docs/THREAT_MODEL.md)):
+
+- **Everything on disk is encrypted.** The data file and every voice note and photo are sealed with AES-256-GCM. Keys come from one master key in `data/saathi.key` through HKDF, a different key for every purpose.
+- **Passwords are hard to steal and hard to use.** scrypt plus a secret pepper, checked against breached passwords without revealing them, progressive lockout, equal timing for unknown emails.
+- **Two-step sign-in and passkeys.** Authenticator codes with single-use recovery codes, and passkeys (fingerprint, face or screen lock) with cloned-key detection. Turn them on in the family app under **Security** (the shield).
+- **Sessions live on the server.** See every place you are signed in, sign out everywhere else, and changing your password ends every other session.
+- **A pairing code is not enough.** A new device shows three pictures and joins only when someone in the family sees the same three and taps **Approve**.
+- **A strict browser sandbox.** CSP with hashed scripts and no `unsafe-inline`, Trusted Types, HSTS, cross-origin isolation, Fetch-Metadata CSRF protection, rate limits.
+- **A history nobody can rewrite.** Every sensitive change is chained with HMACs; the owner sees a green "intact" badge, or a warning if anything was edited or deleted.
+- **Short-lived, signed media links**, **replay-proof doorbell webhooks**, an **MCP server that refuses anonymous callers** once it is reachable from the network, and **start-up checks** that refuse unsafe configurations.
+- **A verifiable supply chain.** No install scripts, `npm audit` and signature checks on every push, CodeQL, Scorecard, Dependabot, SBOMs and signed build provenance on every release.
+
+> **Back up `data/saathi.key` together with `data/saathi.json`.** Without the key nobody can read the data, including you. On a server you can set `SAATHI_MASTER_KEY` (32 random bytes, base64) instead of using the file.
+
+Found something? Please report it privately, as described in [SECURITY.md](SECURITY.md).
+
 ## Honest limitations
 
 - **Not yet deployed to a live AWS account.** The stack is synthesized, linted with `cfn-lint`, its state machine validated with `asl-validator`, and its exact Lambda bundles are loaded and exercised in tests. But it has not run against real AWS services yet. Deploy it and run `npm run smoke` to close that gap.
@@ -352,7 +370,7 @@ The server also sends `instructions` on initialize: short, warm sentences, never
 - The safety eval cases were written by the same team as the phrase screen. Real-world phrasing needs clinician- and family-sourced cases before anyone relies on it.
 - A new Google OAuth app starts in "testing" mode: only the Google accounts you add as test users can sign in, and **Send from my Gmail** uses a restricted Gmail scope that Google must verify before the public can use it. Gmail app passwords, SES and SMTP have no such limit.
 - Real email was exercised against mocked SES, Gmail API and Google token endpoints in tests, and the Gmail SMTP path through nodemailer; send yourself a test from the invite dialog (*Send me a test*) after `npm run setup`.
-- Ring has no official public API. Saathi connects through the community `ring-client-api` library, the same one Home Assistant and Homebridge rely on; Ring could change its private API. It was tested against a faithful stand-in for Ring's login and push events, not a live Ring account.
+- Ring has no official public API. Saathi connects through the community `ring-client-api` library, the same one Home Assistant and Homebridge rely on; Ring could change its private API. Its dependency chain carries a high-severity advisory, so it is not installed by default: run `npm run add-ring` to turn it on. It was tested against a faithful stand-in for Ring's login and push events, not a live Ring account.
 - Without Claude or Amazon Translate configured, messages are delivered in the language they were written in, and the family app says so.
 - The walkaround measures what the phone's AR tracking measures: expect a few centimetres of drift over a whole house. It captures floor outlines, not furniture or a textured mesh.
 - The intro video, slideshow photos and login illustration are credited in `docs/ASSETS.md`; confirm each licence before any commercial use.

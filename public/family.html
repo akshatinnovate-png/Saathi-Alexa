@@ -130,6 +130,7 @@
         <button class="rail-btn" type="button" id="open-invite" data-icon="userPlus" aria-label="Invite family"></button>
         <button class="rail-btn" type="button" id="open-devices" data-icon="tablet" aria-label="Set up their device"></button>
         <button class="rail-btn" type="button" id="open-settings" data-icon="gear" aria-label="Settings"></button>
+        <button class="rail-btn" type="button" id="open-security" data-icon="shield" aria-label="Security"></button>
       </div>
       <div class="rail-group">
         <a class="rail-btn" href="#memories" data-nav="memories" aria-label="Memories and letters"></a>
@@ -249,6 +250,24 @@
         <button class="pill-action" type="button" id="pair-device">Create an Alexa+ key</button>
         <pre class="device-key" id="device-key" hidden></pre>
       </details>
+    </div>
+  </dialog>
+
+  <dialog class="sheet wide" id="security-dialog" aria-labelledby="security-h">
+    <div class="sheet-form" id="security-body"></div>
+  </dialog>
+
+  <dialog class="sheet" id="approve-dialog" aria-labelledby="approve-h">
+    <div class="sheet-form approve">
+      <h2 id="approve-h">A device wants to join</h2>
+      <p>Look at the screen of the device you are setting up. Does it show these same three pictures?</p>
+      <p class="approve-emoji" id="approve-emoji" role="img" aria-label=""></p>
+      <p class="muted small" id="approve-what"></p>
+      <p class="muted small">Only approve if you are setting it up right now. If you did not ask for this, or the pictures are different, tap Not this one.</p>
+      <div class="sheet-actions">
+        <button class="pill-action" type="button" id="approve-no">Not this one</button>
+        <button class="pill-action dark" type="button" id="approve-yes">Approve</button>
+      </div>
     </div>
   </dialog>
 

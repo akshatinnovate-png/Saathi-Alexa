@@ -1,13 +1,14 @@
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const next = params.get('next');
-let mode = location.hash === '#signup' ? 'signup' : 'login';
+let mode = params.get('step') === 'code' ? 'code' : location.hash === '#signup' ? 'signup' : 'login';
 let providers = { cognito: false, demo: false, social: [] };
 
 const COPY = {
   login: { title: 'Log in to Saathi', sub: 'Your family, closer every day', submit: 'Continue with Email', switch: ["Don't have an account?", 'Sign up', '#signup'] },
   signup: { title: 'Create your account', sub: 'Set up Saathi for someone you love', submit: 'Create account', switch: ['Already have an account?', 'Log in', '#login'] },
   confirm: { title: 'Check your email', sub: 'We sent a six-digit code to confirm it is you', submit: 'Confirm and continue', switch: ["Didn't get it?", 'Send a new code', '#resend'] },
+  code: { title: 'One more step', sub: 'Type the 6 numbers your authenticator app shows now', submit: 'Verify and continue', switch: ['Lost your phone?', 'Use a recovery code', '#recovery'] },
 };
 
 function render() {
@@ -16,12 +17,16 @@ function render() {
   $('auth-title').textContent = c.title;
   $('auth-sub').textContent = c.sub;
   $('auth-submit').textContent = c.submit;
+  const coded = mode === 'confirm' || mode === 'code';
   $('field-name').hidden = mode !== 'signup';
-  $('field-email').hidden = mode === 'confirm';
-  $('field-password').hidden = mode === 'confirm';
-  $('field-code').hidden = mode !== 'confirm';
-  $('auth-social').hidden = mode === 'confirm' || !socialAvailable;
-  document.querySelector('.auth-or').hidden = mode === 'confirm' || !socialAvailable;
+  $('field-email').hidden = coded;
+  $('field-password').hidden = coded;
+  $('field-code').hidden = !coded;
+  $('code-label').textContent = mode === 'code' ? 'Code from your app, or a recovery code' : 'Confirmation code';
+  $('code').inputMode = mode === 'code' ? 'text' : 'numeric';
+  $('auth-social').hidden = coded || !socialAvailable;
+  document.querySelector('.auth-or').hidden = coded || !socialAvailable;
+  $('auth-passkey').hidden = mode !== 'login' || !passkeysAvailable;
   $('password').autocomplete = mode === 'signup' ? 'new-password' : 'current-password';
   $('switch-link').textContent = c.switch[1];
   $('switch-link').href = c.switch[2];
@@ -45,6 +50,7 @@ $('auth-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const email = $('email').value.trim();
   const password = $('password').value;
+  if (mode === 'code') return verifyCode();
   if (mode !== 'confirm' && (!email || !password)) return showError('Please enter your email address and password.');
   $('auth-submit').disabled = true;
   try {
@@ -52,9 +58,10 @@ $('auth-form').addEventListener('submit', async (e) => {
     if (mode === 'login') out = await post('/auth/login', { email, password, next });
     else if (mode === 'signup') out = await post('/auth/signup', { email, password, name: $('name').value.trim() });
     else out = await post('/auth/confirm', { email, password, code: $('code').value });
-    if (out.confirm) {
-      mode = 'confirm';
+    if (out.confirm || out.mfa) {
+      mode = out.mfa ? 'code' : 'confirm';
       render();
+      $('code').value = '';
       $('code').focus();
       return;
     }
@@ -66,8 +73,46 @@ $('auth-form').addEventListener('submit', async (e) => {
   }
 });
 
+async function verifyCode() {
+  const code = $('code').value.trim();
+  if (!code) return showError('Please type the code.');
+  $('auth-submit').disabled = true;
+  try {
+    const out = await post('/auth/login/mfa', { code });
+    if (out.recoveryLeft !== undefined) sessionStorage.setItem('saathi-recovery-left', String(out.recoveryLeft));
+    location.href = out.next ?? '/family.html';
+  } catch (err) {
+    showError(err.message);
+    if (/sign in again/i.test(err.message)) { mode = 'login'; render(); showError(err.message); }
+  } finally {
+    $('auth-submit').disabled = false;
+  }
+}
+
+$('auth-passkey').addEventListener('click', async () => {
+  showError('');
+  $('auth-passkey').disabled = true;
+  try {
+    const { startAuthentication } = await import('/vendor/webauthn/index.js');
+    const options = await post('/auth/passkey/options', {});
+    const response = await startAuthentication({ optionsJSON: options });
+    const out = await post('/auth/passkey/verify', { response, next });
+    location.href = out.next ?? '/family.html';
+  } catch (err) {
+    if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') showError('The passkey sign-in was cancelled.');
+    else showError(err.message);
+  } finally {
+    $('auth-passkey').disabled = false;
+  }
+});
+
 $('switch-link').addEventListener('click', async (e) => {
   e.preventDefault();
+  if (mode === 'code') {
+    $('auth-sub').textContent = 'Type one of the recovery codes you saved, like abcde-12345. Each one works once.';
+    $('code').focus();
+    return;
+  }
   if (mode === 'confirm') {
     try {
       await post('/auth/resend', { email: $('email').value.trim() });
@@ -113,6 +158,7 @@ function showProviders() {
 }
 
 let socialAvailable = false;
+let passkeysAvailable = false;
 
 async function init() {
   render();
@@ -121,6 +167,7 @@ async function init() {
   try {
     const session = await (await fetch('/api/session')).json();
     providers = session.providers;
+    passkeysAvailable = Boolean(providers.passkeys && window.PublicKeyCredential && window.isSecureContext);
     showProviders();
     if (session.user) {
       location.replace(session.user.householdId ? (next ?? '/family.html') : '/welcome.html');
@@ -128,7 +175,8 @@ async function init() {
     }
     if (providers.demo) {
       const demo = $('auth-demo');
-      demo.innerHTML = 'Demo family: <code>riya@saathi.demo</code> · <code>saathi-demo-2026</code>';
+      const code = (text) => { const c = document.createElement('code'); c.textContent = text; return c; };
+      demo.replaceChildren('Demo family: ', code('riya@saathi.demo'), ' · ', code('saathi-demo-2026'));
       demo.hidden = false;
     }
   } catch { }

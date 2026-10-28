@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomInt } from 'node:crypto';
-import { hashPassword, verifyPassword, passwordProblem } from './passwords.js';
+import { hashPassword, verifyPassword, passwordProblem, burnEqualTime } from './passwords.js';
 import { AuthError } from './cognito.js';
 import { DEFAULT_HOUSEHOLD, scopeStore } from '../households/scope.js';
 import { buildHousehold, newHouseholdId, validateOnboarding } from '../households/onboarding.js';
@@ -14,15 +14,41 @@ const DEMO_ACCOUNTS = [
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const INVITE_DAYS = 30;
 const PAIRING_MINUTES = 15;
+const PAIRING_EMOJI = ['🌻', '🐘', '🎈', '🍉', '🦋', '🚲', '🌙', '🐢', '🍋', '🎸', '🦜', '🌈', '🍪', '🐳', '🌵', '🎁', '🦊', '🍓', '🚀', '🐝', '🌷', '🥭', '🪁', '🐼', '⛵', '🍄', '🦚', '🔔', '🐠', '🍍', '🌼', '🧸'];
 
 export const normaliseEmail = (email) => String(email ?? '').trim().toLowerCase();
 const hashToken = (token) => createHash('sha256').update(token).digest('hex');
 
-export function createAccounts({ store, services, cognito = null, demo = false, clock = () => new Date(), onInvite = null }) {
+export function createAccounts({ store, services, cognito = null, demo = false, clock = () => new Date(), onInvite = null, breachCheck = null }) {
+  const claiming = new Set();
   const publicAccount = (a) => a && ({
     email: a.email, name: a.name, householdId: a.householdId ?? null, memberId: a.memberId ?? null, role: a.role ?? null,
     provider: a.provider, avatar: a.avatar ?? null,
+    hasPassword: Boolean(a.passwordHash), totp: Boolean(a.totp?.enabled), passkeys: (a.passkeys ?? []).length,
   });
+
+  const throttleId = (email) => createHash('sha256').update(`login:${email}`).digest('hex');
+  async function throttleCheck(email) {
+    const t = await store.get('loginThrottle', throttleId(email));
+    const wait = t?.lockedUntil ? Date.parse(t.lockedUntil) - clock().getTime() : 0;
+    if (wait > 0) {
+      const minutes = Math.ceil(wait / 60000);
+      throw new AuthError('limit', `Too many wrong tries. Please wait ${minutes} minute${minutes === 1 ? '' : 's'} and try again.`);
+    }
+  }
+  async function throttleFail(email) {
+    const id = throttleId(email);
+    const t = (await store.get('loginThrottle', id)) ?? { id, fails: 0 };
+    const fails = t.fails + 1;
+    const lockSeconds = fails >= 5 ? Math.min(3600, 30 * 2 ** (fails - 5)) : 0;
+    await store.put('loginThrottle', { id, fails, lastFailAt: clock().toISOString(), lockedUntil: lockSeconds ? new Date(clock().getTime() + lockSeconds * 1000).toISOString() : null });
+  }
+  const throttleClear = (email) => store.remove('loginThrottle', throttleId(email));
+  async function rejectBreached(password) {
+    if (!breachCheck) return;
+    const times = await breachCheck(password);
+    if (times > 0) throw new AuthError('password', `That password has shown up in ${times.toLocaleString('en')} data breaches, so attackers try it first. Please choose another.`);
+  }
 
   async function ensureDemo() {
     if (!demo) return;
@@ -126,14 +152,15 @@ export function createAccounts({ store, services, cognito = null, demo = false, 
       const saathi = services.forHousehold(owner.householdId);
       const member = await saathi.removeMember(memberId);
       if (!member) throw new AuthError('member', 'That person is not in the circle.');
-      for (const account of (await store.list('accounts')).filter((a) => a.householdId === owner.householdId && a.memberId === memberId)) {
+      const detached = (await store.list('accounts')).filter((a) => a.householdId === owner.householdId && a.memberId === memberId);
+      for (const account of detached) {
         await store.update('accounts', account.email, { householdId: null, memberId: null, role: null });
       }
       if (member.email) {
         await store.remove('invites', member.email);
         for (const t of (await store.list('inviteTokens')).filter((x) => x.email === member.email)) await store.remove('inviteTokens', t.id);
       }
-      return { removed: member.id };
+      return { removed: member.id, accounts: detached.map((a) => a.email) };
     },
 
     async pendingInvites(householdId) {
@@ -152,17 +179,58 @@ export function createAccounts({ store, services, cognito = null, demo = false, 
       return { code, expiresAt };
     },
 
-    async pairDevice(code, { label } = {}) {
+    async pairDevice(code, { label, agent } = {}) {
       const entry = await store.get('pairingCodes', String(code ?? '').replace(/\D/g, ''));
       if (!entry || entry.expiresAt < clock().toISOString()) throw new AuthError('code', 'That code did not work. Check the number in the family app, or make a new one.');
       await store.remove('pairingCodes', entry.id);
-      const profile = await scopeStore(store, entry.householdId).get('profile', 'elder');
-      const device = {
-        id: `dev_${randomBytes(12).toString('base64url')}`, householdId: entry.householdId, label: String(label || `${profile?.preferredName ?? 'Home'}'s Saathi`).slice(0, 60),
-        pairedBy: entry.createdBy, pairedAt: clock().toISOString(),
+      const secret = randomBytes(32).toString('base64url');
+      const request = {
+        id: `pr_${randomBytes(12).toString('base64url')}`, householdId: entry.householdId, secretHash: hashToken(secret),
+        emoji: Array.from({ length: 3 }, () => PAIRING_EMOJI[randomInt(0, PAIRING_EMOJI.length)]),
+        label: label ? String(label).slice(0, 60) : null, agent: String(agent ?? '').slice(0, 80), status: 'pending',
+        codeBy: entry.createdBy, createdAt: clock().toISOString(), expiresAt: new Date(clock().getTime() + 10 * 60_000).toISOString(),
       };
-      await store.put('devices', device);
-      return device;
+      await store.put('pairRequests', request);
+      return { requestId: request.id, secret, emoji: request.emoji, householdId: request.householdId };
+    },
+
+    async pairStatus(requestId, secret) {
+      const request = requestId ? await store.get('pairRequests', String(requestId)) : null;
+      if (!request || request.secretHash !== hashToken(String(secret ?? ''))) return { status: 'unknown' };
+      if (request.status === 'pending' && request.expiresAt < clock().toISOString()) {
+        await store.update('pairRequests', request.id, { status: 'expired' });
+        return { status: 'expired' };
+      }
+      if (request.status !== 'approved') return { status: request.status, emoji: request.emoji };
+      if (request.deviceId || claiming.has(request.id)) return { status: 'claimed' };
+      claiming.add(request.id);
+      try {
+        const profile = await scopeStore(store, request.householdId).get('profile', 'elder');
+        const device = {
+          id: `dev_${randomBytes(12).toString('base64url')}`, householdId: request.householdId,
+          label: request.label ?? `${profile?.preferredName ?? 'Home'}'s Saathi`, pairedBy: request.decidedBy, pairedAt: clock().toISOString(),
+        };
+        await store.put('devices', device);
+        await store.update('pairRequests', request.id, { deviceId: device.id, secretHash: null });
+        return { status: 'approved', device };
+      } finally {
+        claiming.delete(request.id);
+      }
+    },
+
+    async pairRequests(householdId) {
+      const now = clock().toISOString();
+      return (await store.list('pairRequests'))
+        .filter((r) => r.householdId === householdId && r.status === 'pending' && r.expiresAt > now)
+        .map(({ secretHash, ...r }) => r);
+    },
+
+    async decidePairRequest(email, requestId, approve) {
+      const account = await store.get('accounts', normaliseEmail(email));
+      const request = await store.get('pairRequests', String(requestId));
+      if (!account?.householdId || !request || request.householdId !== account.householdId) throw new AuthError('code', 'That request is not for your family.');
+      if (request.status !== 'pending' || request.expiresAt < clock().toISOString()) throw new AuthError('code', 'That request has already been answered or has expired.');
+      return store.update('pairRequests', request.id, { status: approve ? 'approved' : 'denied', decidedBy: account.email, decidedAt: clock().toISOString() });
     },
 
     async getDevice(id) {
@@ -196,8 +264,9 @@ export function createAccounts({ store, services, cognito = null, demo = false, 
     async signUp({ email, password, name }) {
       email = normaliseEmail(email);
       if (!EMAIL.test(email)) throw new AuthError('email', 'Please enter a valid email address.');
-      const problem = passwordProblem(password);
+      const problem = passwordProblem(password, { email, name });
       if (problem) throw new AuthError('password', problem);
+      await rejectBreached(password);
       if (email.endsWith('@saathi.demo')) throw new AuthError('exists', 'Demo accounts already exist. Log in instead.');
       if (cognito) {
         await cognito.signUp({ email, password, name });
@@ -222,14 +291,25 @@ export function createAccounts({ store, services, cognito = null, demo = false, 
 
     async login({ email, password }) {
       email = normaliseEmail(email);
+      await throttleCheck(email);
       const local = await store.get('accounts', email);
       if (local?.demo && !demo) throw new AuthError('credentials', 'Demo accounts are switched off here. Run "npm run demo" to try the demo family.');
       if (local && !local.passwordHash && local.provider === 'google') throw new AuthError('credentials', 'This account signs in with Google. Tap the Google button above.');
-      if (local?.provider === 'local' || local?.passwordHash) {
-        if (!(await verifyPassword(password ?? '', local.passwordHash))) throw new AuthError('credentials', 'That email and password do not match.');
+      if (local?.passwordHash) {
+        const result = await verifyPassword(password ?? '', local.passwordHash);
+        if (!result.ok) {
+          await throttleFail(email);
+          throw new AuthError('credentials', 'That email and password do not match.');
+        }
+        await throttleClear(email);
+        if (result.needsRehash) await store.update('accounts', email, { passwordHash: await hashPassword(password) });
         return publicAccount(local);
       }
-      if (!cognito) throw new AuthError('credentials', 'That email and password do not match.');
+      if (!cognito) {
+        await burnEqualTime(password ?? '');
+        await throttleFail(email);
+        throw new AuthError('credentials', 'That email and password do not match.');
+      }
       const identity = await cognito.login({ email, password });
       const pending = await store.get('pendingNames', email);
       return publicAccount(await adopt({ email: identity.email || email, name: identity.name ?? pending?.name, provider: 'cognito', sub: identity.sub }));
@@ -239,6 +319,28 @@ export function createAccounts({ store, services, cognito = null, demo = false, 
       if (!identity.email) throw new AuthError('social', 'The provider did not share an email address.');
       return publicAccount(await adopt({ email: identity.email, name: identity.name, provider: 'cognito', sub: identity.sub }));
     },
+
+    async changePassword(email, { current, next }) {
+      email = normaliseEmail(email);
+      const account = await store.get('accounts', email);
+      if (!account) throw new AuthError('account', 'Please log in again.');
+      if (account.passwordHash) {
+        const result = await verifyPassword(current ?? '', account.passwordHash);
+        if (!result.ok) {
+          await throttleFail(email);
+          throw new AuthError('credentials', 'Your current password is not right.');
+        }
+      }
+      const problem = passwordProblem(next, { email, name: account.name });
+      if (problem) throw new AuthError('password', problem);
+      await rejectBreached(next);
+      await store.update('accounts', email, { passwordHash: await hashPassword(next), passwordChangedAt: clock().toISOString() });
+      return publicAccount(await store.get('accounts', email));
+    },
+
+    raw: (email) => store.get('accounts', normaliseEmail(email)),
+    update: (email, patch) => store.update('accounts', normaliseEmail(email), patch),
+    publicAccount,
 
     async createHousehold(email, form) {
       const account = await store.get('accounts', normaliseEmail(email));

@@ -5,3 +5,5 @@ infra/cdk.out/
 infra/node_modules/
 .env
 *.log
+*.key
+saathi-recovery-codes.txt

@@ -1,5 +1,12 @@
+import { svg as trustedSvg } from './trusted.js';
 import { el } from './common.js';
-import { icon } from './icons.js';
+import { icon, iconEl } from './icons.js';
+
+function swatch(color) {
+  const node = el('span', { class: 'h3-swatch' });
+  node.style.background = color;
+  return node;
+}
 
 const PALETTE = {
   living: '#e9dccb', kitchen: '#dfe8d8', hall: '#e8e4dc', bedroom: '#dcdff0', puja: '#f3dfc6', bathroom: '#d6e8ec', room: '#e6e2da',
@@ -283,7 +290,7 @@ export function mountHome(root, { elderName = 'them', canEdit = true } = {}) {
   const toggle3d = el('button', { type: 'button', 'aria-pressed': 'true' }, '3D');
   const toggle2d = el('button', { type: 'button', 'aria-pressed': 'false' }, '2D');
   const scanLink = el('a', { class: 'h3-scan', href: '/scan.html' });
-  scanLink.innerHTML = `${icon('scan', { size: 18 })}<span>Walk around with your phone</span>`;
+  scanLink.append(iconEl('scan', { size: 18 }), el('span', {}, 'Walk around with your phone'));
 
   const rooms = el('ul', { class: 'h3-rooms', 'aria-label': 'Rooms' });
   const items = el('ul', { class: 'h3-items', 'aria-label': 'Things Saathi can help find' });
@@ -297,7 +304,7 @@ export function mountHome(root, { elderName = 'them', canEdit = true } = {}) {
   const finder = el('form', { class: 'h3-find a-glass' },
     el('input', { name: 'q', type: 'search', autocomplete: 'off', placeholder: `Ask “where are ${elderName}'s keys?”`, 'aria-label': 'Find something in the house' }),
     el('button', { class: 'round-btn dark', type: 'submit', 'aria-label': 'Find' }));
-  finder.lastChild.innerHTML = icon('search', { size: 18 });
+  finder.lastChild.innerHTML = trustedSvg(icon('search', { size: 18 }));
   const answer = el('p', { class: 'h3-answer', 'aria-live': 'polite' });
 
   const card = el('div', { class: 'h3' },
@@ -353,13 +360,13 @@ export function mountHome(root, { elderName = 'them', canEdit = true } = {}) {
     status.textContent = map.rooms.length ? `${map.rooms.length} rooms · ${map.totalAreaM2} m² · ${how}${when ? ` · ${when}` : ''}` : 'No map yet. Walk around the house with an Android phone to build one.';
     rooms.replaceChildren(...map.rooms.map((r) => {
       const b = el('button', { type: 'button', 'aria-pressed': String(r.id === selected), onclick: () => { selected = selected === r.id ? null : r.id; highlight(); } },
-        el('span', { class: 'h3-swatch', style: `background:${PALETTE[r.type] ?? PALETTE.room}` }), el('span', {}, r.name), el('span', { class: 'muted' }, `${r.areaM2} m²`));
+        swatch(PALETTE[r.type] ?? PALETTE.room), el('span', {}, r.name), el('span', { class: 'muted' }, `${r.areaM2} m²`));
       return el('li', { 'data-id': r.id }, b);
     }));
     items.replaceChildren(...(map.items.length ? map.items.map((i) => {
       const room = map.rooms.find((r) => r.id === i.roomId);
       const remove = canEdit ? el('button', { class: 'h3-x', type: 'button', 'aria-label': `Remove ${i.name}`, onclick: async () => { await fetch(`/api/home/items/${encodeURIComponent(i.id)}`, { method: 'DELETE' }); reload(); } }) : '';
-      if (remove) remove.innerHTML = icon('close', { size: 14 });
+      if (remove) remove.innerHTML = trustedSvg(icon('close', { size: 14 }));
       return el('li', {}, el('div', {}, el('strong', {}, i.name), el('span', { class: 'muted' }, `${room?.name ?? i.roomId}${i.note ? ` · ${i.note}` : ''}`)), remove);
     }) : [el('li', { class: 'muted' }, 'Nothing placed yet.')]));
     roomSelect.replaceChildren(...map.rooms.map((r) => el('option', { value: r.id }, r.name)));

@@ -74,6 +74,15 @@
 .auth-submit:hover { background: #111; }
 .auth-submit:disabled { opacity: 0.6; cursor: progress; }
 
+.auth-passkey {
+  margin-top: 12px; width: 100%; height: 44px; border-radius: 6px; border: 1px solid #dfe2e6; background: #fff; color: #1c1d1f;
+  display: flex; align-items: center; justify-content: center; gap: 10px; font: 500 0.98rem var(--sans); cursor: pointer;
+}
+.auth-passkey svg { width: 20px; height: 20px; }
+.auth-passkey:hover { border-color: #1c1d1f; }
+.auth-passkey:disabled { opacity: 0.6; cursor: progress; }
+.auth-passkey[hidden] { display: none; }
+
 .auth-error { margin: 0; padding: 10px 12px; border-radius: 6px; background: #fdecea; color: #8a1c13; font-size: 0.9rem; }
 .auth-error[hidden] { display: none; }
 

@@ -1,7 +1,8 @@
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { sealStore, openStore, isSealedStore } from '../security/keys.js';
 
-export function createFileStore({ file, seed = () => ({}), persist = true } = {}) {
+export function createFileStore({ file, seed = () => ({}), persist = true, key = null } = {}) {
   let data = null;
   let writing = Promise.resolve();
 
@@ -9,7 +10,14 @@ export function createFileStore({ file, seed = () => ({}), persist = true } = {}
     if (data) return data;
     if (persist) {
       try {
-        data = JSON.parse(await readFile(file, 'utf8'));
+        const text = await readFile(file, 'utf8');
+        if (isSealedStore(text)) {
+          if (!key) throw new Error('the file is encrypted and no key was given');
+          data = JSON.parse(openStore(key, text));
+        } else {
+          data = JSON.parse(text);
+          if (key) await save();
+        }
         return data;
       } catch (err) {
         if (err.code !== 'ENOENT') throw new Error(`Saathi could not read its data file ${file}: ${err.message}. Nothing was changed; fix or restore the file and start again.`);
@@ -22,10 +30,11 @@ export function createFileStore({ file, seed = () => ({}), persist = true } = {}
 
   function save() {
     if (!persist) return Promise.resolve();
-    const snapshot = JSON.stringify(data, null, 2);
+    const json = JSON.stringify(data, null, key ? 0 : 2);
+    const snapshot = key ? sealStore(key, json) : json;
     writing = writing.then(async () => {
       await mkdir(dirname(file), { recursive: true });
-      await writeFile(`${file}.tmp`, snapshot);
+      await writeFile(`${file}.tmp`, snapshot, { mode: 0o600 });
       await rename(`${file}.tmp`, file);
     });
     return writing;

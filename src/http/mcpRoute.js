@@ -8,7 +8,7 @@ import { cognitoOAuthMetadata } from '../auth/verifier.js';
 import { ALL_SCOPES } from '../auth/scopes.js';
 import { DEFAULT_HOUSEHOLD } from '../households/scope.js';
 
-export function mountMcp(app, services, { verifier, optionalVerifier, bus, auth } = {}) {
+export function mountMcp(app, services, { verifier, optionalVerifier, bus, auth, requireToken = false } = {}) {
   const sessions = new Map();
   const middleware = [];
 
@@ -28,7 +28,11 @@ export function mountMcp(app, services, { verifier, optionalVerifier, bus, auth 
   } else if (optionalVerifier) {
     middleware.push(async (req, res, next) => {
       const header = req.get('authorization') ?? '';
-      if (!/^Bearer\s+/i.test(header)) return next();
+      if (!/^Bearer\s+/i.test(header)) {
+        if (!requireToken) return next();
+        res.set('WWW-Authenticate', 'Bearer realm="saathi", error="invalid_token"');
+        return res.status(401).json({ jsonrpc: '2.0', error: { code: -32001, message: 'Saathi is reachable from the internet, so every caller needs a key. Make one in the family app under Alexa.' }, id: null });
+      }
       try {
         req.auth = await optionalVerifier.verifyAccessToken(header.replace(/^Bearer\s+/i, ''));
         next();

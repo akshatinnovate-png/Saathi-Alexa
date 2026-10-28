@@ -1,3 +1,4 @@
+import { svg } from './trusted.js';
 import { el } from './common.js';
 import { icon } from './icons.js';
 
@@ -34,18 +35,18 @@ export function mountAssistant(root, { audience = 'family', name = 'there', elde
   const convo = el('div', { class: 'a-convo', role: 'log', 'aria-live': 'polite', 'aria-label': 'Conversation' });
   const input = el('input', { type: 'text', autocomplete: 'off', placeholder: elder ? copy.placeholder : 'Enter message…', 'aria-label': 'Message to Saathi' });
   const mic = el('button', { class: 'a-round', type: 'button', 'aria-label': 'Speak', 'aria-pressed': 'false' });
-  mic.innerHTML = icon('mic');
+  mic.innerHTML = svg(icon('mic'));
   const plus = el('button', { class: 'a-round', type: 'button', 'aria-label': 'Show suggestions' });
-  plus.innerHTML = icon('plus');
+  plus.innerHTML = svg(icon('plus'));
   const send = el('button', { class: 'a-round', type: 'submit', 'aria-label': 'Send' });
-  send.innerHTML = icon('arrowRight');
+  send.innerHTML = svg(icon('arrowRight'));
   const bar = el('form', { class: 'a-bar a-glass' }, plus, input, mic, send);
 
   const sheet = el('div', { class: 'a-sheet a-glass' },
     el('h2', { id: 'assistant-title' }, elder ? copy.sub : `${name}, how can I help you ${greeting()}?`),
     el('ul', { class: 'a-suggest' }, ...suggestions.map((q, i) => {
       const b = el('button', { type: 'button', onclick: () => ask(q) }, el('span', { 'aria-hidden': 'true' }), el('span', {}, q), el('span', { 'aria-hidden': 'true' }, '›'));
-      b.firstChild.innerHTML = icon(suggestIcons[i % 4], { size: 18 });
+      b.firstChild.innerHTML = svg(icon(suggestIcons[i % 4], { size: 18 }));
       return el('li', {}, b);
     })));
 
@@ -55,7 +56,7 @@ export function mountAssistant(root, { audience = 'family', name = 'there', elde
       el('h2', { class: 'a-hello' }, elder ? (ELDER_HELLO[language] ?? ELDER_HELLO.en) : 'Hello, ', avatar ?? '', el('span', {}, name)),
       el('p', { class: 'a-sub' }, elder ? copy.sub : `Here's ${elderName} today`)),
     onClose ? el('button', { class: 'a-close a-glass', type: 'button', 'aria-label': 'Close assistant', onclick: onClose }) : '');
-  if (onClose) head.lastChild.innerHTML = icon('close');
+  if (onClose) head.lastChild.innerHTML = svg(icon('close'));
 
   const shell = el('div', { class: `assistant${elder ? ' elder' : ''}`, lang: elder ? language : undefined }, head, tiles, convo, sheet, bar);
   root.replaceChildren(shell);
@@ -69,7 +70,7 @@ export function mountAssistant(root, { audience = 'family', name = 'there', elde
       const unread = s.alerts.filter((a) => !a.acknowledged).length;
       const tile = (title, iconName, body) => {
         const t = el('article', { class: 'a-tile a-glass' }, el('h3', {}, title, el('span', { 'aria-hidden': 'true' })), ...body);
-        t.querySelector('h3 span').innerHTML = icon(iconName, { size: 16 });
+        t.querySelector('h3 span').innerHTML = svg(icon(iconName, { size: 16 }));
         return t;
       };
       if (elder) {

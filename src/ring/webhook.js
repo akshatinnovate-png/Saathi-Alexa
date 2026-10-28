@@ -8,12 +8,31 @@ export function sign(secret, timestamp, rawBody) {
   return `sha256=${createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex')}`;
 }
 
-export function verifySignature({ secret, signature, timestamp, rawBody, now = Date.now() }) {
+export function createReplayGuard({ windowMs = MAX_SKEW_SECONDS * 2000, max = 50000 } = {}) {
+  const seen = new Map();
+  return {
+    fresh(signature, now = Date.now()) {
+      for (const [key, expires] of seen) {
+        if (expires > now) break;
+        seen.delete(key);
+      }
+      if (seen.has(signature)) return false;
+      if (seen.size >= max) seen.delete(seen.keys().next().value);
+      seen.set(signature, now + windowMs);
+      return true;
+    },
+    get size() { return seen.size; },
+  };
+}
+
+export function verifySignature({ secret, signature, timestamp, rawBody, now = Date.now(), replay = null }) {
   if (!signature || !timestamp) return { ok: false, reason: 'missing signature' };
+  if (!/^\d{1,12}$/.test(String(timestamp))) return { ok: false, reason: 'bad timestamp' };
   if (Math.abs(now / 1000 - Number(timestamp)) > MAX_SKEW_SECONDS) return { ok: false, reason: 'stale timestamp' };
   const expected = Buffer.from(sign(secret, timestamp, rawBody));
   const given = Buffer.from(signature);
   if (expected.length !== given.length || !timingSafeEqual(expected, given)) return { ok: false, reason: 'bad signature' };
+  if (replay && !replay.fresh(signature, now)) return { ok: false, reason: 'replayed' };
   return { ok: true };
 }
 

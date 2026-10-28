@@ -42,6 +42,7 @@ const scenarios = [
   { name: 'Landing page', path: '/', intro: false },
   { name: 'Landing page, phone width', path: '/', width: 390, intro: false },
   { name: 'Login', path: '/login.html' },
+  { name: 'Login, two-step code', path: '/login.html?step=code' },
   { name: 'Family Circle app', path: '/family.html' },
   { name: 'Family Circle app, high contrast', path: '/family.html', contrast: true },
   { name: 'Family Circle app, phone width', path: '/family.html', width: 390 },
@@ -76,7 +77,7 @@ for (const s of scenarios) {
     await page.press('#talk-input', 'Enter');
     await page.waitForSelector('#confirm:not([hidden])');
   }
-  await page.addScriptTag({ content: axeSource });
+  await page.evaluate(axeSource);
   const result = await page.evaluate(() => window.axe.run(document, { runOnly: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'] }));
   console.log(`${result.violations.length ? 'FAIL' : 'PASS'}  ${s.name}: ${result.passes.length} rules passed, ${result.violations.length} violations`);
   for (const v of result.violations) {

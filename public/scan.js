@@ -55,7 +55,7 @@ function renderList() {
   const list = $('room-list');
   list.replaceChildren(...rooms.map((r) => {
     const li = document.createElement('li');
-    li.innerHTML = '<strong></strong><span></span>';
+    li.append(document.createElement('strong'), document.createElement('span'));
     li.firstChild.textContent = r.name;
     li.lastChild.textContent = `${r.polygon.length} corners · ${area(r.polygon).toFixed(1)} m²`;
     return li;
