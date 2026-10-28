@@ -2,12 +2,19 @@ name: Release
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release, for example 1.0.0'
+        required: true
 permissions:
   contents: write
   packages: write
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,17 +27,19 @@ jobs:
           SAATHI_METRICS: 'off'
       - name: Release notes from CHANGELOG.md
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${VERSION#v}"
+          echo "TAG=v$version" >> "$GITHUB_ENV"
+          echo "PLAIN=$version" >> "$GITHUB_ENV"
           awk -v v="$version" '$0 ~ "^## \\[?"v"\\]?" {on=1; next} on && /^## / {exit} on' CHANGELOG.md > notes.md
           test -s notes.md
       - name: Publish the Docker image
         run: |
           image="ghcr.io/${GITHUB_REPOSITORY,,}"
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-          docker build -t "$image:${GITHUB_REF_NAME#v}" -t "$image:latest" .
-          docker push "$image:${GITHUB_REF_NAME#v}"
+          docker build -t "$image:$PLAIN" -t "$image:latest" .
+          docker push "$image:$PLAIN"
           docker push "$image:latest"
       - name: Create the GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "$GITHUB_REF_NAME" --title "Saathi $GITHUB_REF_NAME" --notes-file notes.md --verify-tag
+        run: gh release create "$TAG" --title "Saathi $TAG" --notes-file notes.md --target "$GITHUB_SHA"
