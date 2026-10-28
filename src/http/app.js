@@ -306,7 +306,7 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
   }));
 
   api.post('/family/letter', wrap(async (req, res) => {
-    const letters = await req.saathi.weeklyLetters({ send: Boolean(req.body?.send) });
+    const letters = await req.saathi.weeklyLetters({ send: Boolean(req.body?.send), save: true });
     res.json(letters.find((l) => l.memberId === memberOf(req)) ?? null);
   }));
 

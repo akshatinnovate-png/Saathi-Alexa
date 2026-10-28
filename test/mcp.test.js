@@ -78,6 +78,15 @@ test('an MCP client can list and call every kind of capability', async () => {
     'save_memory_story', 'send_message_to_family', 'weekly_family_letter', 'what_day_is_it', 'where_is', 'who_is',
   ]);
   assert.equal(tools.find((t) => t.name === 'what_day_is_it').annotations.readOnlyHint, true);
+  for (const t of tools) {
+    for (const hint of ['readOnlyHint', 'destructiveHint', 'idempotentHint', 'openWorldHint']) {
+      assert.equal(typeof t.annotations?.[hint], 'boolean', `${t.name} declares ${hint}`);
+    }
+  }
+  assert.ok(tools.every((t) => t.annotations.destructiveHint === false), 'no tool deletes anything');
+  const lettersBefore = (await services.store.list('letters')).length;
+  await client.callTool({ name: 'weekly_family_letter', arguments: { member: 'riya' } });
+  assert.equal((await services.store.list('letters')).length, lettersBefore, 'a read-only tool writes nothing');
 
   const who = await client.callTool({ name: 'who_is', arguments: { person: 'Meera', language: 'en' } });
   assert.match(who.content[0].text, /next door/);

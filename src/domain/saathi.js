@@ -556,7 +556,7 @@ export function createSaathi(deps) {
     return deliverToElder({ fromId, text: '🎤', language: sender.language, extra: { kind: 'voice', audio: ref, durationSec: durationSec ?? null } });
   }
 
-  async function weeklyLetters({ send = true } = {}) {
+  async function weeklyLetters({ send = true, save = send } = {}) {
     const me = await elder();
     const p = pronounsOf(me);
     const now = clock();
@@ -595,12 +595,14 @@ export function createSaathi(deps) {
       const english = `Dear ${p.name},\n\nHere is ${me.preferredName}'s week.\n\n${lines.map((l) => `- ${l}`).join('\n')}\n\nWith love,\nSaathi`;
       const tr = await translateTo(english, p.language, 'en');
       const letter = { id: `letter-${today}-${p.id}`, memberId: p.id, language: p.language, english, text: tr.text, createdAt: now.toISOString() };
-      await store.put('letters', letter);
+      if (save) await store.put('letters', letter);
       if (send) await notifier.notify({ audience: 'family', recipientId: p.id, severity: 'info', subject: `${me.preferredName}'s week`, message: tr.text });
       letters.push(letter);
     }
-    await events.publish('WeeklyLetter', { count: letters.length });
-    metrics.emit('WeeklyLetter', letters.length);
+    if (save) {
+      await events.publish('WeeklyLetter', { count: letters.length });
+      metrics.emit('WeeklyLetter', letters.length);
+    }
     return letters;
   }
 

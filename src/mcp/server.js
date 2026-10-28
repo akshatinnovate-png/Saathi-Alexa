@@ -59,14 +59,14 @@ export function buildMcpServer(saathi, { bus } = {}) {
       next: z.object({ time: z.string(), activity: z.string() }).loose().nullable(),
       laterToday: z.array(z.object({ time: z.string(), activity: z.string() }).loose()),
     },
-    annotations: { readOnlyHint: true, openWorldHint: false },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, async ({ language }) => reply(await saathi.orientation({ language })));
 
   tool('who_is', {
     title: 'Who is this person?',
     description: 'Explains who someone in their circle is (by name or relationship, in English, Hindi or Marathi, e.g. "Maya", "my granddaughter", "नात"), with their last message and regular plans. A memory aid; never imply they should have remembered.',
     inputSchema: { person: z.string().min(1).describe('Name or relationship'), language: lang },
-    annotations: { readOnlyHint: true, openWorldHint: false },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, async ({ person, language }) => reply(await saathi.whoIs(person, { language })));
 
   tool('get_medication_schedule', {
@@ -80,7 +80,7 @@ export function buildMcpServer(saathi, { bus } = {}) {
         status: z.enum(['taken', 'due', 'missed', 'upcoming']), takenAt: z.string().nullable(),
       }).loose()),
     },
-    annotations: { readOnlyHint: true, openWorldHint: false },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, async ({ language }) => reply(await saathi.medicationSchedule({ language })));
 
   tool('confirm_medication_taken', {
@@ -88,7 +88,7 @@ export function buildMcpServer(saathi, { bus } = {}) {
     description: 'Records that they took a tablet. If they do not say which, the one currently due is used. Prevents double doses by reporting if it was already taken today.',
     inputSchema: { medication: z.string().optional().describe('Name, purpose ("blood pressure", "रक्तदाब") or colour of the tablet'), language: lang },
     outputSchema: { say, sayLanguage, recorded: z.boolean(), alreadyTaken: z.boolean().optional(), medication: z.string().optional() },
-    annotations: { readOnlyHint: false, idempotentHint: true, openWorldHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, async ({ medication, language }) => reply(await saathi.confirmMedication(medication, { language })));
 
   tool('daily_check_in', {
@@ -99,7 +99,7 @@ export function buildMcpServer(saathi, { bus } = {}) {
       language: lang,
       keep_private: z.boolean().default(false).describe('True if they asked not to tell their family. Never suppresses an emergency.'),
     },
-    annotations: { readOnlyHint: false, openWorldHint: true },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   }, async ({ how_i_feel, language, keep_private }) => reply(await saathi.checkIn({ text: how_i_feel, language, keepPrivate: keep_private })));
 
   tool('ask_family_for_help', {
@@ -118,7 +118,7 @@ export function buildMcpServer(saathi, { bus } = {}) {
     title: 'Messages from family',
     description: 'Reads new messages from their family, translated into their language whatever language they were written in.',
     inputSchema: { include_already_heard: z.boolean().default(false), language: lang },
-    annotations: { readOnlyHint: false, openWorldHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, async ({ include_already_heard, language }) => reply(await saathi.familyMessages({ unreadOnly: !include_already_heard, language })));
 
   tool('send_message_to_family', {
@@ -129,7 +129,7 @@ export function buildMcpServer(saathi, { bus } = {}) {
       to: z.string().optional().describe('Name or relationship; omit for the whole family'),
       language: lang,
     },
-    annotations: { readOnlyHint: false, openWorldHint: true },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   }, async ({ message, to, language }) => {
     const spoken = language ?? (await saathi.elder()).language;
     if (server.server.getClientCapabilities()?.elicitation) {
@@ -157,7 +157,7 @@ export function buildMcpServer(saathi, { bus } = {}) {
       title: z.string().optional().describe('A short title, e.g. "Monsoon wedding, 1968"'),
       language: lang,
     },
-    annotations: { readOnlyHint: false, openWorldHint: true },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   }, async ({ story, title, language }, extra) => {
     const progressToken = extra._meta?.progressToken;
     const onProgress = progressToken === undefined ? undefined : (progress, total, message) =>
@@ -169,7 +169,7 @@ export function buildMcpServer(saathi, { bus } = {}) {
     title: 'Memory book',
     description: 'Lists the stories in their memory book (most recent first) so they can be retold. Each story is also a resource at saathi://stories/{storyId}.',
     inputSchema: { limit: z.number().int().min(1).max(20).default(5), language: lang },
-    annotations: { readOnlyHint: true, openWorldHint: false },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, async ({ limit, language }) => {
     const spoken = language ?? (await saathi.elder()).language;
     const stories = (await saathi.listStories()).slice(0, limit).map((s) => ({ id: s.id, uri: `saathi://stories/${s.id}`, title: s.title, text: s.text, english: s.translations.en?.text, createdAt: s.createdAt }));
@@ -184,14 +184,14 @@ export function buildMcpServer(saathi, { bus } = {}) {
       say, sayLanguage,
       appointments: z.array(z.object({ id: z.string(), title: z.string(), with: z.string(), place: z.string(), at: z.string(), daysAway: z.number(), escort: z.string().nullable(), escortName: z.string().nullable() }).loose()),
     },
-    annotations: { readOnlyHint: true, openWorldHint: false },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, async ({ days, language }) => reply(await saathi.upcomingAppointments({ days, language })));
 
   tool('record_refill', {
     title: 'Tablets refilled (family)',
     description: 'For a family member: records that a medicine was refilled, which closes the low-supply alert and tells them it is taken care of.',
     inputSchema: { medication_id: z.string(), quantity: z.number().int().min(1).max(365).default(30), member: z.string().describe('Family member id, from saathi://circle, e.g. "maya"') },
-    annotations: { readOnlyHint: false, openWorldHint: true },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   }, async ({ medication_id, quantity, member }) => {
     const r = await saathi.recordRefill({ medicationId: medication_id, quantity, by: member });
     return reply(r ? { ...r, say: `Thank you. ${(await saathi.elder()).preferredName} now has ${r.daysLeft} days of it, and has been told.` } : { say: 'I could not find that medicine.' });
@@ -201,7 +201,7 @@ export function buildMcpServer(saathi, { bus } = {}) {
     title: "I'll take them (family)",
     description: 'For a family member: volunteers to take them to a doctor visit. They are told, in their language, who is coming.',
     inputSchema: { appointment_id: z.string(), member: z.string().describe('Family member id, e.g. "anand"') },
-    annotations: { readOnlyHint: false, idempotentHint: true, openWorldHint: true },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   }, async ({ appointment_id, member }) => {
     const appt = await saathi.claimEscort({ appointmentId: appointment_id, member });
     return reply(appt ? { claimed: true, appointment: appt.id, say: `Thank you. ${(await saathi.elder()).preferredName} knows you're coming to ${appt.with}.` } : { claimed: false, say: 'I could not find that visit.' });
@@ -211,7 +211,7 @@ export function buildMcpServer(saathi, { bus } = {}) {
     title: "This week's letter (family)",
     description: "For a family member: this week's letter about them (tablets, mood, stories, front door, alerts, upcoming visits), in the member's language. Private check-ins are only counted, never quoted.",
     inputSchema: { member: z.string().describe('Family member id, from saathi://circle, e.g. "maya"') },
-    annotations: { readOnlyHint: true, openWorldHint: false },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, async ({ member }) => {
     const letter = (await saathi.weeklyLetters({ send: false })).find((l) => l.memberId === member);
     return reply(letter ? { say: letter.text, english: letter.english } : { say: 'I could not find that family member.' });
@@ -221,7 +221,7 @@ export function buildMcpServer(saathi, { bus } = {}) {
     title: 'Where is my…?',
     description: 'Finds where something is usually kept at home (glasses, keys, tablet box, photo album), from the house map the family built. Answers in their language. A memory aid: never imply they should have remembered.',
     inputSchema: { item: z.string().min(1).describe('The thing they are looking for, in any language'), language: lang },
-    annotations: { readOnlyHint: true, openWorldHint: false },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, async ({ item, language }) => reply(await saathi.whereIs(item, { language })));
 
   tool('family_summary', {
@@ -232,7 +232,7 @@ export function buildMcpServer(saathi, { bus } = {}) {
       say, sayLanguage, english: z.string(),
       alerts: z.array(z.object({ id: z.string(), reason: z.string().optional(), severity: z.string(), escalationStage: z.string().optional() }).loose()),
     },
-    annotations: { readOnlyHint: true, openWorldHint: false },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, async ({ member }) => {
     const s = await saathi.familySummary({ forMemberId: member });
     return reply({ say: s.text, english: s.english, alerts: s.alerts.filter((a) => !a.acknowledged).map(({ id, reason, severity, escalationStage }) => ({ id, reason, severity, escalationStage })) });
@@ -242,7 +242,7 @@ export function buildMcpServer(saathi, { bus } = {}) {
     title: "I'm on it (family)",
     description: 'For a family member: acknowledges an alert, which stops the escalation and tells them someone is coming.',
     inputSchema: { alert_id: z.string(), member: z.string().describe('Family member id, from saathi://circle, e.g. "maya"') },
-    annotations: { readOnlyHint: false, idempotentHint: true, openWorldHint: true },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   }, async ({ alert_id, member }) => {
     const alert = await saathi.acknowledgeAlert({ alertId: alert_id, by: member });
     return reply(alert ? { acknowledged: true, say: `Thank you. ${(await saathi.elder()).preferredName} has been told you are on your way.` } : { acknowledged: false, say: 'I could not find that alert.' });
