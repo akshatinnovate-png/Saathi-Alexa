@@ -1,7 +1,7 @@
-import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import WASM_BASE64 from './saathi-core-wasm.js';
 
-const bytes = readFileSync(new URL('./saathi-core.wasm', import.meta.url));
+const bytes = Buffer.from(WASM_BASE64, 'base64');
 const { exports: wasm } = new WebAssembly.Instance(new WebAssembly.Module(bytes), {});
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
