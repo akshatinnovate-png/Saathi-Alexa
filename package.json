@@ -14,7 +14,9 @@
     "smoke": "node scripts/smoke.js",
     "setup": "node scripts/setup.js",
     "demo": "node scripts/demo.js",
-    "add-ring": "npm install --no-save --no-audit --no-fund ring-client-api@14.3.0"
+    "add-ring": "npm install --no-save --no-audit --no-fund ring-client-api@14.3.0",
+    "build:core": "node scripts/build-core.js",
+    "check:core": "node scripts/build-core.js --check"
   },
   "keywords": [
     "alexa-plus",

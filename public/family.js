@@ -814,6 +814,7 @@ async function init(first = true) {
     $('open-security').hidden = !status.me;
     showReturnNotice();
     $('open-invite').hidden = status.me && status.me.role !== 'owner';
+    $('open-devices').hidden = circle.find((p) => p.id === status.memberId)?.role === 'neighbour';
   }
 }
 

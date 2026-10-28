@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto';
+import { chainLink, chainVerify } from './core.js';
 
 const GENESIS = 'saathi-audit-genesis';
 
@@ -10,7 +10,7 @@ const canonical = (value) => {
 
 export function createAuditLog({ store, key, clock = () => new Date() }) {
   const queues = new Map();
-  const sign = (prev, entry) => createHmac('sha256', key).update(prev).update('\n').update(canonical(entry)).digest('base64url');
+  const sign = (prev, entry) => chainLink(key, prev, canonical(entry));
   const scope = (householdId) => householdId ?? 'global';
 
   function append({ householdId = null, actor = null, action, detail = {}, ip = null }) {
@@ -37,15 +37,9 @@ export function createAuditLog({ store, key, clock = () => new Date() }) {
     const chain = scope(householdId);
     const list = await entries(householdId);
     const head = await store.get('auditHeads', chain);
-    let prev = GENESIS;
-    for (const [i, row] of list.entries()) {
-      const { id, mac, ...entry } = row;
-      if (entry.seq !== i + 1) return { ok: false, brokenAt: entry.seq, reason: 'an entry is missing or out of order' };
-      if (sign(prev, entry) !== mac) return { ok: false, brokenAt: entry.seq, reason: 'an entry was changed' };
-      prev = mac;
-    }
-    if ((head?.seq ?? 0) !== list.length || (head && head.mac !== prev)) return { ok: false, brokenAt: list.length + 1, reason: 'recent entries were removed' };
-    return { ok: true, entries: list.length };
+    const rows = list.map(({ id, mac, ...entry }) => ({ seq: entry.seq, canonical: canonical(entry), mac }));
+    const out = chainVerify(key, rows, head ? { seq: head.seq, mac: head.mac } : null);
+    return out.ok ? { ok: true, entries: out.entries } : { ok: false, brokenAt: out.brokenAt, reason: out.reason };
   }
 
   return { append, entries, verify };

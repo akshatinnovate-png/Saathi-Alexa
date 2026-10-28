@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { sessionState } from '../security/core.js';
 
 export const SESSION_COOKIE = 'saathi_session';
 export const SECURE_SESSION_COOKIE = '__Host-saathi_session';
@@ -7,7 +8,6 @@ const POLICY = {
   user: { idle: 7 * DAY, absolute: 30 * DAY },
   device: { idle: 90 * DAY, absolute: 400 * DAY },
 };
-const TOUCH_EVERY_MS = 5 * 60 * 1000;
 
 export async function sessionSecret(store, configured) {
   if (configured) return configured;
@@ -82,12 +82,12 @@ export function createSessions(secret, { store = memoryStore(), clock = () => ne
     const record = await store.get('sessions', hashId(raw));
     if (!record) return null;
     const at = now();
-    const idleLimit = Date.parse(record.lastSeenAt) + POLICY[record.kind].idle * 1000;
-    if (at > Date.parse(record.expiresAt) || at > idleLimit) {
+    const verdict = sessionState({ kind: record.kind, createdAt: record.createdAt, lastSeenAt: record.lastSeenAt, now: at });
+    if (!verdict.valid || at > Date.parse(record.expiresAt)) {
       await store.remove('sessions', record.id);
       return null;
     }
-    if (at - Date.parse(record.lastSeenAt) > TOUCH_EVERY_MS) {
+    if (verdict.touch) {
       await store.update('sessions', record.id, { lastSeenAt: new Date(at).toISOString() });
     }
     return record;

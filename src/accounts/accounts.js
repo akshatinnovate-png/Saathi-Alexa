@@ -184,9 +184,15 @@ export function createAccounts({ store, services, cognito = null, demo = false, 
       if (!entry || entry.expiresAt < clock().toISOString()) throw new AuthError('code', 'That code did not work. Check the number in the family app, or make a new one.');
       await store.remove('pairingCodes', entry.id);
       const secret = randomBytes(32).toString('base64url');
+      const now = clock().toISOString();
+      const taken = new Set((await store.list('pairRequests'))
+        .filter((r) => r.householdId === entry.householdId && r.status === 'pending' && r.expiresAt > now)
+        .map((r) => r.emoji.join('')));
+      let emoji;
+      do emoji = Array.from({ length: 3 }, () => PAIRING_EMOJI[randomInt(0, PAIRING_EMOJI.length)]); while (taken.has(emoji.join('')));
       const request = {
         id: `pr_${randomBytes(12).toString('base64url')}`, householdId: entry.householdId, secretHash: hashToken(secret),
-        emoji: Array.from({ length: 3 }, () => PAIRING_EMOJI[randomInt(0, PAIRING_EMOJI.length)]),
+        emoji,
         label: label ? String(label).slice(0, 60) : null, agent: String(agent ?? '').slice(0, 80), status: 'pending',
         codeBy: entry.createdBy, createdAt: clock().toISOString(), expiresAt: new Date(clock().getTime() + 10 * 60_000).toISOString(),
       };

@@ -8,6 +8,7 @@ import { COUNTRIES, PRONOUNS } from '../domain/people.js';
 import { hostHeaderValidation, localhostHostValidation } from '@modelcontextprotocol/sdk/server/middleware/hostHeaderValidation.js';
 import { mountMcp } from './mcpRoute.js';
 import { mountAuth } from './authRoutes.js';
+import { apiGuard } from './guard.js';
 import { LANGUAGES } from '../domain/languages.js';
 import { seedData } from '../domain/seed.js';
 import { DEFAULT_HOUSEHOLD } from '../households/scope.js';
@@ -71,7 +72,9 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     }
   });
 
-  if (accounts && sessions) mountAuth(app, { config, accounts, sessions, security, google, familyMail, audit });
+  const guard = apiGuard({ requireLogin, defaultHousehold: DEFAULT_HOUSEHOLD, services, audit });
+  if (accounts && sessions) mountAuth(app, { config, accounts, sessions, security, google, familyMail, audit, guard });
+  else app.use('/api', guard);
   if (accounts && sessions && security && audit) mountSecurity(app, { accounts, sessions, security, audit });
   const record = (req, action, detail = {}) => audit?.append({ householdId: req.householdId ?? null, actor: req.user?.email ?? req.device?.id ?? null, action, detail, ip: req.ip }).catch(() => {});
 
@@ -97,24 +100,13 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
 
   api.use((req, res, next) => {
     if (!req.householdId) return res.status(401).json({ error: requireLogin && req.user ? 'Set up your household first.' : 'Please log in.' });
-    if (req.device && !req.user && /^\/(household|devices|mail|demo|doorbell|care|family\/avatar)/.test(req.path)) return res.status(403).json({ error: "This device can't do that. Use the family app." });
     req.saathi = services.forHousehold(req.householdId);
     next();
   });
 
-  const familyOnly = (req, res) => {
-    if (!accounts || !req.user) { res.status(401).json({ error: 'Please log in.' }); return false; }
-    return true;
-  };
-  const ownerOnly = (req, res) => {
-    if (!familyOnly(req, res)) return false;
-    if (req.user.role !== 'owner') { res.status(403).json({ error: 'Only the person who set up this household can do that.' }); return false; }
-    return true;
-  };
   const originOf = (req) => config.auth.publicUrl ?? `${req.protocol}://${req.get('host')}`;
 
   api.post('/devices/pairing-code', wrap(async (req, res) => {
-    if (!familyOnly(req, res)) return;
     const { code, expiresAt } = await accounts.createPairingCode(req.user.email);
     record(req, 'pairing-code-made');
     const url = `${originOf(req)}/device.html`;
@@ -123,12 +115,10 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
   }));
 
   api.get('/devices/requests', wrap(async (req, res) => {
-    if (!familyOnly(req, res)) return;
     res.json(await accounts.pairRequests(req.householdId));
   }));
 
   api.post('/devices/requests/:id', wrap(async (req, res) => {
-    if (!familyOnly(req, res)) return;
     const approve = req.body?.approve === true;
     const out = await accounts.decidePairRequest(req.user.email, req.params.id, approve);
     record(req, approve ? 'device-approved' : 'device-refused', { emoji: out.emoji.join('') });
@@ -136,12 +126,10 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
   }));
 
   api.get('/devices', wrap(async (req, res) => {
-    if (!familyOnly(req, res)) return;
     res.json(await accounts.listDevices(req.householdId));
   }));
 
   api.delete('/devices/:id', wrap(async (req, res) => {
-    if (!familyOnly(req, res)) return;
     const removed = Boolean(await accounts.removeDevice(req.householdId, req.params.id));
     if (removed) {
       await sessions?.revokeWhere((s) => s.kind === 'device' && s.deviceId === req.params.id);
@@ -151,105 +139,86 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
   }));
 
   api.get('/mail', wrap(async (req, res) => {
-    if (!familyOnly(req, res)) return;
     res.json(familyMail ? await familyMail.status(req.householdId) : { service: 'none', real: false, gmail: null, googleAvailable: false });
   }));
 
   api.post('/mail/test', wrap(async (req, res) => {
-    if (!familyOnly(req, res) || !familyMail) return;
+    if (!familyMail) return res.status(404).json({ error: 'Email is not set up.' });
     res.json(await familyMail.sendTest(req.householdId, { to: req.user.email, name: req.user.name }));
   }));
 
   api.delete('/mail/gmail', wrap(async (req, res) => {
-    if (!ownerOnly(req, res) || !familyMail) return;
+    if (!familyMail) return res.status(404).json({ error: 'Email is not set up.' });
     const removed = Boolean(await familyMail.disconnectGmail(req.householdId));
     record(req, 'gmail-disconnected');
     res.json({ removed });
   }));
 
-  const careEditor = async (req, res) => {
-    if (!familyOnly(req, res)) return false;
-    const me = (await req.saathi.circle()).find((p) => p.id === req.user.memberId);
-    if (me?.role === 'neighbour') { res.status(403).json({ error: 'Neighbours can see alerts but not change medicines or visits.' }); return false; }
-    return true;
-  };
-
   api.get('/care', wrap(async (req, res) => {
-    if (!familyOnly(req, res)) return;
     res.json(await req.saathi.careSetup());
   }));
 
   api.post('/care/medications', wrap(async (req, res) => {
-    if (!(await careEditor(req, res))) return;
     res.json(await req.saathi.saveMedication({ ...(req.body ?? {}), id: undefined }));
   }));
 
   api.put('/care/medications/:id', wrap(async (req, res) => {
-    if (!(await careEditor(req, res))) return;
     res.json(await req.saathi.saveMedication({ ...(req.body ?? {}), id: req.params.id }));
   }));
 
   api.delete('/care/medications/:id', wrap(async (req, res) => {
-    if (!(await careEditor(req, res))) return;
     res.json({ removed: Boolean(await req.saathi.removeMedication(req.params.id)) });
   }));
 
   api.post('/care/appointments', wrap(async (req, res) => {
-    if (!(await careEditor(req, res))) return;
     res.json(await req.saathi.saveAppointment({ ...(req.body ?? {}), id: undefined }));
   }));
 
   api.put('/care/appointments/:id', wrap(async (req, res) => {
-    if (!(await careEditor(req, res))) return;
     res.json(await req.saathi.saveAppointment({ ...(req.body ?? {}), id: req.params.id }));
   }));
 
   api.delete('/care/appointments/:id', wrap(async (req, res) => {
-    if (!(await careEditor(req, res))) return;
     res.json({ removed: Boolean(await req.saathi.removeAppointment(req.params.id)) });
   }));
 
   api.put('/care/routine', wrap(async (req, res) => {
-    if (!(await careEditor(req, res))) return;
     res.json(await req.saathi.saveRoutine(req.body?.routine ?? []));
   }));
 
   api.get('/doorbell', wrap(async (req, res) => {
-    if (!ownerOnly(req, res)) return;
     res.json(doorbell ? await doorbell.status(req.householdId) : { hookUrl: null, ring: { connected: false } });
   }));
 
   api.post('/doorbell/hook', wrap(async (req, res) => {
-    if (!ownerOnly(req, res) || !doorbell) return;
+    if (!doorbell) return res.status(404).json({ error: 'Doorbells are not available here.' });
     const hookUrl = await doorbell.newHook(req.householdId);
     record(req, 'doorbell-link-made');
     res.json({ hookUrl });
   }));
 
   api.post('/doorbell/ring', wrap(async (req, res) => {
-    if (!ownerOnly(req, res) || !doorbell) return;
+    if (!doorbell) return res.status(404).json({ error: 'Doorbells are not available here.' });
     res.json(await doorbell.connectRing(req.householdId, req.body ?? {}));
   }));
 
   api.post('/doorbell/ring/code', wrap(async (req, res) => {
-    if (!ownerOnly(req, res) || !doorbell) return;
+    if (!doorbell) return res.status(404).json({ error: 'Doorbells are not available here.' });
     res.json(await doorbell.verifyRingCode(req.householdId, req.body?.code));
   }));
 
   api.delete('/doorbell/ring', wrap(async (req, res) => {
-    if (!ownerOnly(req, res) || !doorbell) return;
+    if (!doorbell) return res.status(404).json({ error: 'Doorbells are not available here.' });
     res.json(await doorbell.disconnectRing(req.householdId));
   }));
 
   api.put('/household/profile', wrap(async (req, res) => {
-    if (!ownerOnly(req, res)) return;
     const profile = await req.saathi.updateProfile(req.body ?? {});
     record(req, 'profile-changed', { fields: Object.keys(req.body ?? {}).slice(0, 20) });
     res.json(profile);
   }));
 
   api.delete('/household/members/:memberId', wrap(async (req, res) => {
-    if (!ownerOnly(req, res)) return;
     const out = await accounts.removeMember(req.user.email, req.params.memberId);
     for (const email of out.accounts) await sessions?.revokeWhere((s) => s.kind === 'user' && s.email === email);
     record(req, 'member-removed', { member: out.removed });
@@ -257,12 +226,10 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
   }));
 
   api.get('/household/invites', wrap(async (req, res) => {
-    if (!familyOnly(req, res)) return;
     res.json(await accounts.pendingInvites(req.householdId));
   }));
 
   api.post('/household/invite/:memberId/resend', wrap(async (req, res) => {
-    if (!ownerOnly(req, res)) return;
     res.json(await accounts.resendInvite(req.user.email, req.params.memberId));
   }));
 

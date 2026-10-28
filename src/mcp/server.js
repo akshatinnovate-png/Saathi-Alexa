@@ -3,7 +3,8 @@ import { completable } from '@modelcontextprotocol/sdk/server/completable.js';
 import { SubscribeRequestSchema, UnsubscribeRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { LANGUAGE_CODES } from '../domain/languages.js';
-import { TOOL_SCOPES, hasScope } from '../auth/scopes.js';
+import { TOOL_SCOPES } from '../auth/scopes.js';
+import { mayCallTool } from '../security/core.js';
 import { t } from '../domain/i18n.js';
 
 export const SERVER_INFO = { name: 'saathi', title: 'Saathi - a companion for elders and the families who love them', version: '2.0.0' };
@@ -45,7 +46,7 @@ export function buildMcpServer(saathi, { bus } = {}) {
 
   const notSetUp = { content: [{ type: 'text', text: "Saathi isn't set up for this home yet. Ask the family to finish setting it up in the Saathi app." }], isError: true };
   const tool = (name, config, handler) => server.registerTool(name, config, async (args, extra) => {
-    if (!hasScope(extra.authInfo, TOOL_SCOPES[name])) return forbidden(name);
+    if (!mayCallTool({ scopes: extra.authInfo ? extra.authInfo.scopes ?? [] : null, tool: name })) return forbidden(name);
     if (!(await saathi.elder())) return notSetUp;
     return handler(args, extra);
   });

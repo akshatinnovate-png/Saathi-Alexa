@@ -1,7 +1,6 @@
 import { AuthError } from '../accounts/cognito.js';
 import { verifyPassword } from '../accounts/passwords.js';
-
-const FRESH_MS = 15 * 60 * 1000;
+import { sessionState } from '../security/core.js';
 
 export function mountSecurity(app, { accounts, sessions, security, audit }) {
   const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch((err) => {
@@ -14,8 +13,8 @@ export function mountSecurity(app, { accounts, sessions, security, audit }) {
     if (!req.user || !req.session) throw new AuthError('account', 'Please log in.');
   };
   const fresh = (req) => {
-    const at = Math.max(Date.parse(req.session.createdAt), Date.parse(req.session.reauthAt ?? 0) || 0);
-    if (Date.now() - at > FRESH_MS) throw new AuthError('reauth', 'For your safety, confirm it is you first.');
+    const { kind, createdAt, lastSeenAt, reauthAt } = req.session;
+    if (!sessionState({ kind, createdAt, lastSeenAt, reauthAt }).fresh) throw new AuthError('reauth', 'For your safety, confirm it is you first.');
   };
   const owner = (req) => {
     signedIn(req);

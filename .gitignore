@@ -7,3 +7,4 @@ infra/node_modules/
 *.log
 *.key
 saathi-recovery-codes.txt
+target/

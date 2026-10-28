@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash, generateKeyPairSync, randomBytes, sign as signData } from 'node:crypto';
+import { createHash, createHmac, generateKeyPairSync, randomBytes, sign as signData } from 'node:crypto';
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -18,6 +18,8 @@ import { createFileStore } from '../src/local/fileStore.js';
 import { createLocalMedia } from '../src/local/platform.js';
 import { createReplayGuard, sign as signWebhook, verifySignature } from '../src/ring/webhook.js';
 import { startupProblems } from '../src/security/startup.js';
+import { routeFor } from '../src/http/guard.js';
+import { decide, chainLink, sessionState, CORE_SHA256 } from '../src/security/core.js';
 import { testServices, testConfig } from './helpers.js';
 
 let server;
@@ -47,12 +49,15 @@ before(async () => {
 
 after(() => server.close());
 
+let ipCounter = 0;
 function agent() {
   let cookie = '';
+  ipCounter += 1;
+  const ip = `10.9.${Math.floor(ipCounter / 250)}.${ipCounter % 250}`;
   const call = async (path, { method = 'GET', body, headers = {} } = {}) => {
     const res = await fetch(base + path, {
       method, redirect: 'manual',
-      headers: { ...(body ? { 'content-type': 'application/json' } : {}), ...(cookie ? { cookie } : {}), ...headers },
+      headers: { 'x-forwarded-for': ip, ...(body ? { 'content-type': 'application/json' } : {}), ...(cookie ? { cookie } : {}), ...headers },
       body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body),
     });
     for (const set of res.headers.getSetCookie()) {
@@ -446,4 +451,68 @@ test('a device only joins after the family approves the matching pictures', asyn
   assert.equal((await intruder.call('/api/session')).json.device ?? null, null);
   const history = await riya.call('/api/security/log');
   assert.ok(history.json.entries.some((e) => e.action === 'device-refused'));
+});
+
+test('zero trust: every API route in the code is covered by the default-deny guard', async () => {
+  const files = ['app.js', 'authRoutes.js', 'securityRoutes.js'];
+  const routes = [];
+  for (const f of files) {
+    const src = await readFile(new URL(`../src/http/${f}`, import.meta.url), 'utf8');
+    for (const [, who, method, path] of src.matchAll(/\b(api|app)\.(get|post|put|delete|patch)\('([^']+)'/g)) {
+      if (who === 'api') routes.push([method.toUpperCase(), path]);
+      else if (path.startsWith('/api/')) routes.push([method.toUpperCase(), path.slice(4)]);
+    }
+  }
+  assert.ok(routes.length > 60, `found ${routes.length} routes`);
+  for (const [method, path] of routes) {
+    const concrete = path.replace(/:[A-Za-z]+/g, 'x1');
+    assert.ok(routeFor(method, concrete), `${method} /api${path} has no entry in the guard`);
+  }
+  assert.equal(routeFor('GET', '/something-new'), null);
+  assert.equal((await agent().call('/api/something-new')).status, 404);
+});
+
+test('zero trust: neighbours and devices only reach what their role allows', async () => {
+  for (const t of await services.store.list('loginThrottle')) await services.store.remove('loginThrottle', t.id);
+  const meera = await login('meera@saathi.demo');
+  assert.equal((await meera.call('/api/status')).status, 200);
+  const care = await meera.call('/api/care');
+  assert.equal(care.status, 403);
+  assert.equal(care.json.code, 'neighbour-cannot');
+  assert.equal((await meera.call('/api/devices/pairing-code', { method: 'POST', body: {} })).status, 403);
+  assert.equal((await meera.call('/api/family/letter', { method: 'POST', body: {} })).status, 403);
+
+  const riya = await login('riya@saathi.demo');
+  assert.equal(riya.out.status, 200, riya.out.text);
+  const made = await riya.call('/api/devices/pairing-code', { method: 'POST', body: {} });
+  assert.equal(made.status, 200, made.text);
+  const { code } = made.json;
+  const tablet = agent();
+  await tablet.call('/auth/device', { method: 'POST', body: { code } });
+  const pending = await riya.call('/api/devices/requests');
+  assert.equal(pending.status, 200, pending.text);
+  const request = pending.json.find((r) => r.status === 'pending');
+  await riya.call(`/api/devices/requests/${request.id}`, { method: 'POST', body: { approve: true } });
+  assert.equal((await tablet.call('/auth/device/status')).json.status, 'approved');
+  assert.equal((await tablet.call('/api/family/summary')).status, 200);
+  const refill = await tablet.call('/api/family/refill', { method: 'POST', body: { medicationId: 'x', quantity: 30 } });
+  assert.equal(refill.status, 403);
+  assert.equal(refill.json.code, 'device-cannot');
+  assert.equal((await tablet.call('/api/care')).status, 403);
+  const history = await riya.call('/api/security/log');
+  assert.ok(history.json.entries.some((e) => e.action === 'access-denied' && e.detail.why === 'neighbour-cannot'));
+});
+
+test('the Rust core is the single decision point and matches the old JavaScript behaviour', () => {
+  assert.match(CORE_SHA256, /^[0-9a-f]{64}$/);
+  assert.deepEqual(decide({ principal: { kind: 'anonymous' }, action: 'status', household: 'h' }), { ok: false, status: 401, code: 'not-signed-in' });
+  assert.equal(decide({ principal: { kind: 'user', household: 'h2', role: 'owner' }, action: 'care.read', household: 'h1' }).code, 'other-household');
+  assert.throws(() => decide({ principal: { kind: 'user', household: 'h', role: 'owner' }, action: 'made.up', household: 'h' }), /unknown action/);
+  const key = randomBytes(32);
+  const js = createHmac('sha256', key).update('prev').update('\n').update('{"a":1}').digest('base64url');
+  assert.equal(chainLink(key, 'prev', '{"a":1}'), js);
+  const t = Date.parse('2026-10-28T10:00:00Z');
+  assert.equal(sessionState({ kind: 'user', createdAt: t, lastSeenAt: t, now: t + 8 * 86400_000 }).state, 'idle');
+  assert.equal(sessionState({ kind: 'device', createdAt: t, lastSeenAt: t, now: t + 8 * 86400_000 }).valid, true);
+  assert.equal(sessionState({ kind: 'user', createdAt: t, lastSeenAt: t, now: t + 16 * 60_000 }).fresh, false);
 });

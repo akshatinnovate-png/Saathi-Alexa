@@ -1,0 +1,58 @@
+name: Proofs
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: proofs-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.97.0
+        with:
+          targets: wasm32-unknown-unknown
+          components: clippy
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: cargo test --locked
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - name: The committed WebAssembly core is a reproducible build of this source
+        run: npm run check:core
+  kani:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: model-checking/kani-github-action@v1
+        with:
+          working-directory: core
+          args: --output-format terse
+  tla:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        spec: [Pairing, Sessions, Escalation, KeyRotation]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Fetch TLC
+        run: |
+          curl -sSfL -o tla2tools.jar https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
+          sha256sum tla2tools.jar
+      - name: Model check ${{ matrix.spec }}
+        working-directory: formal
+        run: java -XX:+UseParallelGC -cp ../tla2tools.jar tlc2.TLC -workers auto -deadlock -cleanup ${{ matrix.spec }}
