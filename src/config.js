@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 const env = process.env;
 
 const flag = (name, fallback = false) => {
@@ -16,6 +17,7 @@ export const config = {
   host: env.HOST ?? '127.0.0.1',
   region: env.AWS_REGION ?? env.AWS_DEFAULT_REGION ?? 'us-east-1',
   dataFile: env.SAATHI_DATA_FILE ?? fileURLToPath(new URL('../data/saathi.json', import.meta.url)),
+  mediaDir: env.SAATHI_MEDIA_DIR ?? join(dirname(env.SAATHI_DATA_FILE ?? fileURLToPath(new URL('../data/saathi.json', import.meta.url))), 'media'),
   timezone: env.SAATHI_TIMEZONE ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
 
   aws: {
@@ -51,7 +53,7 @@ export const config = {
     userPoolId: env.SAATHI_COGNITO_USER_POOL_ID,
     clientIds: (env.SAATHI_COGNITO_CLIENT_IDS ?? '').split(',').filter(Boolean),
     domain: env.SAATHI_COGNITO_DOMAIN,
-    publicUrl: env.SAATHI_PUBLIC_URL,
+    publicUrl: env.SAATHI_PUBLIC_URL || env.RENDER_EXTERNAL_URL || undefined,
     webClientId: env.SAATHI_COGNITO_WEB_CLIENT_ID,
     socialProviders: (env.SAATHI_SOCIAL_PROVIDERS ?? '').split(',').map((p) => p.trim()).filter(Boolean),
   },

@@ -15,8 +15,9 @@ rl._writeToOutput = function write(text) { rl.output.write(muted && !/[\r\n]/.te
 const queue = [];
 const waiting = [];
 rl.on('line', (line) => { muted = false; if (waiting.length) waiting.shift()(line); else queue.push(line); });
-rl.on('close', () => { while (waiting.length) waiting.shift()(''); });
-const nextLine = () => (queue.length ? Promise.resolve(queue.shift()) : new Promise((resolve) => waiting.push(resolve)));
+let closed = false;
+rl.on('close', () => { closed = true; while (waiting.length) waiting.shift()(''); });
+const nextLine = () => (queue.length ? Promise.resolve(queue.shift()) : closed ? Promise.resolve('') : new Promise((resolve) => waiting.push(resolve)));
 const ask = async (q, { secret = false, fallback = '' } = {}) => {
   const prompt = `${q}${fallback && !secret ? ` [${fallback}]` : ''}: `;
   if (tty) { rl.setPrompt(prompt); rl.prompt(); } else process.stdout.write(prompt);
@@ -32,7 +33,7 @@ const choose = async (q, options) => {
   return Number.isInteger(n) && n >= 1 && n <= options.length ? n : 1;
 };
 const unset = (...keys) => keys.forEach((k) => delete values[k]);
-const port = values.PORT ?? '8787';
+const port = values.PORT ?? process.env.PORT ?? '8787';
 const site = () => values.SAATHI_PUBLIC_URL ?? `http://localhost:${port}`;
 
 console.log('\n  Saathi setup. Press Enter to keep what is shown in [brackets].');

@@ -16,6 +16,7 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
   const { localBus, store } = services;
   const app = express();
   app.set('trust proxy', 'loopback');
+  app.get('/healthz', (_req, res) => res.json({ ok: true }));
   const requireLogin = config.web?.requireLogin !== false && Boolean(accounts && sessions);
 
   if (allowedHosts?.length) app.use(hostHeaderValidation(allowedHosts));
@@ -381,7 +382,7 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
 
   app.get('/api/reference', (_req, res) => res.json({ countries: COUNTRIES, pronouns: PRONOUNS, languages: LANGUAGES }));
   app.use('/api', api);
-  app.use('/media', express.static(fileURLToPath(new URL('../../data/media', import.meta.url))));
+  app.use('/media', express.static(config.mediaDir ?? fileURLToPath(new URL('../../data/media', import.meta.url))));
   app.use('/vendor/three', express.static(fileURLToPath(new URL('../../node_modules/three', import.meta.url)), { index: false }));
   app.use(express.static(fileURLToPath(new URL('../../public', import.meta.url))));
 

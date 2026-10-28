@@ -46,7 +46,7 @@ export function createServices(config, overrides = {}) {
 
   const media = overrides.media ?? (aws.s3
     ? createAwsMedia({ region, bucket: resources.mediaBucket })
-    : createLocalMedia({ dir: fileURLToPath(new URL('../data/media', import.meta.url)) }));
+    : createLocalMedia({ dir: config.mediaDir ?? fileURLToPath(new URL('../data/media', import.meta.url)) }));
 
   const escalation = overrides.escalation ?? (aws.stepfunctions
     ? createAwsEscalation({ region, stateMachineArn: resources.escalationStateMachineArn })

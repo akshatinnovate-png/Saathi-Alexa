@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: saathi
+    runtime: node
+    plan: starter
+    buildCommand: npm ci --no-audit --no-fund
+    startCommand: node src/index.js
+    healthCheckPath: /healthz
+    disk:
+      name: saathi-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: NODE_VERSION
+        value: "22"
+      - key: SAATHI_DATA_FILE
+        value: /var/data/saathi.json
+      - key: SAATHI_SESSION_SECRET
+        generateValue: true
+      - key: SAATHI_GOOGLE_CLIENT_ID
+        sync: false
+      - key: SAATHI_GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false

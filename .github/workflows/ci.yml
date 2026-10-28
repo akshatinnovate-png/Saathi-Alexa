@@ -30,3 +30,16 @@ jobs:
           CDK_DEFAULT_REGION: us-east-1
       - run: pipx run cfn-lint -i W3005 -- cdk.out/Saathi.template.json
         working-directory: infra
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t saathi:ci .
+      - run: docker run -d --name saathi -p 8787:8787 saathi:ci
+      - run: |
+          for i in $(seq 1 30); do curl -fs http://localhost:8787/healthz && break; sleep 1; done
+          curl -fs http://localhost:8787/healthz
+          curl -fs -o /dev/null http://localhost:8787/login.html
+          curl -fs http://localhost:8787/api/reference | grep -q '"countries"'
+      - if: failure()
+        run: docker logs saathi

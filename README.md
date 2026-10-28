@@ -6,6 +6,19 @@ Kamala is 78. Everyone calls her **Aaji**. She lives alone in Pune, speaks Marat
 
 [![M8ven Score](https://m8ven.ai/badge/mcp/akshatinnovate-png-saathi-alexa-144k1p?v=d98ea248741837b625cc3812ddf5f7e3)](https://m8ven.ai/mcp/akshatinnovate-png-saathi-alexa-144k1p?s=readme)
 
+## Get started in one minute
+
+| Where | What to do |
+|---|---|
+| **Windows** | [Download Saathi](https://github.com/akshatinnovate-png/Saathi-Alexa/releases/latest) (*Source code (zip)*), unzip it and double-click **Start Saathi**. It installs what it needs, asks a few questions once, and opens in your browser. |
+| **Mac or Linux** | Download and unzip the same file, then run `./start.sh` in that folder. |
+| **Online, for the whole family** | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/akshatinnovate-png/Saathi-Alexa) Saathi gets its own web address that everyone can open, including the tablet by your elder's chair. |
+| **Docker** | `docker run -p 8787:8787 -v saathi-data:/data ghcr.io/akshatinnovate-png/saathi-alexa` |
+
+Then open Saathi, tap **Continue with Google** (or use an email and password), and answer four short steps about the person you care for. On their tablet or Echo Show, open `/device.html` and type the six-digit code from the family app. That's all.
+
+Deploying to Render uses its paid *Starter* plan, because Saathi keeps your family's data on a small disk and Render's free plan erases disks on every restart. Add `SAATHI_GOOGLE_CLIENT_ID` and `SAATHI_GOOGLE_CLIENT_SECRET` in Render to switch on Google sign-in, with `https://<your-app>.onrender.com/auth/google/callback` as the redirect address.
+
 **Saathi is an Alexa+ integration (a self-hosted MCP server, spec 2025-11-25, Streamable HTTP) that closes that gap.** Aaji talks to Alexa the way she talks to anyone, in her own language and at her own pace. Saathi:
 
 - **Orients her gently.** "What day is it?" and "Who is Riya?" get patient answers. She is never quizzed or corrected. Memory support is built into the tools, not added on top.

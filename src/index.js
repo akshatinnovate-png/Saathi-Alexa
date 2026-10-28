@@ -1,5 +1,6 @@
 import './env.js';
-import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { exec } from 'node:child_process';
 import { config } from './config.js';
 import { createServices } from './services.js';
 import { createApp } from './http/app.js';
@@ -27,7 +28,7 @@ const cognito = config.auth.userPoolId && config.auth.webClientId
 const secret = await sessionSecret(services.store, config.web.sessionSecret);
 const sessions = createSessions(secret);
 const google = config.google.clientId && config.google.clientSecret ? createGoogle(config.google) : null;
-const mailer = createMailer({ mail: config.mail, region: config.region, outboxDir: fileURLToPath(new URL('../data/outbox', import.meta.url)) });
+const mailer = createMailer({ mail: config.mail, region: config.region, outboxDir: join(dirname(config.dataFile), 'outbox') });
 const familyMail = createFamilyMail({ store: services.store, mailer, google, vault: createVault(secret), publicUrl });
 services.attachMail(familyMail);
 const doorbell = createDoorbell({ store: services.store, services, vault: createVault(secret), publicUrl });
@@ -91,6 +92,10 @@ app.listen(config.port, config.host, () => {
   console.log(`  Email: ${mailer.real ? `${mailer.kind} from ${mailer.from}` : 'not set up (emails are printed here). Run "npm run setup" to send real email'}`);
   console.log(`  Alexa+ brain: ${llm ? `${llm.provider} (${llm.model})` : 'offline-planner'}`);
   console.log(`  Services: ${JSON.stringify(services.describe())}\n`);
+  if (process.env.SAATHI_OPEN_BROWSER === '1') {
+    const open = process.platform === 'win32' ? `start "" "${publicUrl}/"` : process.platform === 'darwin' ? `open "${publicUrl}/"` : `xdg-open "${publicUrl}/"`;
+    exec(open, () => {});
+  }
 });
 
 setInterval(async () => {
