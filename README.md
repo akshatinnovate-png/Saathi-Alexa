@@ -8,13 +8,12 @@ Kamala is 78. Everyone calls her **Aaji**. She lives alone in Pune, speaks Marat
 <div align="center">
 
 # Saathi-Alexa
-
-| Core Stack | Verification & Privacy |
+| Core Tech Stack | Verification and Cryptography |
 | :--- | :--- |
-| ![Node.js](https://shields.io) | ![TLA+](https://shields.io) |
-| ![Rust](https://shields.io) | ![Kani](https://shields.io) |
-| ![AWS](https://shields.io) | ![Privacy](https://shields.io) |
-| ![AI-Brain](https://shields.io) | ![CI/CD](https://shields.io) |
+| ![Node.js](https://badgen.net) | ![TLA+](https://badgen.net) |
+| ![Rust](https://badgen.net) | ![Kani](https://badgen.net) |
+| ![AWS](https://badgen.net) | ![Privacy](https://badgen.net) |
+| ![AI-Brain](https://badgen.net) | ![CI/CD](https://badgen.net) |
 
 ## Get started in one minute
 
