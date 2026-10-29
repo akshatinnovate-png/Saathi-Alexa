@@ -36,8 +36,10 @@ export function describeAgent(ua = '') {
   return `${browser} on ${os}`;
 }
 
-export function createSessions(secret, { store = memoryStore(), clock = () => new Date() } = {}) {
-  const mac = (value) => createHmac('sha256', secret).update(value).digest('base64url');
+export function createSessions(secret, { store = memoryStore(), clock = () => new Date(), keyring = null } = {}) {
+  const mac = keyring
+    ? async (value) => (await keyring.hmac('sessions', Buffer.from(value), { textKey: true })).toString('base64url')
+    : async (value) => createHmac('sha256', secret).update(value).digest('base64url');
   const hashId = (id) => createHash('sha256').update(id).digest('base64url');
   const sameMac = (a, b) => {
     const x = Buffer.from(a);
@@ -46,14 +48,14 @@ export function createSessions(secret, { store = memoryStore(), clock = () => ne
   };
   const now = () => clock().getTime();
 
-  function issue(claims, maxAge = 600) {
+  async function issue(claims, maxAge = 600) {
     const payload = Buffer.from(JSON.stringify({ ...claims, exp: Math.floor(now() / 1000) + maxAge })).toString('base64url');
-    return `${payload}.${mac(payload)}`;
+    return `${payload}.${await mac(payload)}`;
   }
 
-  function read(token) {
+  async function read(token) {
     const [payload, signature] = String(token ?? '').split('.');
-    if (!payload || !signature || !sameMac(mac(payload), signature)) return null;
+    if (!payload || !signature || !sameMac(await mac(payload), signature)) return null;
     try {
       const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
       return claims.exp > now() / 1000 ? claims : null;
@@ -73,12 +75,12 @@ export function createSessions(secret, { store = memoryStore(), clock = () => ne
       agent: describeAgent(userAgent),
     };
     await store.put('sessions', record);
-    return { cookie: `s1.${raw}.${mac(`s1.${raw}`)}`, maxAge: POLICY[kind].absolute, record };
+    return { cookie: `s1.${raw}.${await mac(`s1.${raw}`)}`, maxAge: POLICY[kind].absolute, record };
   }
 
   async function resolve(cookie) {
     const [version, raw, signature] = String(cookie ?? '').split('.');
-    if (version !== 's1' || !raw || !signature || !sameMac(mac(`s1.${raw}`), signature)) return null;
+    if (version !== 's1' || !raw || !signature || !sameMac(await mac(`s1.${raw}`), signature)) return null;
     const record = await store.get('sessions', hashId(raw));
     if (!record) return null;
     const at = now();

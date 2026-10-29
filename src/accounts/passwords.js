@@ -14,14 +14,19 @@ const COMMON = new Set([
 ]);
 
 export function configurePepper(key) {
-  pepper = key ? Buffer.from(key) : null;
+  if (!key) pepper = null;
+  else if (typeof key === 'function') pepper = key;
+  else {
+    const material = Buffer.from(key);
+    pepper = async (data) => createHmac('sha256', material).update(data).digest();
+  }
 }
 
-const prepare = (password) => (pepper ? createHmac('sha256', pepper).update(String(password)).digest() : Buffer.from(String(password), 'utf8'));
+const prepare = async (password) => (pepper ? Buffer.from(await pepper(Buffer.from(String(password), 'utf8'))) : Buffer.from(String(password), 'utf8'));
 
 export async function hashPassword(password) {
   const salt = randomBytes(16);
-  const key = await scrypt(prepare(password), salt, 32, { ...CURRENT, maxmem: MAXMEM });
+  const key = await scrypt(await prepare(password), salt, 32, { ...CURRENT, maxmem: MAXMEM });
   return `scrypt2$${pepper ? 'p1' : 'p0'}$${CURRENT.N}$${CURRENT.r}$${CURRENT.p}$${salt.toString('base64url')}$${key.toString('base64url')}`;
 }
 
@@ -35,7 +40,7 @@ export async function verifyPassword(password, stored) {
   if (parts[0] === 'scrypt2') {
     const [, peppered, N, r, p, salt, hash] = parts;
     if (peppered === 'p1' && !pepper) return { ok: false, needsRehash: false };
-    const input = peppered === 'p1' ? prepare(password) : Buffer.from(String(password), 'utf8');
+    const input = peppered === 'p1' ? await prepare(password) : Buffer.from(String(password), 'utf8');
     const ok = await check(input, Buffer.from(salt, 'base64url'), Buffer.from(hash, 'base64url'), { N: Number(N), r: Number(r), p: Number(p) });
     return { ok, needsRehash: ok && (Number(N) < CURRENT.N || (peppered === 'p0' && Boolean(pepper))) };
   }

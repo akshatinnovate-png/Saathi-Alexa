@@ -30,7 +30,7 @@ export function createAccountSecurity({ accounts, store, sealer, rp, clock = () 
       return { method: 'recovery', left: codes.length - 1 };
     }
     if (!account.totp?.enabled) return null;
-    const step = verifyTotp(sealer.open(account.totp.secret), given, { now: clock().getTime(), lastStep: account.totp.lastStep ?? -1 });
+    const step = verifyTotp(await sealer.open(account.totp.secret), given, { now: clock().getTime(), lastStep: account.totp.lastStep ?? -1 });
     if (step === null) return null;
     await accounts.update(account.email, { totp: { ...account.totp, lastStep: step } });
     return { method: 'totp' };
@@ -54,7 +54,7 @@ export function createAccountSecurity({ accounts, store, sealer, rp, clock = () 
       const account = await need(email);
       if (account.totp?.enabled) throw new AuthError('exists', 'Two-step sign-in is already on.');
       const secret = newTotpSecret();
-      await accounts.update(account.email, { totpPending: { secret: sealer.seal(secret), at: clock().toISOString() } });
+      await accounts.update(account.email, { totpPending: { secret: await sealer.seal(secret), at: clock().toISOString() } });
       const url = otpauthUrl({ secret, account: account.email });
       return { secret: secret.replace(/(.{4})/g, '$1 ').trim(), url, qr: await QRCode.toString(url, { type: 'svg', margin: 1 }) };
     },
@@ -63,7 +63,7 @@ export function createAccountSecurity({ accounts, store, sealer, rp, clock = () 
       const account = await need(email);
       const pending = account.totpPending;
       if (!pending || clock().getTime() - Date.parse(pending.at) > 15 * 60 * 1000) throw new AuthError('code', 'Start again: the setup expired.');
-      const step = verifyTotp(sealer.open(pending.secret), code, { now: clock().getTime() });
+      const step = verifyTotp(await sealer.open(pending.secret), code, { now: clock().getTime() });
       if (step === null) throw new AuthError('code', 'That code was not right. Type the 6 numbers your app shows now.');
       const codes = newRecoveryCodes();
       await accounts.update(account.email, {

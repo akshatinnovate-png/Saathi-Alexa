@@ -79,6 +79,16 @@ pub fn verify(key: &[u8], rows: &[Row], head: Option<Head>) -> Result<u64, Broke
     )
 }
 
+pub fn check(rows: &[Row], head: Option<Head>) -> Result<u64, Broken> {
+    verify_with(
+        String::new(),
+        rows,
+        head,
+        |_prev: &String, expected: &String| expected.clone(),
+        |a: &String, b: &String| a.len() == b.len() && bool::from(a.as_bytes().ct_eq(b.as_bytes())),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

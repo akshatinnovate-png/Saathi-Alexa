@@ -42,7 +42,7 @@ export function createLocalNotifier({ bus }) {
 const MEDIA_MAGIC = Buffer.from('SAATHI-MEDIA1');
 const MEDIA_TYPES = { webm: 'audio/webm', ogg: 'audio/ogg', m4a: 'audio/mp4', mp3: 'audio/mpeg', wav: 'audio/wav', png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' };
 
-export function createLocalMedia({ dir, signingKey = null, encryptionKey = null, ttlSeconds = 3600, clock = () => Date.now() }) {
+export function createLocalMedia({ dir, signingKey = null, encryptionKey = null, keyring = null, ttlSeconds = 3600, clock = () => Date.now() }) {
   const root = resolve(dir);
   const safePath = (key) => {
     const clean = String(key).replace(/\\/g, '/').replace(/^\/+/, '');
@@ -50,36 +50,54 @@ export function createLocalMedia({ dir, signingKey = null, encryptionKey = null,
     const full = resolve(root, clean);
     return full.startsWith(root + sep) ? full : null;
   };
-  const sign = (path, exp) => createHmac('sha256', signingKey).update(`${path}|${exp}`).digest('base64url');
+  const signs = Boolean(keyring || signingKey);
+  const encrypts = Boolean(keyring || encryptionKey);
+  const sign = keyring
+    ? async (path, exp) => (await keyring.hmac('media-links', Buffer.from(`${path}|${exp}`))).toString('base64url')
+    : async (path, exp) => createHmac('sha256', signingKey).update(`${path}|${exp}`).digest('base64url');
+  const seal = keyring
+    ? (data, aad) => keyring.seal('media', data, aad)
+    : async (data, aad) => {
+      const iv = randomBytes(12);
+      const cipher = createCipheriv('aes-256-gcm', encryptionKey, iv);
+      cipher.setAAD(Buffer.from(aad));
+      const body = Buffer.concat([cipher.update(data), cipher.final()]);
+      return { iv, tag: cipher.getAuthTag(), body };
+    };
+  const open = keyring
+    ? (parts, aad) => keyring.open('media', parts, aad)
+    : async ({ iv, tag, body }, aad) => {
+      const decipher = createDecipheriv('aes-256-gcm', encryptionKey, iv);
+      decipher.setAAD(Buffer.from(aad));
+      decipher.setAuthTag(tag);
+      return Buffer.concat([decipher.update(body), decipher.final()]);
+    };
 
   return {
-    kind: encryptionKey ? 'local-disk-encrypted' : 'local-disk',
+    kind: encrypts ? 'local-disk-encrypted' : 'local-disk',
     async save(key, body) {
       const path = safePath(key);
       if (!path) throw Object.assign(new Error('Bad media name.'), { status: 400 });
       await mkdir(dirname(path), { recursive: true });
       let data = Buffer.from(body);
-      if (encryptionKey) {
-        const iv = randomBytes(12);
-        const cipher = createCipheriv('aes-256-gcm', encryptionKey, iv);
-        cipher.setAAD(Buffer.from(key));
-        const enc = Buffer.concat([cipher.update(data), cipher.final()]);
-        data = Buffer.concat([MEDIA_MAGIC, iv, cipher.getAuthTag(), enc]);
+      if (encrypts) {
+        const { iv, tag, body: enc } = await seal(data, key);
+        data = Buffer.concat([MEDIA_MAGIC, iv, tag, enc]);
       }
       await writeFile(path, data, { mode: 0o600 });
       return `/media/${key}`;
     },
     async playbackUrl(ref) {
-      if (!signingKey || !String(ref).startsWith('/media/')) return ref;
+      if (!signs || !String(ref).startsWith('/media/')) return ref;
       const bucket = 300;
       const exp = Math.ceil((clock() / 1000 + ttlSeconds) / bucket) * bucket;
-      return `${ref}?exp=${exp}&sig=${sign(ref, exp)}`;
+      return `${ref}?exp=${exp}&sig=${await sign(ref, exp)}`;
     },
-    verify(urlPath, query = {}) {
-      if (!signingKey) return true;
+    async verify(urlPath, query = {}) {
+      if (!signs) return true;
       const exp = Number(query.exp);
       if (!Number.isFinite(exp) || exp < clock() / 1000 || typeof query.sig !== 'string') return false;
-      const expected = Buffer.from(sign(urlPath, exp));
+      const expected = Buffer.from(await sign(urlPath, exp));
       const given = Buffer.from(query.sig);
       return expected.length === given.length && timingSafeEqual(expected, given);
     },
@@ -89,12 +107,9 @@ export function createLocalMedia({ dir, signingKey = null, encryptionKey = null,
       let data;
       try { data = await readFile(path); } catch { return null; }
       if (data.subarray(0, MEDIA_MAGIC.length).equals(MEDIA_MAGIC)) {
-        if (!encryptionKey) return null;
+        if (!encrypts) return null;
         const at = MEDIA_MAGIC.length;
-        const decipher = createDecipheriv('aes-256-gcm', encryptionKey, data.subarray(at, at + 12));
-        decipher.setAAD(Buffer.from(key));
-        decipher.setAuthTag(data.subarray(at + 12, at + 28));
-        data = Buffer.concat([decipher.update(data.subarray(at + 28)), decipher.final()]);
+        data = await open({ iv: data.subarray(at, at + 12), tag: data.subarray(at + 12, at + 28), body: data.subarray(at + 28) }, key);
       }
       return { body: data, contentType: MEDIA_TYPES[key.split('.').pop()?.toLowerCase()] ?? 'application/octet-stream' };
     },

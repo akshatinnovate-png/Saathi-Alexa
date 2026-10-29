@@ -79,3 +79,32 @@ export function createSealer(key, { purpose = 'vault', legacy = null } = {}) {
     },
   };
 }
+
+export async function sealStoreWith(keyring, json) {
+  const { iv, tag, body } = await keyring.seal('store', Buffer.from(json, 'utf8'), STORE_MAGIC);
+  return `${STORE_MAGIC}\n${b64(Buffer.concat([iv, tag, body]))}\n`;
+}
+
+export async function openStoreWith(keyring, text) {
+  const raw = Buffer.from(String(text).slice(STORE_MAGIC.length).trim(), 'base64url');
+  return (await keyring.open('store', { iv: raw.subarray(0, 12), tag: raw.subarray(12, 28), body: raw.subarray(28) }, STORE_MAGIC)).toString('utf8');
+}
+
+export function createKeyringVault(keyring, { purpose = 'vault', legacy = null } = {}) {
+  const aad = `saathi/${purpose}`;
+  return {
+    async seal(plain) {
+      const { iv, tag, body } = await keyring.seal(purpose, Buffer.from(String(plain), 'utf8'), aad);
+      return `v2.${[iv, tag, body].map(b64).join('.')}`;
+    },
+    async open(sealed) {
+      const text = String(sealed);
+      if (!text.startsWith('v2.')) {
+        if (!legacy) throw new Error('This value was sealed with an older key that is no longer available.');
+        return legacy.open(text);
+      }
+      const [iv, tag, body] = text.slice(3).split('.').map((p) => Buffer.from(p, 'base64url'));
+      return (await keyring.open(purpose, { iv, tag, body }, aad)).toString('utf8');
+    },
+  };
+}

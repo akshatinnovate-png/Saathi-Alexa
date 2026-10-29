@@ -1,7 +1,7 @@
 ---------------------------- MODULE Pairing ----------------------------
 EXTENDS Naturals, FiniteSets
 
-CONSTANTS Tablet, Intruders, Emoji, Codes, MaxRequests
+CONSTANTS Tablet, Intruders, Emoji, Codes, MaxRequests, DistinctEmoji
 
 Devices == {Tablet} \cup Intruders
 Requests == 1..MaxRequests
@@ -39,7 +39,7 @@ Redeem(d, c, e) ==
   /\ c \in issued
   /\ c \notin redeemed
   /\ nextReq <= MaxRequests
-  /\ e \notin PendingEmoji
+  /\ DistinctEmoji => e \notin PendingEmoji
   /\ redeemed' = redeemed \cup {c}
   /\ req' = [req EXCEPT ![nextReq] = [device |-> d, emoji |-> e, status |-> "pending", claimed |-> FALSE]]
   /\ inHand' = [inHand EXCEPT ![d] = @ \cup {nextReq}]

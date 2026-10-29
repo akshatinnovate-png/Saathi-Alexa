@@ -25,6 +25,15 @@ enum Request {
     Link { key: String, prev: String, canonical: String },
     #[serde(rename = "chain.verify")]
     Verify { key: String, rows: Vec<RowIn>, head: Option<HeadIn> },
+    #[serde(rename = "chain.check")]
+    Check { rows: Vec<CheckIn>, head: Option<HeadIn> },
+}
+
+#[derive(Deserialize)]
+struct CheckIn {
+    seq: u64,
+    expected: String,
+    mac: String,
 }
 
 #[derive(Deserialize)]
@@ -121,6 +130,13 @@ fn handle(req: Request) -> Result<Value, String> {
             json!({ "state": st.code(), "valid": st == session::State::Valid, "fresh": session::fresh(s, now), "touch": touched })
         }
         Request::Link { key: k, prev, canonical } => json!({ "mac": chain::link(&key(&k)?, &prev, &canonical) }),
+        Request::Check { rows, head } => {
+            let rows: Vec<(u64, String, String)> = rows.into_iter().map(|r| (r.seq, r.expected, r.mac)).collect();
+            match chain::check(&rows, head.map(|h| (h.seq, h.mac))) {
+                Ok(n) => json!({ "ok": true, "entries": n }),
+                Err(b) => json!({ "ok": false, "brokenAt": b.at(), "reason": b.reason() }),
+            }
+        }
         Request::Verify { key: k, rows, head } => {
             let rows: Vec<(u64, String, String)> = rows.into_iter().map(|r| (r.seq, r.canonical, r.mac)).collect();
             match chain::verify(&key(&k)?, &rows, head.map(|h| (h.seq, h.mac))) {
@@ -150,6 +166,8 @@ mod tests {
         assert!(call(r#"{"op":"decide","principal":{"kind":"device","household":"h1"},"action":"status","household":"h1"}"#).contains(r#""ok":true"#));
         assert!(call(r#"{"op":"tool","caller":{"local":true},"tool":"where_is","exposed":true}"#).contains(r#""ok":false"#));
         assert!(call(r#"{"op":"nope"}"#).contains("error"));
+        assert!(call(r#"{"op":"chain.check","rows":[{"seq":1,"expected":"a","mac":"a"},{"seq":2,"expected":"b","mac":"x"}],"head":{"seq":2,"mac":"x"}}"#).contains(r#""brokenAt":2"#));
+        assert!(call(r#"{"op":"chain.check","rows":[{"seq":1,"expected":"a","mac":"a"}],"head":{"seq":1,"mac":"a"}}"#).contains(r#""ok":true"#));
         assert!(call("not json").contains("error"));
         assert!(call(r#"{"op":"chain.link","key":"c2hvcnQ=","prev":"a","canonical":"b"}"#).contains("shorter"));
     }

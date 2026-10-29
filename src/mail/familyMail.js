@@ -15,7 +15,7 @@ export function createFamilyMail({ store, mailer, google = null, vault = null, p
     const conn = await connection(householdId);
     if (!conn || !google || !vault) return null;
     const key = `${householdId}:${conn.connectedAt}`;
-    if (!senders.has(key)) senders.set(key, google.gmailSender({ email: conn.email, name: conn.name, refreshToken: vault.open(conn.refreshToken) }));
+    if (!senders.has(key)) senders.set(key, google.gmailSender({ email: conn.email, name: conn.name, refreshToken: await vault.open(conn.refreshToken) }));
     return senders.get(key);
   }
 
@@ -40,7 +40,7 @@ export function createFamilyMail({ store, mailer, google = null, vault = null, p
 
     async connectGmail(householdId, { email, name, refreshToken, by, now = new Date() }) {
       if (!vault) throw new Error('Gmail connection needs a session secret.');
-      await store.put('mailConnections', { id: householdId, email, name, refreshToken: vault.seal(refreshToken), connectedBy: by, connectedAt: now.toISOString() });
+      await store.put('mailConnections', { id: householdId, email, name, refreshToken: await vault.seal(refreshToken), connectedBy: by, connectedAt: now.toISOString() });
     },
 
     async disconnectGmail(householdId) {

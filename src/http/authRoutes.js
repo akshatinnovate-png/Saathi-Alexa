@@ -48,7 +48,7 @@ export function mountAuth(app, { config, accounts, sessions, security = null, go
 
   async function finishLogin(req, res, account, { method, next = null, invite = null }) {
     if (account.totp && method !== 'passkey') {
-      setCookie(req, res, MFA_COOKIE, sessions.issue({ email: account.email, method, next, invite, nonce: randomBytes(8).toString('hex') }, 300), 300);
+      setCookie(req, res, MFA_COOKIE, await sessions.issue({ email: account.email, method, next, invite, nonce: randomBytes(8).toString('hex') }, 300), 300);
       return { mfa: true };
     }
     const joined = await withInvite(account, invite);
@@ -130,7 +130,7 @@ export function mountAuth(app, { config, accounts, sessions, security = null, go
   }));
 
   app.post('/auth/login/mfa', wrap(async (req, res) => {
-    const pending = sessions.read(readCookie(req.headers.cookie, MFA_COOKIE));
+    const pending = await sessions.read(readCookie(req.headers.cookie, MFA_COOKIE));
     if (!pending?.email || !security) throw new AuthError('code', 'Please sign in again.');
     if (rateLimited(`mfa:${pending.email}`, 5, 5 * 60_000)) throw new AuthError('limit', 'Too many wrong codes. Please wait a few minutes.');
     const ok = await security.verifyMfa(pending.email, req.body?.code);
@@ -148,12 +148,12 @@ export function mountAuth(app, { config, accounts, sessions, security = null, go
   app.post('/auth/passkey/options', wrap(async (req, res) => {
     if (!security) throw new AuthError('passkey', 'Passkeys are not available here.');
     const options = await security.passkeyLoginOptions();
-    setCookie(req, res, PASSKEY_COOKIE, sessions.issue({ challenge: options.challenge }, 300), 300);
+    setCookie(req, res, PASSKEY_COOKIE, await sessions.issue({ challenge: options.challenge }, 300), 300);
     res.json(options);
   }));
 
   app.post('/auth/passkey/verify', wrap(async (req, res) => {
-    const pending = sessions.read(readCookie(req.headers.cookie, PASSKEY_COOKIE));
+    const pending = await sessions.read(readCookie(req.headers.cookie, PASSKEY_COOKIE));
     clearCookie(req, res, PASSKEY_COOKIE);
     if (!pending?.challenge || !security) throw new AuthError('passkey', 'That took too long. Please try again.');
     const email = await security.verifyPasskeyLogin(req.body?.response, pending.challenge);
@@ -170,19 +170,19 @@ export function mountAuth(app, { config, accounts, sessions, security = null, go
     res.json({ ok: true });
   }));
 
-  app.get('/auth/google', (req, res) => {
+  app.get('/auth/google', wrap(async (req, res) => {
     if (!google) return res.redirect('/login.html?error=social-unavailable');
     const gmail = req.query.gmail === '1';
     if (gmail && req.user?.role !== 'owner') return res.redirect('/family.html?gmail=owner-only');
     const { verifier, challenge, state } = pkce();
     const nonce = randomBytes(16).toString('base64url');
     const redirectUri = `${origin(req)}/auth/google/callback`;
-    setCookie(req, res, GOOGLE_COOKIE, sessions.issue({ verifier, state, nonce, redirectUri, gmail, next: safeNext(req.query.next), invite: req.query.invite ? String(req.query.invite) : null }, 600), 600);
+    setCookie(req, res, GOOGLE_COOKIE, await sessions.issue({ verifier, state, nonce, redirectUri, gmail, next: safeNext(req.query.next), invite: req.query.invite ? String(req.query.invite) : null }, 600), 600);
     res.redirect(google.authUrl({ redirectUri, state, challenge, nonce, gmail, loginHint: gmail ? req.user.email : undefined }));
-  });
+  }));
 
   app.get('/auth/google/callback', wrap(async (req, res) => {
-    const pending = sessions.read(readCookie(req.headers.cookie, GOOGLE_COOKIE));
+    const pending = await sessions.read(readCookie(req.headers.cookie, GOOGLE_COOKIE));
     clearCookie(req, res, GOOGLE_COOKIE);
     if (!pending || pending.state !== req.query.state || !req.query.code) {
       return res.redirect(pending?.gmail ? '/family.html?gmail=failed' : '/login.html?error=social-failed');
@@ -222,13 +222,13 @@ export function mountAuth(app, { config, accounts, sessions, security = null, go
   app.post('/auth/device', wrap(async (req, res) => {
     if (rateLimited(`device:${req.ip}`, 10)) throw new AuthError('limit', 'Too many tries. Please wait a minute.');
     const request = await accounts.pairDevice(req.body?.code, { label: req.body?.label, agent: req.get('user-agent') });
-    setCookie(req, res, PAIR_COOKIE, sessions.issue({ requestId: request.requestId, secret: request.secret }, 600), 600);
+    setCookie(req, res, PAIR_COOKIE, await sessions.issue({ requestId: request.requestId, secret: request.secret }, 600), 600);
     log(req, 'device-asked-to-join', { householdId: request.householdId, detail: { emoji: request.emoji.join('') } });
     res.json({ status: 'pending', emoji: request.emoji });
   }));
 
   app.get('/auth/device/status', wrap(async (req, res) => {
-    const pending = sessions.read(readCookie(req.headers.cookie, PAIR_COOKIE));
+    const pending = await sessions.read(readCookie(req.headers.cookie, PAIR_COOKIE));
     if (!pending?.requestId) return res.json({ status: 'unknown' });
     const out = await accounts.pairStatus(pending.requestId, pending.secret);
     if (out.status !== 'pending') clearCookie(req, res, PAIR_COOKIE);
@@ -246,12 +246,12 @@ export function mountAuth(app, { config, accounts, sessions, security = null, go
     const provider = social.find((p) => p.toLowerCase() === String(req.params.provider).toLowerCase());
     if (!cognito || !provider || !accounts.socialStart) return res.redirect('/login.html?error=social-unavailable');
     const { url, verifier, state } = accounts.socialStart(provider);
-    setCookie(req, res, SOCIAL_COOKIE, sessions.issue({ verifier, state, next: safeNext(req.query.next) }, 600), 600);
+    setCookie(req, res, SOCIAL_COOKIE, await sessions.issue({ verifier, state, next: safeNext(req.query.next) }, 600), 600);
     res.redirect(url);
   }));
 
   app.get('/auth/callback', wrap(async (req, res) => {
-    const pending = sessions.read(readCookie(req.headers.cookie, SOCIAL_COOKIE));
+    const pending = await sessions.read(readCookie(req.headers.cookie, SOCIAL_COOKIE));
     clearCookie(req, res, SOCIAL_COOKIE);
     if (!pending || pending.state !== req.query.state || !req.query.code) return res.redirect('/login.html?error=social-failed');
     const account = await accounts.socialFinish({ code: String(req.query.code), verifier: pending.verifier });

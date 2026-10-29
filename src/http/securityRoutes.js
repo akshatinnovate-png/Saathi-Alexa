@@ -2,7 +2,7 @@ import { AuthError } from '../accounts/cognito.js';
 import { verifyPassword } from '../accounts/passwords.js';
 import { sessionState } from '../security/core.js';
 
-export function mountSecurity(app, { accounts, sessions, security, audit }) {
+export function mountSecurity(app, { accounts, sessions, security, audit, keyring = null }) {
   const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch((err) => {
     if (err instanceof AuthError) return res.status(err.code === 'forbidden' ? 403 : err.code === 'limit' ? 429 : err.code === 'reauth' ? 401 : 400).json({ error: err.message, code: err.code });
     next(err);
@@ -28,6 +28,7 @@ export function mountSecurity(app, { accounts, sessions, security, audit }) {
       ...(await security.summary(req.user.email)),
       sessions: mine.map((s) => ({ id: s.id, agent: s.agent, createdAt: s.createdAt, lastSeenAt: s.lastSeenAt, current: s.id === req.session.id, mfa: s.mfa ?? [] })),
       fresh: (() => { try { fresh(req); return true; } catch { return false; } })(),
+      keyProtection: req.user.role === 'owner' && keyring ? { mode: keyring.mode, source: keyring.keySource, hardening: keyring.hardening ?? null } : null,
     });
   }));
 

@@ -36,7 +36,7 @@ export function createDoorbell({ store, services, vault, publicUrl, ring = null,
     const token = `dbh_${randomBytes(24).toString('base64url')}`;
     const hookId = hash(token);
     await store.put('doorbellHooks', { id: hookId, householdId, createdAt: new Date().toISOString() });
-    await saveSettings({ ...current, hookId, hook: vault.seal(token) });
+    await saveSettings({ ...current, hookId, hook: await vault.seal(token) });
     return `${publicUrl}/hooks/doorbell/${token}`;
   }
 
@@ -50,7 +50,7 @@ export function createDoorbell({ store, services, vault, publicUrl, ring = null,
 
   async function onRingToken(householdId, refreshToken, extra = {}) {
     const current = await settings(householdId);
-    await saveSettings({ ...current, ring: { ...(current.ring ?? {}), ...extra, refreshToken: vault.seal(refreshToken) } });
+    await saveSettings({ ...current, ring: { ...(current.ring ?? {}), ...extra, refreshToken: await vault.seal(refreshToken) } });
   }
 
   async function listen(householdId) {
@@ -58,7 +58,7 @@ export function createDoorbell({ store, services, vault, publicUrl, ring = null,
     if (!current.ring?.refreshToken) return null;
     listeners.get(householdId)?.disconnect();
     const { RingApi } = await loadRing();
-    const api = new RingApi({ refreshToken: vault.open(current.ring.refreshToken), controlCenterDisplayName: 'Saathi' });
+    const api = new RingApi({ refreshToken: await vault.open(current.ring.refreshToken), controlCenterDisplayName: 'Saathi' });
     api.onRefreshTokenUpdated.subscribe(({ newRefreshToken }) => {
       onRingToken(householdId, newRefreshToken).catch((err) => log.error('could not save the new Ring token:', err.message));
     });
@@ -93,7 +93,7 @@ export function createDoorbell({ store, services, vault, publicUrl, ring = null,
     async status(householdId) {
       const s = await settings(householdId);
       return {
-        hookUrl: s.hook ? `${publicUrl}/hooks/doorbell/${vault.open(s.hook)}` : null,
+        hookUrl: s.hook ? `${publicUrl}/hooks/doorbell/${await vault.open(s.hook)}` : null,
         ring: s.ring?.refreshToken ? { connected: true, email: s.ring.email ?? null, cameras: s.ring.cameras ?? [], error: s.ring.error ?? null } : { connected: false },
         waitingForCode: pending.has(householdId),
       };

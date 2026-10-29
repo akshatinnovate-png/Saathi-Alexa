@@ -16,7 +16,7 @@ import { createReplayGuard, verifySignature, normaliseRingEvent, SIGNATURE_HEADE
 
 const PROTECTED_PAGES = ['/family.html', '/alexa.html', '/welcome.html', '/scan.html'];
 
-export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null }) {
+export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null }) {
   const { localBus, store } = services;
   const app = express();
   app.set('trust proxy', config.web?.trustProxy ?? 'loopback');
@@ -75,7 +75,7 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
   const guard = apiGuard({ requireLogin, defaultHousehold: DEFAULT_HOUSEHOLD, services, audit });
   if (accounts && sessions) mountAuth(app, { config, accounts, sessions, security, google, familyMail, audit, guard });
   else app.use('/api', guard);
-  if (accounts && sessions && security && audit) mountSecurity(app, { accounts, sessions, security, audit });
+  if (accounts && sessions && security && audit) mountSecurity(app, { accounts, sessions, security, audit, keyring });
   const record = (req, action, detail = {}) => audit?.append({ householdId: req.householdId ?? null, actor: req.user?.email ?? req.device?.id ?? null, action, detail, ip: req.ip }).catch(() => {});
 
   app.use((req, _res, next) => {
@@ -399,7 +399,7 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
   app.get('/media/*path', async (req, res, next) => {
     try {
       if (!services.media.read) return res.status(404).end();
-      if (!services.media.verify?.(req.path, req.query)) return res.status(403).json({ error: 'This link has expired. Open it again from Saathi.' });
+      if (!(await services.media.verify?.(req.path, req.query))) return res.status(403).json({ error: 'This link has expired. Open it again from Saathi.' });
       const file = await services.media.read(decodeURIComponent(req.path.slice('/media/'.length)));
       if (!file) return res.status(404).end();
       res.set({ 'Content-Type': file.contentType, 'Cache-Control': 'private, max-age=300', 'Content-Disposition': 'inline' }).send(file.body);

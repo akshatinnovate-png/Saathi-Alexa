@@ -49,3 +49,7 @@ export function chainLink(key, prev, canonical) {
 export function chainVerify(key, rows, head) {
   return call({ op: 'chain.verify', key: b64(key), rows, head });
 }
+
+export function chainCheck(rows, head) {
+  return call({ op: 'chain.check', rows, head });
+}

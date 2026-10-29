@@ -1,4 +1,4 @@
-import { chainLink, chainVerify } from './core.js';
+import { chainLink, chainCheck } from './core.js';
 
 const GENESIS = 'saathi-audit-genesis';
 
@@ -8,9 +8,12 @@ const canonical = (value) => {
   return JSON.stringify(value ?? null);
 };
 
-export function createAuditLog({ store, key, clock = () => new Date() }) {
+export function createAuditLog({ store, key = null, keyring = null, clock = () => new Date() }) {
   const queues = new Map();
-  const sign = (prev, entry) => chainLink(key, prev, canonical(entry));
+  const link = keyring
+    ? async (prev, text) => (await keyring.hmac('audit', Buffer.from(`${prev}\n${text}`, 'utf8'))).toString('base64url')
+    : async (prev, text) => chainLink(key, prev, text);
+  const sign = (prev, entry) => link(prev, canonical(entry));
   const scope = (householdId) => householdId ?? 'global';
 
   function append({ householdId = null, actor = null, action, detail = {}, ip = null }) {
@@ -19,7 +22,7 @@ export function createAuditLog({ store, key, clock = () => new Date() }) {
       const head = (await store.get('auditHeads', chain)) ?? { id: chain, seq: 0, mac: GENESIS };
       const seq = head.seq + 1;
       const entry = { chain, seq, at: clock().toISOString(), actor, action, detail, ip };
-      const mac = sign(head.mac, entry);
+      const mac = await sign(head.mac, entry);
       await store.put('audit', { id: `${chain}:${String(seq).padStart(9, '0')}`, ...entry, mac });
       await store.put('auditHeads', { id: chain, seq, mac });
       return { ...entry, mac };
@@ -37,8 +40,13 @@ export function createAuditLog({ store, key, clock = () => new Date() }) {
     const chain = scope(householdId);
     const list = await entries(householdId);
     const head = await store.get('auditHeads', chain);
-    const rows = list.map(({ id, mac, ...entry }) => ({ seq: entry.seq, canonical: canonical(entry), mac }));
-    const out = chainVerify(key, rows, head ? { seq: head.seq, mac: head.mac } : null);
+    const rows = [];
+    let prev = GENESIS;
+    for (const { id, mac, ...entry } of list) {
+      rows.push({ seq: entry.seq, expected: await sign(prev, entry), mac });
+      prev = mac;
+    }
+    const out = chainCheck(rows, head ? { seq: head.seq, mac: head.mac } : null);
     return out.ok ? { ok: true, entries: out.entries } : { ok: false, brokenAt: out.brokenAt, reason: out.reason };
   }
 

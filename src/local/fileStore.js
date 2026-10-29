@@ -1,8 +1,11 @@
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { sealStore, openStore, isSealedStore } from '../security/keys.js';
+import { sealStore, openStore, isSealedStore, sealStoreWith, openStoreWith } from '../security/keys.js';
 
-export function createFileStore({ file, seed = () => ({}), persist = true, key = null } = {}) {
+export function createFileStore({ file, seed = () => ({}), persist = true, key = null, keyring = null } = {}) {
+  const encrypted = Boolean(key || keyring);
+  const seal = (json) => (keyring ? sealStoreWith(keyring, json) : sealStore(key, json));
+  const open = (text) => (keyring ? openStoreWith(keyring, text) : openStore(key, text));
   let data = null;
   let writing = Promise.resolve();
 
@@ -12,11 +15,11 @@ export function createFileStore({ file, seed = () => ({}), persist = true, key =
       try {
         const text = await readFile(file, 'utf8');
         if (isSealedStore(text)) {
-          if (!key) throw new Error('the file is encrypted and no key was given');
-          data = JSON.parse(openStore(key, text));
+          if (!encrypted) throw new Error('the file is encrypted and no key was given');
+          data = JSON.parse(await open(text));
         } else {
           data = JSON.parse(text);
-          if (key) await save();
+          if (encrypted) await save();
         }
         return data;
       } catch (err) {
@@ -30,9 +33,9 @@ export function createFileStore({ file, seed = () => ({}), persist = true, key =
 
   function save() {
     if (!persist) return Promise.resolve();
-    const json = JSON.stringify(data, null, key ? 0 : 2);
-    const snapshot = key ? sealStore(key, json) : json;
+    const json = JSON.stringify(data, null, encrypted ? 0 : 2);
     writing = writing.then(async () => {
+      const snapshot = encrypted ? await seal(json) : json;
       await mkdir(dirname(file), { recursive: true });
       await writeFile(`${file}.tmp`, snapshot, { mode: 0o600 });
       await rename(`${file}.tmp`, file);

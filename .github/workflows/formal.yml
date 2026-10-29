@@ -51,8 +51,17 @@ jobs:
           java-version: 21
       - name: Fetch TLC
         run: |
-          curl -sSfL -o tla2tools.jar https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
+          curl -sSfL -o tla2tools.jar https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
           sha256sum tla2tools.jar
       - name: Model check ${{ matrix.spec }}
         working-directory: formal
         run: java -XX:+UseParallelGC -cp ../tla2tools.jar tlc2.TLC -workers auto -deadlock -cleanup ${{ matrix.spec }}
+      - name: Without the distinct-pictures rule, TLC must find the attack
+        if: matrix.spec == 'Pairing'
+        working-directory: formal
+        run: |
+          if java -cp ../tla2tools.jar tlc2.TLC -deadlock -cleanup -config PairingFlaw.cfg Pairing > flaw.txt 2>&1; then
+            cat flaw.txt; echo "TLC should have found the attack"; exit 1
+          fi
+          grep -q "Invariant IntrudersNeverGetIn is violated" flaw.txt
+          sed -n '/Error: Invariant/,/Finished/p' flaw.txt | head -60

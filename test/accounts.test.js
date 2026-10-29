@@ -145,10 +145,10 @@ test('a paired Alexa+ device token reaches only its own household over MCP', asy
 });
 
 test('sessions cannot be forged or edited', async () => {
-  const forged = createSessions('someone-elses-secret').issue({ email: 'riya@saathi.demo' });
+  const forged = await createSessions('someone-elses-secret').issue({ email: 'riya@saathi.demo' });
   const res = await fetch(`${base}/api/status`, { headers: { cookie: `saathi_session=${forged}` } });
   assert.equal(res.status, 401);
-  const real = createSessions('test-secret').issue({ email: 'riya@saathi.demo' });
+  const real = await createSessions('test-secret').issue({ email: 'riya@saathi.demo' });
   const [payload, mac] = real.split('.');
   const edited = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(payload, 'base64url')), email: 'priya@example.com' })).toString('base64url');
   assert.equal((await fetch(`${base}/api/status`, { headers: { cookie: `saathi_session=${edited}.${mac}` } })).status, 401);

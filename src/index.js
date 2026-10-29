@@ -16,7 +16,8 @@ import { createGoogle, createVault } from './accounts/google.js';
 import { createMailer } from './mail/mailer.js';
 import { createFamilyMail } from './mail/familyMail.js';
 import { createDoorbell } from './doorbell/doorbell.js';
-import { loadMasterKey, deriveKey, createSealer, fingerprint } from './security/keys.js';
+import { createKeyringVault } from './security/keys.js';
+import { openKeyring } from './security/keyring.js';
 import { createAuditLog } from './security/audit.js';
 import { createAccountSecurity } from './accounts/security.js';
 import { configurePepper, createBreachCheck } from './accounts/passwords.js';
@@ -32,17 +33,18 @@ if (checks.errors.length) {
 }
 config.web.exposed = checks.exposed;
 const llm = createLlm(config.agent, config.region);
-const master = config.aws.dynamodb ? null : loadMasterKey({ keyFile: join(dirname(config.dataFile), 'saathi.key'), envKey: process.env.SAATHI_MASTER_KEY });
-if (master?.created) console.log(`\n  Created a new encryption key at ${master.source}. Back it up together with the data file: without it the data cannot be read.`);
-if (master && !process.env.SAATHI_RING_WEBHOOK_SECRET && config.ring.webhookSecret === 'local-ring-simulator-secret' && !config.demo) {
-  config.ring.webhookSecret = deriveKey(master.key, 'ring-webhook').toString('base64url');
-}
-const services = createServices(config, {
-  llmTranslate: llm?.translate, llmMood: llm?.mood,
-  storeKey: master ? deriveKey(master.key, 'store') : null,
-  mediaSigningKey: master ? deriveKey(master.key, 'media-links') : null,
-  mediaEncryptionKey: master ? deriveKey(master.key, 'media') : null,
+const keyring = config.aws.dynamodb ? null : await openKeyring({
+  dataDir: dirname(config.dataFile),
+  onBrokerExit: (err) => {
+    console.error(`\n  ${err.message}\n  Saathi stopped so the family's data stays safe. Start it again.\n`);
+    process.exit(70);
+  },
 });
+if (keyring?.created) console.log(`\n  Created a new encryption key in ${dirname(config.dataFile)}. Back it up together with the data file, or run "npm run protect-key" to lock it into this computer's security chip.`);
+if (keyring && !process.env.SAATHI_RING_WEBHOOK_SECRET && config.ring.webhookSecret === 'local-ring-simulator-secret' && !config.demo) {
+  config.ring.webhookSecret = (await keyring.hmac('ring-webhook', Buffer.from('saathi-ring-webhook-secret'))).toString('base64url');
+}
+const services = createServices(config, { llmTranslate: llm?.translate, llmMood: llm?.mood, keyring });
 const baseUrl = `http://${config.host === '0.0.0.0' ? '127.0.0.1' : config.host}:${config.port}`;
 const publicUrl = config.auth.publicUrl ?? `http://localhost:${config.port}`;
 
@@ -50,12 +52,12 @@ const cognito = config.auth.userPoolId && config.auth.webClientId
   ? createCognitoAccounts({ region: config.auth.region, userPoolId: config.auth.userPoolId, clientId: config.auth.webClientId, domain: config.auth.domain, publicUrl: config.auth.publicUrl ?? baseUrl })
   : null;
 const legacySecret = (await services.store.get('meta', 'session-secret'))?.value ?? null;
-const secret = config.web.sessionSecret ?? (master ? deriveKey(master.key, 'sessions').toString('base64url') : await sessionSecret(services.store));
-const sessions = createSessions(secret, { store: services.store });
-configurePepper(master ? deriveKey(master.key, 'pepper') : null);
-const audit = createAuditLog({ store: services.store, key: master ? deriveKey(master.key, 'audit') : Buffer.from(`audit:${secret}`) });
-const vault = master
-  ? createSealer(deriveKey(master.key, 'vault'), { legacy: legacySecret ? createVault(legacySecret) : null })
+const secret = config.web.sessionSecret ?? (keyring ? null : await sessionSecret(services.store));
+const sessions = createSessions(secret, { store: services.store, keyring: config.web.sessionSecret ? null : keyring });
+configurePepper(keyring ? (data) => keyring.hmac('pepper', data) : null);
+const audit = createAuditLog({ store: services.store, keyring, key: keyring ? null : Buffer.from(`audit:${secret}`) });
+const vault = keyring
+  ? createKeyringVault(keyring, { legacy: legacySecret ? createVault(legacySecret) : null })
   : createVault(secret);
 const google = config.google.clientId && config.google.clientSecret ? createGoogle(config.google) : null;
 const mailer = createMailer({ mail: config.mail, region: config.region, outboxDir: join(dirname(config.dataFile), 'outbox') });
@@ -113,7 +115,7 @@ const allowedHosts = configuredHosts.length || config.auth.publicUrl
   ? [...new Set([...configuredHosts, ...(config.auth.publicUrl ? [new URL(config.auth.publicUrl).hostname, 'localhost', '127.0.0.1'] : [])])]
   : undefined;
 config.web.canonicalLocalhost = true;
-const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit });
+const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit, keyring });
 
 doorbell.startAll().catch((err) => console.error('Ring listeners failed to start:', err.message));
 
@@ -127,7 +129,10 @@ app.listen(config.port, config.host, () => {
   console.log(`  Email: ${mailer.real ? `${mailer.kind} from ${mailer.from}` : 'not set up (emails are printed here). Run "npm run setup" to send real email'}`);
   console.log(`  Alexa+ brain: ${llm ? `${llm.provider} (${llm.model})` : 'offline-planner'}`);
   console.log(`  Services: ${JSON.stringify(services.describe())}`);
-  console.log(`  Data: ${master ? `encrypted at rest (AES-256-GCM, key ${fingerprint(master.key)} from ${master.source})` : 'Amazon DynamoDB'}\n`);
+  const guard = keyring?.mode === 'broker'
+    ? `held by the key broker (${keyring.keySource === 'tpm' ? "sealed in this computer's TPM chip" : keyring.keySource === 'windows-protected' ? 'protected by Windows' : keyring.keySource}${keyring.hardening?.syscall_filter ? ', syscall filter on' : ''})`
+    : `held by Saathi itself (${keyring?.keySource})`;
+  console.log(`  Data: ${keyring ? `encrypted at rest (AES-256-GCM, key ${keyring.fingerprint}, ${guard})` : 'Amazon DynamoDB'}\n`);
   if (process.env.SAATHI_OPEN_BROWSER === '1') {
     const [command, args] = process.platform === 'win32' ? ['explorer.exe', [`${publicUrl}/`]] : process.platform === 'darwin' ? ['open', [`${publicUrl}/`]] : ['xdg-open', [`${publicUrl}/`]];
     execFile(command, args, { shell: false, windowsHide: true }, () => {});

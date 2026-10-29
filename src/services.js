@@ -18,7 +18,7 @@ export function createServices(config, overrides = {}) {
 
   const store = overrides.store ?? (aws.dynamodb
     ? createDynamoStore({ tableName: resources.tableName, region })
-    : createFileStore({ file: config.dataFile, seed: config.demo ? () => seedData() : () => ({}), key: overrides.storeKey ?? null }));
+    : createFileStore({ file: config.dataFile, seed: config.demo ? () => seedData() : () => ({}), key: overrides.storeKey ?? null, keyring: overrides.keyring ?? null }));
 
   const translator = overrides.translator ?? (aws.translate
     ? createAwsTranslator({ region })
@@ -46,7 +46,7 @@ export function createServices(config, overrides = {}) {
 
   const media = overrides.media ?? (aws.s3
     ? createAwsMedia({ region, bucket: resources.mediaBucket })
-    : createLocalMedia({ dir: config.mediaDir ?? fileURLToPath(new URL('../data/media', import.meta.url)), signingKey: overrides.mediaSigningKey ?? null, encryptionKey: overrides.mediaEncryptionKey ?? null }));
+    : createLocalMedia({ dir: config.mediaDir ?? fileURLToPath(new URL('../data/media', import.meta.url)), signingKey: overrides.mediaSigningKey ?? null, encryptionKey: overrides.mediaEncryptionKey ?? null, keyring: overrides.keyring ?? null }));
 
   const escalation = overrides.escalation ?? (aws.stepfunctions
     ? createAwsEscalation({ region, stateMachineArn: resources.escalationStateMachineArn })
