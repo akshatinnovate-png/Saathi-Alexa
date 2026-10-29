@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { copyFileSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { buildSync } from 'esbuild';
 import { fileURLToPath } from 'node:url';
@@ -48,6 +48,7 @@ export function bundleServer(outputDir) {
     logLevel: 'error',
     banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" },
   });
+  copyFileSync(join(repoRoot, 'src/security/saathi-core.wasm'), join(outputDir, 'saathi-core.wasm'));
   return true;
 }
 

@@ -1,6 +1,6 @@
 import './env.js';
 import { dirname, join } from 'node:path';
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { config } from './config.js';
 import { createServices } from './services.js';
 import { createApp } from './http/app.js';
@@ -129,8 +129,8 @@ app.listen(config.port, config.host, () => {
   console.log(`  Services: ${JSON.stringify(services.describe())}`);
   console.log(`  Data: ${master ? `encrypted at rest (AES-256-GCM, key ${fingerprint(master.key)} from ${master.source})` : 'Amazon DynamoDB'}\n`);
   if (process.env.SAATHI_OPEN_BROWSER === '1') {
-    const open = process.platform === 'win32' ? `start "" "${publicUrl}/"` : process.platform === 'darwin' ? `open "${publicUrl}/"` : `xdg-open "${publicUrl}/"`;
-    exec(open, () => {});
+    const [command, args] = process.platform === 'win32' ? ['explorer.exe', [`${publicUrl}/`]] : process.platform === 'darwin' ? ['open', [`${publicUrl}/`]] : ['xdg-open', [`${publicUrl}/`]];
+    execFile(command, args, { shell: false, windowsHide: true }, () => {});
   }
 });
 

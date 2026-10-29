@@ -10,7 +10,7 @@ One small Rust crate makes every security decision Saathi has:
 - how long a sign-in lives and when it counts as recent (`session.rs`)
 - the tamper-evident history chain (`chain.rs`)
 
-It is compiled to WebAssembly (embedded in `src/security/saathi-core-wasm.js`) and the Node server calls it for every API request, every MCP tool call, every session check and every history entry. There is no second copy of these rules in JavaScript.
+It is compiled to WebAssembly (`src/security/saathi-core.wasm`, a binary built from the Rust source in `core/`) and the Node server calls it for every API request, every MCP tool call, every session check and every history entry. There is no second copy of these rules in JavaScript.
 
 The core uses no `unsafe` code outside the six-line WebAssembly boundary (`core/src/wasm.rs`), and the build is reproducible: CI rebuilds it from source and fails if the committed file differs by a single byte.
 
