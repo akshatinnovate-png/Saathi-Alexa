@@ -6,91 +6,9 @@ Kamala is 78. Everyone calls her **Aaji**. She lives alone in Pune, speaks Marat
 
 [![M8ven Score](https://m8ven.ai/badge/mcp/akshatinnovate-png-saathi-alexa-144k1p?v=d98ea248741837b625cc3812ddf5f7e3)](https://m8ven.ai/mcp/akshatinnovate-png-saathi-alexa-144k1p?s=readme)
 <div align="center">
+[![XERJ Corpus Hub contributor](https://hub.xerj.org/contributors/akshatinnovate-png/badge.svg)](https://hub.xerj.org/contributors/akshatinnovate-png)
 
-# Saathi-Alexa
-
-<table>
-  <tr>
-    <th>Core Tech Stack</th>
-    <th>Verification and Cryptography</th>
-  </tr>
-  <tr>
-    <td>
-      <svg width="180" height="20" xmlns="http://w3.org">
-        <rect width="70" height="20" fill="#555"/>
-        <rect x="70" width="110" height="20" fill="#339933"/>
-        <text x="35" y="14" fill="#fff" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle">Runtime</text>
-        <text x="125" y="14" fill="#fff" font-family="sans-serif" font-size="11" text-anchor="middle">Node.js v20+</text>
-      </svg>
-    </td>
-    <td>
-      <svg width="200" height="20" xmlns="http://w3.org">
-        <rect width="80" height="20" fill="#555"/>
-        <rect x="80" width="120" height="20" fill="#0284C7"/>
-        <text x="40" y="14" fill="#fff" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle">Verification</text>
-        <text x="140" y="14" fill="#fff" font-family="sans-serif" font-size="11" text-anchor="middle">TLA+ Checked</text>
-      </svg>
-    </td>
-  </tr>
-  <tr>
-    <td>
-      <svg width="180" height="20" xmlns="http://w3.org">
-        <rect width="90" height="20" fill="#555"/>
-        <rect x="90" width="90" height="20" fill="#D97706"/>
-        <text x="45" y="14" fill="#fff" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle">Security Core</text>
-        <text x="135" y="14" fill="#fff" font-family="sans-serif" font-size="11" text-anchor="middle">Rust (Kani)</text>
-      </svg>
-    </td>
-    <td>
-      <svg width="200" height="20" xmlns="http://w3.org">
-        <rect width="95" height="20" fill="#555"/>
-        <rect x="95" width="105" height="20" fill="#059669"/>
-        <text x="47" y="14" fill="#fff" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle">Memory Safety</text>
-        <text x="147" y="14" fill="#fff" font-family="sans-serif" font-size="11" text-anchor="middle">Kani Prover</text>
-      </svg>
-    </td>
-  </tr>
-  <tr>
-    <td>
-      <svg width="180" height="20" xmlns="http://w3.org">
-        <rect width="45" height="20" fill="#555"/>
-        <rect x="45" width="135" height="20" fill="#FF9900"/>
-        <text x="22" y="14" fill="#fff" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle">AWS</text>
-        <text x="112" y="14" fill="#fff" font-family="sans-serif" font-size="11" text-anchor="middle">Step Functions / Bedrock</text>
-      </svg>
-    </td>
-    <td>
-      <svg width="200" height="20" xmlns="http://w3.org">
-        <rect width="60" height="20" fill="#555"/>
-        <rect x="60" width="140" height="20" fill="#10B981"/>
-        <text x="30" y="14" fill="#fff" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle">Privacy</text>
-        <text x="130" y="14" fill="#fff" font-family="sans-serif" font-size="11" text-anchor="middle">Class A E2EE</text>
-      </svg>
-    </td>
-  </tr>
-  <tr>
-    <td>
-      <svg width="180" height="20" xmlns="http://w3.org">
-        <rect width="85" height="20" fill="#555"/>
-        <rect x="85" width="95" height="20" fill="#B45309"/>
-        <text x="42" y="14" fill="#fff" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle">Orchestrator</text>
-        <text x="132" y="14" fill="#fff" font-family="sans-serif" font-size="11" text-anchor="middle">Claude 3.5 Opus</text>
-      </svg>
-    </td>
-    <td>
-      <svg width="200" height="20" xmlns="http://w3.org">
-        <rect width="75" height="20" fill="#555"/>
-        <rect x="75" width="125" height="20" fill="#2563EB"/>
-        <text x="37" y="14" fill="#fff" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle">DevSecOps</text>
-        <text x="137" y="14" fill="#fff" font-family="sans-serif" font-size="11" text-anchor="middle">SBOM / Dependabot</text>
-      </svg>
-    </td>
-  </tr>
-</table>
-
-
-
-## Get started in one minute
+  ## Get started in one minute
 
 | Where | What to do |
 |---|---|
