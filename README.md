@@ -4,10 +4,21 @@
 
 Kamala is 78. Everyone calls her **Aaji**. She lives alone in Pune, speaks Marathi, has early-stage Alzheimer's and doesn't hear as well as she used to. Her granddaughter **Riya** is in Toronto and grew up speaking English. They love each other, but they share less and less language, and Riya worries every day she doesn't hear from her.
 
-[![M8ven Score](https://m8ven.ai/badge/mcp/akshatinnovate-png-saathi-alexa-144k1p?v=d98ea248741837b625cc3812ddf5f7e3)](https://m8ven.ai/mcp/akshatinnovate-png-saathi-alexa-144k1p?s=readme)
+<p align="center">
+  <a href="https://m8ven.ai/mcp/akshatinnovate-png-saathi-alexa-144k1p?s=readme"><img src="https://m8ven.ai/badge/mcp/akshatinnovate-png-saathi-alexa-144k1p?v=d98ea248741837b625cc3812ddf5f7e3" alt="M8ven Score"></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/akshatinnovate-png/Saathi-Alexa"><img src="https://api.securityscorecards.dev/projects/github.com/akshatinnovate-png/Saathi-Alexa/badge" alt="OpenSSF Scorecard"></a>
+  <a href="https://hub.xerj.org/contributors/akshatinnovate-png"><img src="https://hub.xerj.org/contributors/akshatinnovate-png/badge.svg" alt="XERJ Corpus Hub contributor"></a>
+  <br>
+  <a href="https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/ci.yml"><img src="https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/formal.yml"><img src="https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/formal.yml/badge.svg?branch=main" alt="Proofs"></a>
+  <a href="https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/codeql.yml"><img src="https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/codeql.yml/badge.svg?branch=main" alt="CodeQL"></a>
+  <br>
+  <a href="https://github.com/akshatinnovate-png/Saathi-Alexa/releases/latest"><img src="https://img.shields.io/github/v/release/akshatinnovate-png/Saathi-Alexa?label=release" alt="Latest release"></a>
+  <a href="https://github.com/akshatinnovate-png/Saathi-Alexa/blob/main/LICENSE"><img src="https://img.shields.io/github/license/akshatinnovate-png/Saathi-Alexa" alt="License"></a>
+  <a href="https://github.com/akshatinnovate-png/Saathi-Alexa/commits/main"><img src="https://img.shields.io/github/last-commit/akshatinnovate-png/Saathi-Alexa" alt="Last commit"></a>
+  <a href="https://modelcontextprotocol.io/specification/2025-11-25"><img src="https://img.shields.io/badge/MCP-2025--11--25-6b4fbb" alt="MCP spec 2025-11-25"></a>
+</p>
 
-[![XERJ Corpus Hub contributor](https://hub.xerj.org/contributors/akshatinnovate-png/badge.svg)](https://hub.xerj.org/contributors/akshatinnovate-png)
-[![CI](https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/ci.yml) [![Proofs](https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/formal.yml/badge.svg?branch=main)](https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/formal.yml) [![CodeQL](https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/codeql.yml)
 <div align="center">
 
   ## Get started in one minute
