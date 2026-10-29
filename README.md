@@ -6,8 +6,6 @@ Kamala is 78. Everyone calls her **Aaji**. She lives alone in Pune, speaks Marat
 
 [![M8ven Score](https://m8ven.ai/badge/mcp/akshatinnovate-png-saathi-alexa-144k1p?v=d98ea248741837b625cc3812ddf5f7e3)](https://m8ven.ai/mcp/akshatinnovate-png-saathi-alexa-144k1p?s=readme)
 <div align="center">
-[![XERJ Corpus Hub contributor](https://hub.xerj.org/contributors/akshatinnovate-png/badge.svg)](https://hub.xerj.org/contributors/akshatinnovate-png)
-
   ## Get started in one minute
 
 | Where | What to do |
