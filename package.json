@@ -16,7 +16,10 @@
     "demo": "node scripts/demo.js",
     "add-ring": "npm install --no-save --no-audit --no-fund ring-client-api@14.3.0",
     "build:core": "node scripts/build-core.js",
-    "check:core": "node scripts/build-core.js --check"
+    "check:core": "node scripts/build-core.js --check",
+    "key-status": "node scripts/key.js status",
+    "protect-key": "node scripts/key.js protect",
+    "restore-key": "node scripts/key.js restore"
   },
   "keywords": [
     "alexa-plus",

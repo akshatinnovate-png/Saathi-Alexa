@@ -361,7 +361,9 @@ The server also sends `instructions` on initialize: short, warm sentences, never
 
 Saathi is built for people scammers like to target, so it is deliberately over-engineered. The short version (the full version is [SECURITY.md](SECURITY.md) and the attacker-by-attacker [threat model](docs/THREAT_MODEL.md)):
 
-- **Everything on disk is encrypted.** The data file and every voice note and photo are sealed with AES-256-GCM. Keys come from one master key in `data/saathi.key` through HKDF, a different key for every purpose.
+- **Everything on disk is encrypted.** The data file and every voice note and photo are sealed with AES-256-GCM. Keys come from one master key through HKDF, a different key for every purpose.
+- **The key lives outside the web server.** A small Rust key broker holds it and can lock it into your computer's TPM chip (`npm run protect-key`), so a copied disk is useless anywhere else.
+- **Saathi only talks to the services it needs.** Every other outbound connection is refused.
 - **Passwords are hard to steal and hard to use.** scrypt plus a secret pepper, checked against breached passwords without revealing them, progressive lockout, equal timing for unknown emails.
 - **Two-step sign-in and passkeys.** Authenticator codes with single-use recovery codes, and passkeys (fingerprint, face or screen lock) with cloned-key detection. Turn them on in the family app under **Security** (the shield).
 - **Sessions live on the server.** See every place you are signed in, sign out everywhere else, and changing your password ends every other session.
@@ -371,7 +373,7 @@ Saathi is built for people scammers like to target, so it is deliberately over-e
 - **Short-lived, signed media links**, **replay-proof doorbell webhooks**, an **MCP server that refuses anonymous callers** once it is reachable from the network, and **start-up checks** that refuse unsafe configurations.
 - **A verifiable supply chain.** No install scripts, `npm audit` and signature checks on every push, CodeQL, Scorecard, Dependabot, SBOMs and signed build provenance on every release.
 
-> **Back up `data/saathi.key` together with `data/saathi.json`.** Without the key nobody can read the data, including you. On a server you can set `SAATHI_MASTER_KEY` (32 random bytes, base64) instead of using the file.
+> **Run `npm run protect-key` once and keep the recovery key it shows on paper.** Until then, back up `data/saathi.key` together with `data/saathi.json`: without the key nobody can read the data, including you. `npm run restore-key` brings it back on a new computer. On a server you can set `SAATHI_MASTER_KEY` (32 random bytes, base64) instead.
 
 Found something? Please report it privately, as described in [SECURITY.md](SECURITY.md).
 

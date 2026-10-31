@@ -104,6 +104,18 @@ fn from_bytes(bytes: Zeroizing<[u8; 32]>) -> Master {
     Master::new(*bytes)
 }
 
+pub fn finish(dir: &Path) -> Result<(), String> {
+    if !(dir.join(TPM).exists() || dir.join(DPAPI).exists()) {
+        return Err("the key is not protected yet; nothing was removed".into());
+    }
+    let (_, source) = load(dir)?;
+    if source == Source::File || source == Source::Environment {
+        return Err("the protected key could not be opened; nothing was removed".into());
+    }
+    shred(&dir.join(PLAIN));
+    Ok(())
+}
+
 pub fn load(dir: &Path) -> Result<(Master, Source), String> {
     if let Ok(mut env) = std::env::var("SAATHI_MASTER_KEY") {
         let out = decode_plain(&env).map(|m| (m, Source::Environment));
@@ -165,7 +177,7 @@ pub fn write_private(path: &Path, data: &[u8], create_new: bool) -> Result<(), S
     Ok(())
 }
 
-fn shred(path: &Path) {
+pub fn shred(path: &Path) {
     if let Ok(meta) = fs::metadata(path) {
         if let Ok(mut f) = fs::OpenOptions::new().write(true).open(path) {
             let _ = f.write_all(&vec![0u8; meta.len() as usize]);
@@ -182,11 +194,16 @@ pub struct Protected {
     pub fingerprint: String,
 }
 
-pub fn protect(dir: &Path, allow_dpapi: bool) -> Result<Protected, String> {
-    let (master, source) = load(dir)?;
-    if source != Source::File {
-        return Err(format!("the key is already protected ({source:?})"));
+pub fn protect(dir: &Path, allow_dpapi: bool, keep_plain: bool) -> Result<Protected, String> {
+    let plain = dir.join(PLAIN);
+    if !plain.exists() {
+        return Err(match status(dir) {
+            Source::File => "there is no key file to protect yet; start Saathi once first".into(),
+            other => format!("the key is already protected ({other:?})"),
+        });
     }
+    let text = Zeroizing::new(fs::read_to_string(&plain).map_err(|e| e.to_string())?);
+    let master = decode_plain(&text)?;
     let (blob, name, protection) = match tpm_seal(master.bytes()) {
         Ok(b) => (b, TPM, Source::Tpm),
         Err(tpm_error) if allow_dpapi => match dpapi_seal(master.bytes()) {
@@ -203,7 +220,9 @@ pub fn protect(dir: &Path, allow_dpapi: bool) -> Result<Protected, String> {
         return Err("the protected key did not read back correctly; nothing was changed".into());
     }
     write_private(&dir.join(name), &blob, false)?;
-    shred(&dir.join(PLAIN));
+    if !keep_plain {
+        shred(&dir.join(PLAIN));
+    }
     Ok(Protected { protection, recovery: crate::crypto::recovery_code(&master), fingerprint: master.fingerprint() })
 }
 

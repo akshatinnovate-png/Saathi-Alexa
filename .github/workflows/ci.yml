@@ -65,6 +65,54 @@ jobs:
           CDK_DEFAULT_REGION: us-east-1
       - run: pipx run cfn-lint -i W3005 -- cdk.out/Saathi.template.json
         working-directory: infra
+  broker-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@f08ac54821369508305fcb9e0121ec6e30ae9ada
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libtss2-dev swtpm swtpm-tools tpm2-tools
+      - run: cargo build --locked --release -p saathi-broker --features tpm
+      - run: npm ci
+      - name: Key broker against a software TPM
+        run: |
+          mkdir -p "$RUNNER_TEMP/tpm"
+          swtpm socket --tpmstate dir="$RUNNER_TEMP/tpm" --tpm2 --server type=tcp,port=2321 --ctrl type=tcp,port=2322 --flags not-need-init,startup-clear --daemon
+          node --test test/broker.test.js
+        env:
+          SAATHI_TCTI: swtpm:host=127.0.0.1,port=2321
+          SAATHI_TPM_EXTEND_PCR7: '1'
+  broker-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@f08ac54821369508305fcb9e0121ec6e30ae9ada
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: cargo build --locked --release -p saathi-broker
+      - run: npm ci
+      - run: node --test test/broker.test.js
+      - name: Windows key protection
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'saathi-key'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          node -e "require('fs').writeFileSync(process.argv[1], require('crypto').randomBytes(32).toString('base64') + '\n')" (Join-Path $dir 'saathi.key')
+          $out = target/release/saathi-broker.exe protect --dir $dir | ConvertFrom-Json
+          if ($out.error) { throw $out.error }
+          if ($out.protection -notin @('tpm', 'windows-protected')) { throw "unexpected protection $($out.protection)" }
+          if (Test-Path (Join-Path $dir 'saathi.key')) { throw 'the plain key file was not removed' }
+          $status = target/release/saathi-broker.exe status --dir $dir | ConvertFrom-Json
+          Write-Output "protected with $($out.protection); status says $($status.protection)"
   docker:
     runs-on: ubuntu-latest
     steps:

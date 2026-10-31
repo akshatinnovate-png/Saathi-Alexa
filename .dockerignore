@@ -7,3 +7,6 @@ evals
 docs
 cdk.out
 .git
+target
+core/fuzz/target
+core/fuzz/corpus

@@ -59,6 +59,7 @@ Saathi looks after an elder living with memory loss, disability or a language ga
 |---|---|
 | Read traffic | HSTS with preload and `upgrade-insecure-requests` whenever Saathi runs on https; start-up warns when the public address is plain http |
 | Steal a cookie | `HttpOnly`, `Secure`, and the `__Host-` prefix so a sibling subdomain cannot set or overwrite it |
+| Make Saathi fetch internal addresses (server-side request forgery), such as the cloud metadata service | Outbound connections are limited to the services Saathi uses; IP literals, private ranges and host names that resolve to private addresses are refused |
 | Reach the MCP server directly | When Saathi listens beyond `localhost` or has a public address, MCP refuses callers without a household key or OAuth token |
 | Reach an install that has login turned off | Saathi refuses to start with `SAATHI_REQUIRE_LOGIN=false` unless it listens on this computer alone |
 
@@ -79,7 +80,8 @@ Saathi looks after an elder living with memory loss, disability or a language ga
 | Read voice notes and photos | Each file is encrypted with AES-256-GCM, the file name bound as associated data |
 | Swap one household's file for another's | Media names are prefixed by household and authenticated; a moved file fails to decrypt |
 | Read Gmail and Ring tokens | Sealed separately with their own derived key |
-| Steal the key along with the data | Out of scope by design: the key must live somewhere the server can read. On AWS, data lives in DynamoDB with KMS encryption and IAM, not a key file |
+| Steal the key along with the data | After `npm run protect-key` there is no key file: the key is sealed in the TPM chip and only released to that computer, booted the same way (PCR 7 on Linux). A copied disk or backup cannot be opened elsewhere without the paper recovery key |
+| Read the key out of the running server | The web server never holds it. The key broker is a separate process with core dumps and debugger attachment blocked, the key locked in memory and a system-call allow-list. Root on the running machine can still read it; only an enclave would stop that |
 
 ### 8. Links that escape
 

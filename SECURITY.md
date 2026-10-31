@@ -35,7 +35,10 @@ A summary. The full reasoning, attacker by attacker, is in [docs/THREAT_MODEL.md
 
 | Layer | What it does |
 |---|---|
-| **Data at rest** | The local data file is sealed with AES-256-GCM. Voice notes and photos are encrypted one by one, bound to their own name so they cannot be swapped. Keys come from one 256-bit master key (`saathi.key`, mode 0600) through HKDF, a separate key for every purpose |
+| **Data at rest** | The local data file is sealed with AES-256-GCM. Voice notes and photos are encrypted one by one, bound to their own name so they cannot be swapped. Keys come from one 256-bit master key through HKDF, a separate key for every purpose |
+| **Key broker** | The master key never enters the web server. A small separate Rust program, `saathi-broker`, holds it and does every encryption and signature over a private pipe. On Linux it blocks core dumps and debuggers, locks the key in memory and runs under a system-call allow-list; on Windows it turns on process mitigation policies. If the broker dies, Saathi stops rather than carry on without it |
+| **Hardware key** | `npm run protect-key` seals the master key into the computer's TPM chip, bound to its secure-boot state (PCR 7) on Linux, or wraps it with a TPM key or your Windows account on Windows. A copied disk is useless on another machine. You get a printed recovery key with a checksum, and the old key file is destroyed only after you type part of it back |
+| **Outbound connections** | Saathi can only connect to the services it uses (Google, Anthropic, AWS, the breached-password check, Ring and your mail server). Everything else, including cloud metadata addresses, is refused, and host names that resolve to private addresses are refused too |
 | **Passwords** | scrypt (N=2¹⁵, r=8) plus a secret pepper kept outside the data file. Checked against 900M+ breached passwords using k-anonymity (only 5 hex characters of a SHA-1 ever leave the server, with padding). Old hashes upgrade silently on the next sign-in. Unknown emails take the same time as wrong passwords |
 | **Lockout** | After 5 wrong passwords: 30 s, doubling up to 1 hour, even for the right password |
 | **Two-step** | TOTP (RFC 6238) with replay protection, 10 single-use recovery codes stored only as hashes |
@@ -64,7 +67,7 @@ gh attestation verify oci://ghcr.io/akshatinnovate-png/saathi-alexa:latest --rep
 
 ## Running Saathi safely
 
-- **Back up `saathi.key` together with `saathi.json`.** Without the key the data cannot be read, by anyone, including you.
+- **Run `npm run protect-key` and keep the recovery key on paper.** Until you do, back up `saathi.key` together with `saathi.json`; without the key the data cannot be read, by anyone, including you. `npm run key-status` shows where the key is, and `npm run restore-key` brings it back on a new computer.
 - On a server, set `SAATHI_PUBLIC_URL` to an `https://` address.
 - Turn on two-step sign-in or add a passkey for the household owner.
 - Keep Saathi updated. Dependabot pull requests are reviewed weekly.

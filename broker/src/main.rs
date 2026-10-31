@@ -128,7 +128,17 @@ fn main() {
     let dir = PathBuf::from(arg(&args, "--dir").unwrap_or_else(|| "data".into()));
     let code = match args.get(1).map(String::as_str) {
         Some("serve") => serve(dir),
-        Some("protect") => match keystore::protect(&dir, !args.iter().any(|a| a == "--tpm-only")) {
+        Some("finish") => match keystore::finish(&dir) {
+            Ok(()) => {
+                println!("{}", json!({ "finished": true }));
+                0
+            }
+            Err(e) => {
+                println!("{}", json!({ "error": e }));
+                1
+            }
+        },
+        Some("protect") => match keystore::protect(&dir, !args.iter().any(|a| a == "--tpm-only"), args.iter().any(|a| a == "--keep-plain")) {
             Ok(p) => {
                 println!("{}", json!(p));
                 0
@@ -157,7 +167,7 @@ fn main() {
             0
         }
         _ => {
-            eprintln!("usage: saathi-broker serve|protect|restore|status|version --dir <data folder> [--code <recovery key>]");
+            eprintln!("usage: saathi-broker serve|protect|finish|restore|status|version --dir <data folder> [--code <recovery key>]");
             64
         }
     };
