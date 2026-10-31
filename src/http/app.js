@@ -9,6 +9,7 @@ import { hostHeaderValidation, localhostHostValidation } from '@modelcontextprot
 import { mountMcp } from './mcpRoute.js';
 import { mountAuth } from './authRoutes.js';
 import { apiGuard } from './guard.js';
+import { AuthError } from '../accounts/cognito.js';
 import { LANGUAGES } from '../domain/languages.js';
 import { seedData } from '../domain/seed.js';
 import { DEFAULT_HOUSEHOLD } from '../households/scope.js';
@@ -16,7 +17,7 @@ import { createReplayGuard, verifySignature, normaliseRingEvent, SIGNATURE_HEADE
 
 const PROTECTED_PAGES = ['/family.html', '/alexa.html', '/welcome.html', '/scan.html'];
 
-export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null }) {
+export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null }) {
   const { localBus, store } = services;
   const app = express();
   app.set('trust proxy', config.web?.trustProxy ?? 'loopback');
@@ -124,6 +125,29 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     record(req, approve ? 'device-approved' : 'device-refused', { emoji: out.emoji.join('') });
     res.json({ status: out.status });
   }));
+
+  const who = (req) => ({ email: req.user?.email ?? null, deviceId: req.user ? null : req.device?.id ?? null });
+  const vaultRoute = (fn) => wrap(async (req, res) => {
+    if (!vault) return res.status(404).json({ error: 'Private family keys are not available here.' });
+    if (!req.user && !req.device) return res.status(401).json({ error: 'Please log in.' });
+    try {
+      res.json(await fn(req));
+    } catch (err) {
+      if (err instanceof AuthError) return res.status(err.code === 'forbidden' ? 403 : err.code === 'limit' ? 429 : 400).json({ error: err.message, code: err.code });
+      throw err;
+    }
+  });
+  api.get('/vault', vaultRoute((req) => vault.state(req.householdId, who(req))));
+  api.get('/vault/keys/:keyId', vaultRoute((req) => vault.keysFor(req.householdId, who(req), req.params.keyId)));
+  api.post('/vault/init', vaultRoute((req) => vault.init(req.householdId, who(req), req.body ?? {})));
+  api.post('/vault/join', vaultRoute((req) => vault.startJoin(req.householdId, who(req), req.body ?? {})));
+  api.get('/vault/join/:id', vaultRoute((req) => vault.joinStatus(req.householdId, who(req), req.params.id)));
+  api.post('/vault/join/:id/reveal', vaultRoute((req) => vault.reveal(req.householdId, who(req), req.params.id, req.body ?? {})));
+  api.post('/vault/join/:id/nonce', vaultRoute((req) => vault.approverNonce(req.householdId, who(req), req.params.id, req.body?.nonce)));
+  api.post('/vault/join/:id/decide', vaultRoute((req) => vault.decide(req.householdId, who(req), req.params.id, { approve: req.body?.approve === true, wrapped: req.body?.wrapped, cert: req.body?.cert })));
+  api.post('/vault/rotate', vaultRoute((req) => vault.rotate(req.householdId, who(req), req.body ?? {})));
+  api.put('/vault/recovery', vaultRoute((req) => vault.setRecovery(req.householdId, who(req), req.body ?? {})));
+  api.post('/vault/recover', vaultRoute((req) => vault.recoverDevice(req.householdId, who(req), req.body ?? {})));
 
   api.get('/devices', wrap(async (req, res) => {
     res.json(await accounts.listDevices(req.householdId));

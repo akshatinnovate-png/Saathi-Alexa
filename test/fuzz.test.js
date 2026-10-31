@@ -66,7 +66,7 @@ test('fuzz: the WebAssembly core agrees with the proved rules on every input', (
     if (out.ok && p.kind !== 'user') assert.equal(p.household, household);
     if (out.ok && p.kind === 'user' && LEVEL[action] !== 'SignedIn') assert.equal(p.household, household);
     if (out.ok && LEVEL[action] === 'Owner') assert.equal(p.role, 'owner');
-    if (out.ok && p.kind === 'device') assert.equal(LEVEL[action], 'Household');
+    if (out.ok && p.kind === 'device') assert.ok(['Household', 'Circle'].includes(LEVEL[action]));
     if (out.ok && p.role === 'neighbour') assert.ok(['Household', 'SignedIn'].includes(LEVEL[action]));
     if (!out.ok) assert.ok([401, 403].includes(out.status));
   }));

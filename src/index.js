@@ -23,6 +23,7 @@ import { createAccountSecurity } from './accounts/security.js';
 import { configurePepper, createBreachCheck } from './accounts/passwords.js';
 import { startupProblems } from './security/startup.js';
 import { installEgressGuard } from './security/egress.js';
+import { createVault as createFamilyVault } from './vault/vault.js';
 
 const checks = startupProblems(config);
 for (const warning of checks.warnings) console.warn(`  Warning: ${warning}`);
@@ -130,7 +131,8 @@ const allowedHosts = configuredHosts.length || config.auth.publicUrl
   ? [...new Set([...configuredHosts, ...(config.auth.publicUrl ? [new URL(config.auth.publicUrl).hostname, 'localhost', '127.0.0.1'] : [])])]
   : undefined;
 config.web.canonicalLocalhost = true;
-const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit, keyring });
+const familyVault = createFamilyVault({ store: services.store, audit });
+const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit, keyring, vault: familyVault });
 
 doorbell.startAll().catch((err) => console.error('Ring listeners failed to start:', err.message));
 
