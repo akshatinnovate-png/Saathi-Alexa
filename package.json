@@ -19,7 +19,9 @@
     "check:core": "node scripts/build-core.js --check",
     "key-status": "node scripts/key.js status",
     "protect-key": "node scripts/key.js protect",
-    "restore-key": "node scripts/key.js restore"
+    "restore-key": "node scripts/key.js restore",
+    "e2e": "node scripts/e2e.js",
+    "lint": "eslint ."
   },
   "keywords": [
     "alexa-plus",
@@ -61,10 +63,13 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "asl-validator": "^4.0.0",
     "aws-sdk-client-mock": "^4.1.0",
     "axe-core": "^4.14.0",
+    "eslint": "^9.39.5",
     "fast-check": "^3.23.2",
+    "globals": "^17.13.0",
     "playwright-core": "1.56",
     "rxjs": "^7.8.2"
   },

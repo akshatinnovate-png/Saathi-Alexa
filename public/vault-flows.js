@@ -108,7 +108,6 @@ export async function rotateFamilyKey(call, householdId, keys, { remove = [] } =
   const { good, bad } = await verifyDevices(householdId, keys, state.devices);
   const forged = bad.filter((d) => !removed.has(d.id));
   if (forged.length) throw new Error(`Stopped: ${forged.map((d) => d.label).join(', ')} was never approved by your family. Someone may have tampered with the server.`);
-  const next = new Map([...keys, [epoch, familyKey]]);
   const grants = [];
   for (const d of good.filter((x) => !removed.has(x.id))) {
     grants.push({ keyId: d.id, wrapped: await wrapFor(d.publicKey, familyKey, wrapContext(householdId, epoch, d.id)), cert: await deviceCert(familyKey, epoch, householdId, d.id) });

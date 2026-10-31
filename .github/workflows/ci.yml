@@ -47,12 +47,16 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run lint
       - run: npm test
         env:
           SAATHI_METRICS: 'off'
       - run: npm run eval
       - run: npx asl-validator --json-path src/escalation/escalation.asl.json
       - run: npm run a11y
+        env:
+          SAATHI_METRICS: 'off'
+      - run: npm run e2e
         env:
           SAATHI_METRICS: 'off'
       - run: npm ci

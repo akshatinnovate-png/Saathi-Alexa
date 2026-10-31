@@ -316,16 +316,18 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     res.json(await Promise.all(messages.map(async (m) => (m.audio ? { ...m, audioUrl: await (services.media.playbackUrl?.(m.audio) ?? m.audio) } : m))));
   }));
 
-  api.post('/family/voice-note', express.raw({ type: ['audio/*'], limit: '8mb' }), wrap(async (req, res) => {
+  const e2eOf = (req) => (req.get('x-saathi-e2e') ? { itemId: req.get('x-saathi-e2e'), mediaType: req.get('x-saathi-media-type') } : null);
+
+  api.post('/family/voice-note', express.raw({ type: ['audio/*', 'application/vnd.saathi.e2e'], limit: '9mb' }), wrap(async (req, res) => {
     const from = req.memberId ?? req.query.from;
     if (!from || !Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'from and an audio body are required' });
-    res.json(await req.saathi.addVoiceNote({ fromId: String(from), audio: req.body, contentType: req.get('content-type'), durationSec: Number(req.query.duration) || undefined }));
+    res.json(await req.saathi.addVoiceNote({ fromId: String(from), audio: req.body, contentType: req.get('content-type'), durationSec: Number(req.query.duration) || undefined, e2e: e2eOf(req) }));
   }));
 
-  api.post('/family/avatar', express.raw({ type: ['image/png', 'image/jpeg', 'image/webp'], limit: '3mb' }), wrap(async (req, res) => {
+  api.post('/family/avatar', express.raw({ type: ['image/png', 'image/jpeg', 'image/webp', 'application/vnd.saathi.e2e'], limit: '4mb' }), wrap(async (req, res) => {
     const memberId = req.query.for === 'elder' ? 'elder' : req.memberId ?? req.query.for;
     if (!memberId || !Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'an image body is required' });
-    const updated = await req.saathi.setAvatar({ memberId, image: req.body, contentType: req.get('content-type') });
+    const updated = await req.saathi.setAvatar({ memberId, image: req.body, contentType: req.get('content-type'), e2e: e2eOf(req) });
     res.json({ ...updated, avatarUrl: await (services.media.playbackUrl?.(updated.avatar) ?? updated.avatar) });
   }));
 
@@ -351,6 +353,7 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
   }));
 
   api.post('/family/message', wrap(async (req, res) => {
+    if (req.body?.e2e) return res.json(await req.saathi.messageFromFamily({ fromId: memberOf(req), e2e: req.body.e2e }));
     const text = req.body?.text;
     if (!text?.trim()) return res.status(400).json({ error: 'text is required' });
     res.json(await req.saathi.messageFromFamily({ fromId: memberOf(req), text: text.trim() }));
@@ -430,6 +433,9 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     } catch (err) { next(err); }
   });
   app.use('/vendor/webauthn', express.static(fileURLToPath(new URL('../../node_modules/@simplewebauthn/browser/esm', import.meta.url)), { index: false }));
+  for (const lib of ['hashes', 'curves', 'post-quantum']) {
+    app.use(`/vendor/noble-${lib}`, express.static(fileURLToPath(new URL(`../../node_modules/@noble/${lib}`, import.meta.url)), { index: false, extensions: false }));
+  }
   app.use('/vendor/three', express.static(fileURLToPath(new URL('../../node_modules/three', import.meta.url)), { index: false }));
   app.use(express.static(fileURLToPath(new URL('../../public', import.meta.url))));
 

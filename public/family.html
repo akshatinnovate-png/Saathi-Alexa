@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="family.css">
   <link rel="stylesheet" href="assistant.css">
   <link rel="stylesheet" href="home3d.css">
-  <script type="importmap">{ "imports": { "three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/" } }</script>
+  <script type="importmap">{ "imports": { "three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/", "@noble/hashes/": "/vendor/noble-hashes/", "@noble/curves/": "/vendor/noble-curves/", "@noble/post-quantum/": "/vendor/noble-post-quantum/" } }</script>
 </head>
 <body class="fam">
   <a class="skip-link" href="#main">Skip to content</a>
@@ -90,6 +90,7 @@
             <input id="compose-text" type="text" autocomplete="off" placeholder="Write in your language. They hear it in theirs.">
             <button class="round-btn dark" type="submit" aria-label="Send message"></button>
           </form>
+          <label class="inline-check private-toggle" id="compose-private-row" hidden><input type="checkbox" id="compose-private"> 🔒 Private: only family devices can read it, and Saathi will not translate it</label>
           <div class="voice-row">
             <button class="pill-action" id="record" type="button" aria-pressed="false">🎤 Record a voice note</button>
             <span class="muted" id="record-status" aria-live="polite">They hear your actual voice, not a translation.</span>
@@ -251,6 +252,10 @@
         <pre class="device-key" id="device-key" hidden></pre>
       </details>
     </div>
+  </dialog>
+
+  <dialog class="sheet" id="private-dialog" aria-labelledby="private-h">
+    <div class="sheet-form" id="private-body"></div>
   </dialog>
 
   <dialog class="sheet wide" id="security-dialog" aria-labelledby="security-h">

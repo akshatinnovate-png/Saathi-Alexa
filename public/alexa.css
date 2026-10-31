@@ -166,3 +166,9 @@ select, input[type="text"] {
 .kiosk .device { min-height: calc(100svh - 140px); }
 .preview-note { margin: 0 clamp(16px, 3vw, 32px) 14px; padding: 12px 16px; border-radius: 16px; background: #fff3dc; color: #5a3a06; font-size: 0.95rem; }
 .preview-note a { color: inherit; font-weight: 600; }
+
+.private-join { border: 0; border-radius: 28px; padding: 28px 24px; width: min(620px, calc(100vw - 24px)); text-align: center; background: #14161c; color: #f6f1e8; font-family: "Atkinson Hyperlegible", var(--sans); }
+.private-join::backdrop { background: rgb(10 12 18 / 70%); }
+.private-join h2 { margin: 0 0 10px; font: 400 clamp(1.6rem, 5vw, 2.2rem) / 1.2 var(--sans); }
+.private-join p { margin: 8px 0; font-size: 1.2rem; line-height: 1.5; color: #d6d9e2; }
+.private-join-emoji { font-size: clamp(3.4rem, 16vw, 5.2rem) !important; letter-spacing: 0.2em; padding: 16px; border-radius: 22px; background: rgb(255 255 255 / 8%); color: #fff !important; }

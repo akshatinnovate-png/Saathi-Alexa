@@ -51,7 +51,7 @@ const ACTIONS = {
   'doorbell-link-made': 'Doorbell link made',
 };
 
-export function setupSecurity({ isOwner, toast }) {
+export function setupSecurity({ isOwner, toast, privateBlock = null }) {
   const dialog = $('security-dialog');
   const body = $('security-body');
   let state = null;
@@ -209,6 +209,7 @@ export function setupSecurity({ isOwner, toast }) {
       el('h2', { id: 'security-h' }, 'Security'),
       el('p', { class: 'muted' }, 'Everything here protects the family\'s private details. Saathi encrypts its data on disk and keeps a sealed history of every sensitive change.'),
       error,
+      privateBlock ? privateBlock(() => render()) : null,
       section('Passkeys',
         el('p', { class: 'muted small' }, 'Sign in with your fingerprint, face or phone lock. Nothing to remember and nothing anyone can steal by tricking you.'),
         el('ul', { class: 'device-list' }, ...(passkeys.length ? passkeys : [el('li', { class: 'muted' }, 'None yet.')])),
@@ -232,7 +233,7 @@ export function setupSecurity({ isOwner, toast }) {
       logView().then((nodes) => holder.replaceChildren(...nodes)).catch((err) => holder.replaceChildren(el('p', { class: 'form-error' }, err.message)));
     }
     blocks.push(el('div', { class: 'sheet-actions' }, el('button', { class: 'pill-action dark', type: 'button', onclick: () => dialog.close() }, 'Done')));
-    body.replaceChildren(...blocks);
+    body.replaceChildren(...blocks.filter(Boolean));
   }
 
   $('open-security').addEventListener('click', () => {

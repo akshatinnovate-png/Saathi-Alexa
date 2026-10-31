@@ -99,10 +99,17 @@
     </aside>
   </main>
 
+  <dialog class="private-join" id="private-join" aria-labelledby="private-join-title">
+    <h2 id="private-join-title">Getting the family key</h2>
+    <p class="private-join-emoji" id="private-join-emoji" role="img" aria-label="" hidden></p>
+    <p id="private-join-note"></p>
+  </dialog>
+
   <dialog class="assistant-dialog" id="assistant-dialog" aria-labelledby="assistant-title">
     <div id="assistant-root"></div>
   </dialog>
 
+  <script type="importmap">{ "imports": { "@noble/hashes/": "/vendor/noble-hashes/", "@noble/curves/": "/vendor/noble-curves/", "@noble/post-quantum/": "/vendor/noble-post-quantum/" } }</script>
   <script type="module" src="simulator.js"></script>
 </body>
 </html>
