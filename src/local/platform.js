@@ -44,8 +44,9 @@ const MEDIA_TYPES = { webm: 'audio/webm', ogg: 'audio/ogg', m4a: 'audio/mp4', mp
 
 export function createLocalMedia({ dir, signingKey = null, encryptionKey = null, keyring = null, ttlSeconds = 3600, clock = () => Date.now() }) {
   const root = resolve(dir);
+  const cleanKey = (key) => String(key).replace(/\\/g, '/').replace(/^\/+/, '');
   const safePath = (key) => {
-    const clean = String(key).replace(/\\/g, '/').replace(/^\/+/, '');
+    const clean = cleanKey(key);
     if (!clean || clean.split('/').some((part) => part === '..' || part === '.' || part === '') || !/^[\w\-./]+$/.test(clean)) return null;
     const full = resolve(root, clean);
     return full.startsWith(root + sep) ? full : null;
@@ -75,7 +76,8 @@ export function createLocalMedia({ dir, signingKey = null, encryptionKey = null,
 
   return {
     kind: encrypts ? 'local-disk-encrypted' : 'local-disk',
-    async save(key, body) {
+    async save(rawKey, body) {
+      const key = cleanKey(rawKey);
       const path = safePath(key);
       if (!path) throw Object.assign(new Error('Bad media name.'), { status: 400 });
       await mkdir(dirname(path), { recursive: true });
@@ -101,7 +103,8 @@ export function createLocalMedia({ dir, signingKey = null, encryptionKey = null,
       const given = Buffer.from(query.sig);
       return expected.length === given.length && timingSafeEqual(expected, given);
     },
-    async read(key) {
+    async read(rawKey) {
+      const key = cleanKey(rawKey);
       const path = safePath(key);
       if (!path) return null;
       let data;

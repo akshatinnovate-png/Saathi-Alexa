@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["core", "broker"]
+exclude = ["core/fuzz"]
 
 [workspace.package]
 edition = "2021"

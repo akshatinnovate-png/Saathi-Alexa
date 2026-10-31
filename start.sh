@@ -20,7 +20,7 @@ if [ "$(node -p 'process.versions.node.split(".")[0]')" -lt 20 ]; then need_node
 if [ ! -f node_modules/.package-lock.json ]; then
   echo
   echo "  Getting Saathi ready. This happens once and takes about a minute..."
-  npm install --no-audit --no-fund
+  npm ci --no-audit --no-fund
 fi
 
 if [ ! -f .env ]; then

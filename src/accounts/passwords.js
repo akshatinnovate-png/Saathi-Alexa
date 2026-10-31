@@ -65,7 +65,9 @@ export function passwordProblem(password, { email = '', name = '' } = {}) {
   const lower = password.toLowerCase();
   if (COMMON.has(lower)) return 'That password is too common. Try a short sentence with a number in it.';
   if (/^(.)\1+$/.test(password.replace(/\d/g, ''))) return 'That password is too easy to guess.';
-  const local = String(email).toLowerCase().split('@')[0];
+  const address = String(email).toLowerCase();
+  if (address.length >= 3 && lower.includes(address)) return "Don't use your email address in your password.";
+  const local = address.split('@')[0];
   if (local.length >= 4 && lower.includes(local)) return "Don't use your email address in your password.";
   const first = String(name).toLowerCase().split(/\s+/)[0];
   if (first.length >= 4 && lower.includes(first)) return "Don't use your name in your password.";

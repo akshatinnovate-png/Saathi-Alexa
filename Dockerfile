@@ -1,4 +1,4 @@
-FROM node:22-slim
+FROM node:22-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da
 LABEL org.opencontainers.image.source="https://github.com/akshatinnovate-png/Saathi-Alexa" org.opencontainers.image.description="Saathi: a companion for elders and the families who love them" org.opencontainers.image.licenses="MIT"
 WORKDIR /app
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=8787 SAATHI_DATA_FILE=/data/saathi.json

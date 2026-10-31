@@ -13,7 +13,7 @@ if not exist "node_modules\.package-lock.json" (
   echo.
   echo  Getting Saathi ready. This happens once and takes about a minute...
   echo.
-  call npm install --no-audit --no-fund
+  call npm ci --no-audit --no-fund
   if errorlevel 1 goto :failed
 )
 

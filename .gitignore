@@ -8,3 +8,7 @@ infra/node_modules/
 *.key
 saathi-recovery-codes.txt
 target/
+core/fuzz/target/
+core/fuzz/corpus/
+core/fuzz/artifacts/
+core/fuzz/coverage/

@@ -11,27 +11,48 @@ jobs:
   core:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@1.97.0
+      - uses: dtolnay/rust-toolchain@f08ac54821369508305fcb9e0121ec6e30ae9ada
         with:
           targets: wasm32-unknown-unknown
           components: clippy
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
       - run: cargo test --locked
       - run: cargo clippy --locked --all-targets -- -D warnings
       - name: The committed WebAssembly core is a reproducible build of this source
         run: npm run check:core
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@2c76c034f9e32a5d6e2c104dc4df23a22476db04
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Property-based fuzzing of parsers, guards and the WebAssembly core
+        run: node --test test/fuzz.test.js
+        env:
+          SAATHI_FUZZ_RUNS: '20000'
+      - name: libFuzzer on the Rust core's input boundary
+        working-directory: core
+        run: |
+          cargo install --locked cargo-fuzz@0.13.2
+          cargo fuzz run ffi -- -max_total_time=120
   kani:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - uses: model-checking/kani-github-action@v1
+      - uses: model-checking/kani-github-action@f838096619a707b0f6b2118cf435eaccfa33e51f
         with:
           working-directory: core
           args: --output-format terse
@@ -42,17 +63,17 @@ jobs:
       matrix:
         spec: [Pairing, Sessions, Escalation, KeyRotation]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
         with:
           distribution: temurin
           java-version: 21
       - name: Fetch TLC
         run: |
           curl -sSfL -o tla2tools.jar https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
-          sha256sum tla2tools.jar
+          echo "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88  tla2tools.jar" | sha256sum -c -
       - name: Model check ${{ matrix.spec }}
         working-directory: formal
         run: java -XX:+UseParallelGC -cp ../tla2tools.jar tlc2.TLC -workers auto -deadlock -cleanup ${{ matrix.spec }}

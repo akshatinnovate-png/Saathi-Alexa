@@ -8,20 +8,22 @@ on:
         description: 'Version to release, for example 1.0.0'
         required: true
 permissions:
-  contents: write
-  packages: write
-  id-token: write
-  attestations: write
+  contents: read
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
     env:
       VERSION: ${{ inputs.version || github.ref_name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
           cache: npm
@@ -57,20 +59,20 @@ jobs:
           echo "name=$image" >> "$GITHUB_OUTPUT"
           echo "digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$image:$PLAIN" | cut -d@ -f2)" >> "$GITHUB_OUTPUT"
       - name: Prove where the source archive came from
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
         with:
           subject-path: |
             saathi-${{ env.PLAIN }}.tar.gz
             saathi-${{ env.PLAIN }}.cdx.json
             saathi-${{ env.PLAIN }}.spdx.json
       - name: Prove where the Docker image came from
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
         with:
           subject-name: ${{ steps.image.outputs.name }}
           subject-digest: ${{ steps.image.outputs.digest }}
           push-to-registry: true
       - name: Attach the SBOM to the Docker image
-        uses: actions/attest-sbom@v2
+        uses: actions/attest-sbom@bd218ad0dbcb3e146bd073d1d9c6d78e08aa8a0b
         with:
           subject-name: ${{ steps.image.outputs.name }}
           subject-digest: ${{ steps.image.outputs.digest }}
