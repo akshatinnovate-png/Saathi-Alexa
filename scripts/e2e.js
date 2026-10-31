@@ -33,10 +33,11 @@ let failures = 0;
 const errors = [];
 let lastStep = 'start';
 let auditing = false;
-const fromAxe = (text) => auditing && (/inline style/.test(text) || text.includes("Refused to connect to 'https://fonts.googleapis.com"));
+const fromAxe = (text) => auditing && /inline style/.test(text);
 const ok = (cond, label) => { lastStep = label; console.log(`${cond ? 'PASS' : 'FAIL'}  ${label}`); if (!cond) failures++; };
 const watch = (page, tag) => {
   page.on('pageerror', (e) => errors.push(`${tag} (after "${lastStep}"): ${e.message}`));
+  page.on('requestfailed', (r) => { if (/\/vendor\/|\.(css|js|woff2?)(\?|$)/.test(r.url())) errors.push(`${tag} (after "${lastStep}"): failed to load ${r.url()}`); });
   page.on('console', (m) => { if (m.type() === 'error' && !fromAxe(m.text()) && !/favicon|Failed to load resource/.test(m.text())) errors.push(`${tag} (after "${lastStep}"): ${m.text().slice(0, 160)}`); });
 };
 async function axe(page, selector, label) {
@@ -67,6 +68,8 @@ try {
 
   await fam.click('#open-security');
   await fam.waitForSelector('#security-body >> text=Add a passkey');
+  const loaded = await fam.evaluate(async () => { await document.fonts.ready; return [...new Set([...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replaceAll('"', '')))]; });
+  ok(loaded.includes('Inter') && loaded.includes('Newsreader Variable'), `fonts load from Saathi itself, not from Google (${loaded.join(', ')})`);
   await fam.click('#security-body >> text=Add a passkey');
   await fam.waitForFunction(() => document.getElementById('toast').textContent.includes('Passkey added'), null, { timeout: 15000 });
   await fam.click('#security-body >> text=Turn on private messages');

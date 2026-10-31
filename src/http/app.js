@@ -436,6 +436,8 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
   for (const lib of ['hashes', 'curves', 'post-quantum']) {
     app.use(`/vendor/noble-${lib}`, express.static(fileURLToPath(new URL(`../../node_modules/@noble/${lib}`, import.meta.url)), { index: false, extensions: false }));
   }
+  app.use('/vendor/fonts', express.static(fileURLToPath(new URL('../../node_modules/@fontsource', import.meta.url)), { index: false, maxAge: '30d' }));
+  app.use('/vendor/fonts-variable', express.static(fileURLToPath(new URL('../../node_modules/@fontsource-variable', import.meta.url)), { index: false, maxAge: '30d' }));
   app.use('/vendor/three', express.static(fileURLToPath(new URL('../../node_modules/three', import.meta.url)), { index: false }));
   app.use(express.static(fileURLToPath(new URL('../../public', import.meta.url))));
 
