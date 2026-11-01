@@ -22,6 +22,8 @@ import { createAuditLog } from './security/audit.js';
 import { createAccountSecurity } from './accounts/security.js';
 import { configurePepper, createBreachCheck } from './accounts/passwords.js';
 import { startupProblems } from './security/startup.js';
+import { installEgressGuard } from './security/egress.js';
+import { createVault as createFamilyVault } from './vault/vault.js';
 
 const checks = startupProblems(config);
 for (const warning of checks.warnings) console.warn(`  Warning: ${warning}`);
@@ -32,6 +34,17 @@ if (checks.errors.length) {
   process.exit(1);
 }
 config.web.exposed = checks.exposed;
+const smtpHost = (() => { try { return config.mail.smtpUrl ? new URL(config.mail.smtpUrl).hostname : null; } catch { return null; } })();
+const warned = new Set();
+const egress = process.env.SAATHI_EGRESS === 'off' ? null : installEgressGuard({
+  extra: [smtpHost, ...(process.env.SAATHI_EGRESS_ALLOW ?? '').split(',').map((h) => h.trim())],
+  onBlock: (host) => {
+    if (warned.has(host)) return;
+    warned.add(host);
+    console.warn(`  Blocked a connection to ${host}. If Saathi really needs it, add it to SAATHI_EGRESS_ALLOW.`);
+  },
+});
+if (!egress) console.warn('  Warning: SAATHI_EGRESS=off, so Saathi may connect anywhere.');
 const llm = createLlm(config.agent, config.region);
 const keyring = config.aws.dynamodb ? null : await openKeyring({
   dataDir: dirname(config.dataFile),
@@ -39,6 +52,9 @@ const keyring = config.aws.dynamodb ? null : await openKeyring({
     console.error(`\n  ${err.message}\n  Saathi stopped so the family's data stays safe. Start it again.\n`);
     process.exit(70);
   },
+}).catch((err) => {
+  console.error(`\n  Saathi could not open its encryption key.\n  ${err.message}\n`);
+  process.exit(78);
 });
 if (keyring?.created) console.log(`\n  Created a new encryption key in ${dirname(config.dataFile)}. Back it up together with the data file, or run "npm run protect-key" to lock it into this computer's security chip.`);
 if (keyring && !process.env.SAATHI_RING_WEBHOOK_SECRET && config.ring.webhookSecret === 'local-ring-simulator-secret' && !config.demo) {
@@ -115,7 +131,8 @@ const allowedHosts = configuredHosts.length || config.auth.publicUrl
   ? [...new Set([...configuredHosts, ...(config.auth.publicUrl ? [new URL(config.auth.publicUrl).hostname, 'localhost', '127.0.0.1'] : [])])]
   : undefined;
 config.web.canonicalLocalhost = true;
-const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit, keyring });
+const familyVault = createFamilyVault({ store: services.store, audit });
+const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit, keyring, vault: familyVault });
 
 doorbell.startAll().catch((err) => console.error('Ring listeners failed to start:', err.message));
 
