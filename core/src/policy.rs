@@ -227,6 +227,7 @@ tools! {
     ConfirmMedicationTaken => "confirm_medication_taken": [Elder],
     DailyCheckIn => "daily_check_in": [Elder],
     AskFamilyForHelp => "ask_family_for_help": [Elder],
+    ReportSuspiciousCall => "report_suspicious_call": [Elder],
     GetFamilyMessages => "get_family_messages": [Elder],
     SendMessageToFamily => "send_message_to_family": [Elder],
     SaveMemoryStory => "save_memory_story": [Elder],

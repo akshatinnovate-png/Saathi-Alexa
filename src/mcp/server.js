@@ -135,6 +135,17 @@ export function buildMcpServer(saathi, { bus, audit = null, householdId = null }
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   }, async ({ reason, urgency, language }) => reply(await saathi.requestHelp({ reason, urgency, language })));
 
+  tool('report_suspicious_call', {
+    title: 'A suspicious call or message',
+    description: 'Use when they mention a call, SMS or WhatsApp asking for an OTP, PIN or bank details, money, a gift card, installing an app or screen sharing, or threatening arrest ("digital arrest", CBI, customs, police) or promising a lottery prize. Tells them calmly not to share or pay anything and alerts the family. Safe to retry.',
+    inputSchema: {
+      what_happened: z.string().min(1).max(600).describe('What the caller said or asked for, in their words'),
+      language: lang,
+    },
+    outputSchema: { say, sayLanguage, alertId: z.string(), kinds: z.array(z.string()), deduplicated: z.boolean() },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+  }, async ({ what_happened, language }) => reply(await saathi.reportSuspiciousCall({ words: what_happened, language })));
+
   tool('get_family_messages', {
     title: 'Messages from family',
     description: 'Reads new messages from their family, translated into their language whatever language they were written in.',
@@ -276,7 +287,7 @@ export function buildMcpServer(saathi, { bus, audit = null, householdId = null }
     title: 'Elder profile and accessibility needs',
     description: 'Name, languages, home, routine, accessibility preferences (pace, hearing, memory support) and privacy choices.',
     mimeType: 'application/json',
-  }, resource('resource:profile', async (uri) => json(uri, await saathi.elder())));
+  }, resource('resource:profile', async (uri) => { const { medical, ...profile } = await saathi.elder(); return json(uri, profile); }));
 
   server.registerResource('care-circle', 'saathi://circle', {
     title: 'Care circle',

@@ -321,4 +321,7 @@ test('neighbours see only calls for help, never health details', async () => {
   const text = JSON.stringify(summary);
   for (const m of family.medications) assert.ok(!text.includes(m.name), `${m.name} stays hidden`);
   assert.equal((await meena.call('/api/care')).status, 403);
+  const neighbourStatus = (await meena.call('/api/status')).json;
+  assert.equal(neighbourStatus.elder.medical, undefined, 'a neighbour does not get the medical details');
+  assert.ok((await owner.call('/api/status')).json.elder.medical?.allergies, 'the family does');
 });

@@ -70,7 +70,7 @@ test('typed outputs: tools advertise outputSchema and return conforming structur
   const client = await connect(ELDER);
   const { tools } = await client.listTools();
   const withSchemas = tools.filter((t) => t.outputSchema).map((t) => t.name).sort();
-  assert.deepEqual(withSchemas, ['ask_family_for_help', 'confirm_medication_taken', 'family_summary', 'get_medication_schedule', 'get_upcoming_appointments', 'what_day_is_it']);
+  assert.deepEqual(withSchemas, ['ask_family_for_help', 'confirm_medication_taken', 'family_summary', 'get_medication_schedule', 'get_upcoming_appointments', 'report_suspicious_call', 'what_day_is_it']);
   const meds = await client.callTool({ name: 'get_medication_schedule', arguments: {} });
   assert.ok(meds.structuredContent.medications.every((m) => ['taken', 'due', 'missed', 'upcoming'].includes(m.status)));
   await client.close();
@@ -243,6 +243,8 @@ test('discreet Alexa: the family can keep medicine purposes, doctors and story t
     const visits = await client.callTool({ name: 'get_upcoming_appointments', arguments: { language: 'en', days: 60 } });
     const doctors = (await saathi.upcomingAppointments({ days: 60 })).appointments.flatMap((a) => [a.with, a.place]).filter(Boolean);
     assert.ok(doctors.every((d) => !JSON.stringify(visits.structuredContent).includes(d)), 'no doctor or clinic reaches Alexa');
+    const profile = JSON.parse((await client.readResource({ uri: 'saathi://elder/profile' })).contents[0].text);
+    assert.equal(profile.medical, undefined, 'medical details never reach Alexa');
     const today = JSON.parse((await client.readResource({ uri: 'saathi://today' })).contents[0].text);
     assert.ok(today.medications.every((m) => !('name' in m) && !('purpose' in m)));
     const stories = await saathi.listStories();

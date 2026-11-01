@@ -1,4 +1,4 @@
-import { assessConcerns } from './safety.js';
+import { assessConcerns, assessScam } from './safety.js';
 import { DEFAULT_HOUSEHOLD, collectionFor } from '../households/scope.js';
 import { languageName, LANGUAGES } from './languages.js';
 import { t, spokenLanguage, partOfDayName, joinNames, localized, localDigits } from './i18n.js';
@@ -204,6 +204,10 @@ export function createSaathi(deps) {
       const alert = (await openHelpAlert()) ?? await raiseAlert({ reason: concerns.urgent.join(', '), words: english.text, severity: 'critical', source: 'check-in' });
       return { ...entry, alertId: alert.id, ...say('checkUrgent') };
     }
+    if (assessScam(text).suspected) {
+      const scam = await reportSuspiciousCall({ words: text, language: lang, english: english.text });
+      return { ...entry, alertId: scam.alertId, scam: true, sayLanguage: scam.sayLanguage, say: scam.say };
+    }
     if (concerns.level === 'gentle' && keepPrivate) {
       return { ...entry, ...say('checkPrivate') };
     }
@@ -219,6 +223,30 @@ export function createSaathi(deps) {
       return { ...entry, ...say(lonely ? 'checkLonely' : 'checkGentle') };
     }
     return { ...entry, ...say('checkFine') };
+  }
+
+  async function reportSuspiciousCall({ words, language, english = null }) {
+    const me = await elder();
+    const { lang } = await voice(language);
+    const text = String(words ?? '').trim().slice(0, 600);
+    const { kinds } = assessScam(text);
+    const englishText = english ?? (lang === 'en' ? text : (await translateTo(text, 'en', lang)).text);
+    const now = clock().getTime();
+    const open = (await store.list('alerts')).find((a) => a.type === 'scam' && !a.acknowledged && now - new Date(a.createdAt).getTime() < 30 * 60 * 1000);
+    let alertId = open?.id;
+    if (!open) {
+      alertId = id('scam');
+      await store.put('alerts', { id: alertId, type: 'scam', severity: 'high', kinds, words: englishText, createdAt: clock().toISOString(), acknowledged: false, summary: `${me.preferredName} may be talking to a scammer.` });
+      await events.publish('ScamSuspected', { alertId, kinds });
+      metrics.emit('ScamSuspected', 1);
+      const p = pronounsOf(me);
+      await notifyCircle({
+        audience: 'family', severity: 'high',
+        subject: `${me.preferredName} may be talking to a scammer`,
+        english: `${me.preferredName} told Saathi: "${englishText}". This sounds like a scam${kinds.length ? ` (${kinds.join(', ')})` : ''}. Saathi has told ${p.object} not to share codes, PINs or bank details, send money or install apps. Please call ${p.object} now, and if money or details were already shared, call the bank and the cyber-crime helpline (1930 in India) straight away.`,
+      });
+    }
+    return { alertId, kinds, deduplicated: Boolean(open), sayLanguage: spokenLanguage(lang), say: t(lang, 'scamWarning') };
   }
 
   async function openHelpAlert(withinMs = 10 * 60 * 1000) {
@@ -775,6 +803,14 @@ export function createSaathi(deps) {
         preferredPace: a.memorySupport || a.hearingLoss ? 'slow' : 'normal', largeText: Boolean(a.lowVision),
       };
     }
+    if (patch.medical && typeof patch.medical === 'object') {
+      const m = patch.medical;
+      const blood = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+      next.medical = {
+        conditions: text(m.conditions, 400), allergies: text(m.allergies, 300), bloodGroup: blood.includes(m.bloodGroup) ? m.bloodGroup : '',
+        doctor: text(m.doctor, 80), doctorPhone: text(m.doctorPhone, 30), familyPhone: text(m.familyPhone, 30), notes: text(m.notes, 400),
+      };
+    }
     if ('shareMoodWords' in patch) next.privacy = { ...me.privacy, shareMoodWords: Boolean(patch.shareMoodWords) };
     if (patch.alexaPrivacy && typeof patch.alexaPrivacy === 'object') {
       const current = { medicinePurposes: true, doctorNames: true, storyText: true, ...(me.alexaPrivacy ?? {}) };
@@ -995,7 +1031,7 @@ export function createSaathi(deps) {
     sweepSupplies, sweepWeeklyLetter, sweepReminders, recordRefill, upcomingAppointments, sweepAppointments, claimEscort, addVoiceNote, weeklyLetters,
     addMember, removeMember, updateProfile, saveMedication, removeMedication, saveAppointment, removeAppointment, saveRoutine, careSetup, subscribeMember, setAvatar, media, householdId: deps.householdId ?? DEFAULT_HOUSEHOLD,
     messages, doorActivity, homeMap, saveRooms, placeItem, removeItem, whereIs,
-    checkIn, requestHelp, acknowledgeAlert,
+    checkIn, requestHelp, acknowledgeAlert, reportSuspiciousCall,
     familyMessages, sendToFamily, messageFromFamily,
     saveStory, listStories, familySummary,
     circle: () => store.list('circle'),

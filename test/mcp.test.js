@@ -74,7 +74,7 @@ test('an MCP client can list and call every kind of capability', async () => {
   const { tools } = await client.listTools();
   assert.deepEqual(tools.map((t) => t.name).sort(), [
     'acknowledge_alert', 'ask_family_for_help', 'claim_appointment_escort', 'confirm_medication_taken', 'daily_check_in', 'family_summary',
-    'get_family_messages', 'get_medication_schedule', 'get_upcoming_appointments', 'list_memory_stories', 'record_refill',
+    'get_family_messages', 'get_medication_schedule', 'get_upcoming_appointments', 'list_memory_stories', 'record_refill', 'report_suspicious_call',
     'save_memory_story', 'send_message_to_family', 'weekly_family_letter', 'what_day_is_it', 'where_is', 'who_is',
   ]);
   assert.equal(tools.find((t) => t.name === 'what_day_is_it').annotations.readOnlyHint, true);

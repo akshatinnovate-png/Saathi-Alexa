@@ -47,3 +47,23 @@ export function assessConcerns(text, sentiment) {
   const level = urgent.length ? 'urgent' : gentle.length ? 'gentle' : 'none';
   return { level, urgent, gentle };
 }
+
+const SCAM = [
+  { kind: 'code', strong: true, patterns: [/\botp\b/i, /\bone[- ]time (?:password|code)\b/i, /\b(?:cvv|upi pin|atm pin|card pin)\b/i, /\bverification code\b/i, /\bcode (?:they|he|she) (?:sent|asked)\b/i, 'ओटीपी', 'पिन नंबर', /\botp (?:maang|mang|vichar)/i] },
+  { kind: 'code', strong: false, patterns: [/\bpin\b/i, /\bpassword\b/i, 'पासवर्ड', 'पिन'] },
+  { kind: 'threat', strong: true, patterns: [/\bdigital(?:ly)? arrest/i, /\b(?:cbi|customs officer|narcotics|cyber ?cell|trai)\b/i, /\bpolice (?:will|are going to|said .*) arrest\b/i, /\barrest (?:me|warrant)\b/i, /\bparcel (?:with|has|had) (?:drugs|passports?)\b/i, 'डिजिटल अरेस्ट', 'गिरफ्तार', 'अटक करणार', /\bgiraftar\b/i] },
+  { kind: 'remote', strong: true, patterns: [/\b(?:anydesk|teamviewer|quick ?support|rustdesk)\b/i, /\bscreen ?shar(?:e|ing)\b/i, /\b(?:install|download) (?:an? |this |that )?app\b/i, 'ऐप डाउनलोड', 'ॲप डाउनलोड'] },
+  { kind: 'prize', strong: true, patterns: [/\blotter(?:y|ies)\b/i, /\b(?:won|win) (?:a |the )?(?:prize|lottery|car|crore|lakh)/i, /\bkbc\b/i, 'लॉटरी', 'इनाम', 'बक्षीस', /\blottery\b/i] },
+  { kind: 'bank', strong: true, patterns: [/\bkyc\b/i, /\b(?:account|card|sim) (?:will be |is |has been |got )?(?:blocked|suspended|closed|deactivated)\b/i, /\bupdate (?:my |your )?(?:pan|aadhaar|kyc)\b/i, 'केवाईसी', 'खाता बंद', 'अकाउंट बंद', 'खाते बंद', /\bkhata band\b/i] },
+  { kind: 'money', strong: false, patterns: [/\bsend (?:him |her |them )?(?:some )?money\b/i, /\btransfer (?:the )?(?:money|amount|rs|rupees)\b/i, /\bgift ?cards?\b/i, /\b(?:upi|paytm|phonepe|google pay|gpay)\b/i, /\bpay (?:a )?(?:fine|fee|penalty)\b/i, 'पैसे भेज', 'पैसे पाठव', 'पैसे ट्रांसफर', /\bpaise (?:bhej|pathav)/i] },
+];
+
+const CALL_CONTEXT = [/\b(?:call(?:ed|ing)?|phone|rang|message|sms|whatsapp|video call|stranger|someone|somebody|a man|a woman|caller)\b/i, 'फोन', 'कॉल', 'मैसेज', 'मेसेज', 'कोई', 'कोणी', 'कोणीतरी', /\b(?:koi|koni)\b/i];
+
+export function assessScam(text) {
+  const value = String(text ?? '');
+  const hits = SCAM.filter((g) => g.patterns.some((p) => (typeof p === 'string' ? value.includes(p) : p.test(value))));
+  const context = CALL_CONTEXT.some((p) => (typeof p === 'string' ? value.includes(p) : p.test(value)));
+  const suspected = hits.some((g) => g.strong) || (context && hits.length > 0);
+  return { suspected, kinds: [...new Set(hits.map((g) => g.kind))] };
+}

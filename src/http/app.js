@@ -15,7 +15,7 @@ import { seedData } from '../domain/seed.js';
 import { DEFAULT_HOUSEHOLD } from '../households/scope.js';
 import { createReplayGuard, verifySignature, normaliseRingEvent, SIGNATURE_HEADER, TIMESTAMP_HEADER } from '../ring/webhook.js';
 
-const PROTECTED_PAGES = ['/family.html', '/alexa.html', '/welcome.html', '/scan.html'];
+const PROTECTED_PAGES = ['/family.html', '/alexa.html', '/welcome.html', '/scan.html', '/medical-id.html'];
 
 export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null }) {
   const { localBus, store } = services;
@@ -263,7 +263,7 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     const withAvatar = async (p) => (p?.avatar ? { ...p, avatarUrl: await (services.media.playbackUrl?.(p.avatar) ?? p.avatar) } : p);
     res.json({
       services: services.describe(), auth: config.auth.mode, brain: simulatorFor ? (await simulatorFor(req.householdId)).brain : 'offline-planner',
-      languages: LANGUAGES, elder: await withAvatar(elder), circle: await Promise.all(circle.map(withAvatar)),
+      languages: LANGUAGES, elder: await withAvatar(req.role === 'neighbour' && elder ? (({ medical, ...rest }) => rest)(elder) : elder), circle: await Promise.all(circle.map(withAvatar)),
       demo: Boolean(config.demo), householdId: req.householdId, me: req.user ?? null, memberId: req.memberId, device: req.device ? { id: req.device.id, label: req.device.label } : null,
     });
   }));

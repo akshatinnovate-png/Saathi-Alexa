@@ -6,6 +6,8 @@ export const CLASS_B = {
   homeItems: ['name', 'note', 'aliases', 'i18n'],
   messages: ['text', 'translations', 'translated'],
   letters: ['text', 'html', 'sections'],
+  alerts: ['words', 'reason'],
+  profile: ['medical'],
 };
 
 const MARK = 'b1.';

@@ -1,0 +1,30 @@
+.mid-body { background: var(--paper, #f3ede1); color: var(--ink, #1f2b24); margin: 0; padding: 24px 16px 48px; }
+.mid-tools { display: flex; gap: 12px; justify-content: space-between; max-width: 820px; margin: 0 auto 20px; flex-wrap: wrap; }
+.mid-card { max-width: 820px; margin: 0 auto; background: #fff; border: 2px solid #1f2b24; border-radius: 16px; padding: 28px; box-sizing: border-box; }
+.mid-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 2px solid #1f2b24; padding-bottom: 14px; margin-bottom: 16px; }
+.mid-head h1 { margin: 4px 0 0; font-size: 2rem; line-height: 1.15; }
+.mid-kicker { margin: 0; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; color: #9b1c1c; font-size: .85rem; }
+.mid-sub { margin: 4px 0 0; color: #3d4a42; }
+.mid-logo { width: 56px; height: 56px; flex: none; }
+.mid-card h2 { font-size: 1.15rem; margin: 22px 0 8px; border-bottom: 1px solid #c9c2b4; padding-bottom: 4px; }
+.mid-grid { display: grid; grid-template-columns: minmax(130px, 200px) 1fr; gap: 6px 16px; margin: 0; }
+.mid-row { display: contents; }
+.mid-row dt { font-weight: 700; }
+.mid-row dd { margin: 0; overflow-wrap: anywhere; }
+.mid-alert dd { color: #9b1c1c; font-weight: 700; }
+.mid-warn { background: #fdf3d7; border: 1px solid #c79a1e; border-radius: 10px; padding: 10px 12px; }
+.mid-meds { width: 100%; border-collapse: collapse; font-size: .95rem; }
+.mid-meds th, .mid-meds td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd6c8; vertical-align: top; }
+.mid-foot { margin: 18px 0 0; font-size: .85rem; color: #3d4a42; }
+.mid-note { max-width: 820px; margin: 16px auto 0; color: #3d4a42; font-size: .95rem; }
+@media (max-width: 560px) {
+  .mid-card { padding: 18px; }
+  .mid-grid { grid-template-columns: 1fr; }
+  .mid-row dd { margin-bottom: 8px; }
+  .mid-meds { font-size: .85rem; }
+}
+@media print {
+  .mid-tools, .mid-note { display: none; }
+  .mid-body { background: #fff; padding: 0; }
+  .mid-card { border-width: 1.5pt; max-width: none; }
+}

@@ -33,6 +33,7 @@ export function seedData(now = new Date()) {
           largeText: true,
         },
         privacy: { shareMoodWords: true },
+        medical: { conditions: 'High blood pressure, type 2 diabetes, early memory loss', allergies: 'Penicillin', bloodGroup: 'B+', doctor: 'Dr. Mehta (family doctor)', doctorPhone: '+91 20 0000 0001', familyPhone: '+91 98000 00000 (Riya)', notes: 'Wears a hearing aid in the left ear' },
         pharmacy: { name: 'Kothrud Medicals', phone: '+91 20 0000 0000', note: 'Delivers within two hours' },
         devices: [{ id: 'front-door', kind: 'ring-video-doorbell', location: 'front door' }],
         routine: [

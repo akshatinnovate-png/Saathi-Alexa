@@ -72,6 +72,7 @@
         <div class="grid">
           <article class="glass span-6" aria-labelledby="meds-h"><div class="card-head"><h3 id="meds-h">Tablets today</h3><button class="text-action" type="button" id="manage-meds">Manage medicines</button></div><div class="list" id="meds"></div></article>
           <article class="glass span-6" aria-labelledby="appts-h"><div class="card-head"><h3 id="appts-h">Doctor visits</h3><button class="text-action" type="button" id="manage-appts">Add a visit</button></div><div class="list" id="appointments"></div></article>
+          <article class="glass span-6" aria-labelledby="mid-h"><div class="card-head"><h3 id="mid-h">Medical ID card</h3><a class="text-action" href="/medical-id.html">Open and print</a></div><p class="muted small">One page for a paramedic or a hospital: allergies, conditions, medicines, who to call and the language they speak. Keep a copy on the fridge and in a handbag.</p></article>
           <article class="glass span-6" aria-labelledby="mood-h"><h3 id="mood-h">How they've been feeling</h3><div class="mood" id="mood"></div></article>
           <article class="glass span-12" aria-labelledby="routine-h"><div class="card-head"><h3 id="routine-h">Daily routine</h3><button class="text-action" type="button" id="manage-routine">Edit routine</button></div><p class="muted small" id="routine-note">Saathi uses this to answer "what should I do now?". Tablets are added automatically.</p><ol class="routine-list" id="routine"></ol></article>
           <article class="glass span-6" aria-labelledby="door-h"><h3 id="door-h">Front door</h3><div class="list" id="door"></div></article>
@@ -217,6 +218,16 @@
         <label class="inline-check"><input type="checkbox" name="alexaDoctorNames"> Doctor names and clinic addresses</label>
         <label class="inline-check"><input type="checkbox" name="alexaStoryText"> The words of saved stories</label>
         <p class="muted">When off, Alexa says only "your 8:00 tablet" or "a doctor visit on Tuesday". Every time Alexa reads health details, it is written to the history in Security.</p>
+      </fieldset>
+      <fieldset class="checks-row">
+        <legend>For an emergency (on the Medical ID card)</legend>
+        <label>Allergies<input name="medAllergies" autocomplete="off" maxlength="300" placeholder="For example: penicillin, peanuts"></label>
+        <label>Conditions<input name="medConditions" autocomplete="off" maxlength="400" placeholder="For example: high blood pressure, diabetes"></label>
+        <label>Blood group<select name="medBlood"><option value="">Not known</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></label>
+        <label>Doctor<input name="medDoctor" autocomplete="off" maxlength="80"></label>
+        <label>Doctor's phone<input name="medDoctorPhone" inputmode="tel" autocomplete="off" maxlength="30"></label>
+        <label>Family phone to call first<input name="medFamilyPhone" inputmode="tel" autocomplete="off" maxlength="30"></label>
+        <label>Other notes<input name="medNotes" autocomplete="off" maxlength="400" placeholder="For example: pacemaker, hearing aid in left ear"></label>
       </fieldset>
       <p class="form-error" id="settings-error" role="alert" hidden></p>
       <div class="sheet-actions">

@@ -46,6 +46,8 @@ const scenarios = [
   { name: 'Family Circle app', path: '/family.html' },
   { name: 'Family Circle app, high contrast', path: '/family.html', contrast: true },
   { name: 'Family Circle app, phone width', path: '/family.html', width: 390 },
+  { name: 'Medical ID card', path: '/medical-id.html', wait: '.mid-head' },
+  { name: 'Medical ID card, phone width', path: '/medical-id.html', width: 390, wait: '.mid-head' },
   { name: 'Family assistant', path: '/family.html#assistant', wait: '.assistant .a-tile' },
   { name: 'House map, 3D', path: '/family.html#home', wait: '.h3-rooms li', settle: 2500 },
   { name: 'House map, 2D plan', path: '/family.html#home', wait: '.h3-rooms li', click: '.h3-seg button:last-child' },

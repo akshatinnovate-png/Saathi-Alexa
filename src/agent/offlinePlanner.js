@@ -1,10 +1,11 @@
-import { assessConcerns } from '../domain/safety.js';
+import { assessConcerns, assessScam } from '../domain/safety.js';
 
 const RULES = [
   { tool: 'ask_family_for_help', test: { test: (t) => /\bhelp\b|मदद|मदत|बचाओ|madad|madat/i.test(t) || assessConcerns(t).level === 'urgent' }, args: (t) => {
     const urgent = assessConcerns(t).urgent;
     return { reason: t, urgency: urgent.some((k) => ['chest-pain', 'breathing', 'bleeding'].includes(k)) ? 'critical' : 'high' };
   } },
+  { tool: 'report_suspicious_call', test: { test: (t) => assessScam(t).suspected }, args: (t) => ({ what_happened: t }) },
   { tool: 'where_is', test: /where (?:is|are) my|where did i (?:put|keep)|कहाँ (?:है|रखा|रखी)|कुठे (?:आहे|ठेवल)|kahan hai|kuthe aahe/i, args: (t) => ({ item: t }) },
   { tool: 'get_upcoming_appointments', test: /doctor|appointment|clinic|check-?up|डॉक्टर|डॉक्टरकडे|अपॉइंटमेंट|दवाखान|हॉस्पिटल|अस्पताल/i, args: () => ({}) },
   { tool: 'confirm_medication_taken', test: /(took|taken|had) (my )?(tablet|pill|medicine)|गोली (ले|खा)ली|गोळी घेतली|दवा ले ली/i, args: () => ({}) },

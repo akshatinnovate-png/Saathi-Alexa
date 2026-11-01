@@ -46,6 +46,7 @@ const STAGES = [['family-notified', 'Family alerted'], ['neighbour-notified', 'N
 function renderAlerts(alerts) {
   const open = alerts.filter((a) => a.type === 'help' && (!a.acknowledged || Date.now() - new Date(a.acknowledgedAt) < 10 * 60e3));
   const nudges = alerts.filter((a) => ['dose-missed', 'quiet-day', 'refill', 'appointment-escort'].includes(a.type) && !a.acknowledged);
+  const scams = alerts.filter((a) => a.type === 'scam' && !a.acknowledged);
   const NUDGE = {
     'dose-missed': ['💊', `I'll remind ${pr.object}`, (a) => ack(a.id)],
     'quiet-day': ['🌤', `I'll call ${pr.object}`, (a) => ack(a.id)],
@@ -63,13 +64,18 @@ function renderAlerts(alerts) {
           ...STAGES.map(([, label], i) => el('li', { class: `step${a.acknowledged ? (i <= Math.max(idx, 0) ? ' done' : '') : i < idx ? ' done' : i === idx ? ' active' : ''}` }, label))),
         a.acknowledged ? null : el('button', { class: 'btn-danger', type: 'button', onclick: () => ack(a.id) }, `I'm on it - I'll call ${pr.object} now`));
     }),
+    ...scams.map((a) => el('div', { class: 'alert scam', role: 'alert' },
+      el('h3', {}, `⚠️ ${elderName} may be talking to a scammer`),
+      el('div', { class: 'muted' }, `“${a.words}” · ${timeOf(a.createdAt)}`),
+      el('p', {}, `Saathi told ${pr.object} not to share codes, PINs or bank details, send money or install apps. Call ${pr.object} now. If anything was already shared, call the bank to freeze the account and the cyber-crime helpline (1930 in India, or cybercrime.gov.in).`),
+      el('button', { class: 'btn-danger', type: 'button', onclick: () => ack(a.id) }, `I've called ${pr.object}`))),
     ...nudges.map((a) => {
       const [emoji, label, act] = NUDGE[a.type];
       return el('div', { class: 'nudge' }, el('span', { 'aria-hidden': 'true' }, emoji), el('span', {}, a.summary), el('button', { class: 'pill-action', type: 'button', onclick: () => act(a) }, label));
     }),
   );
   const badge = $('alert-badge');
-  badge.hidden = !(open.some((a) => !a.acknowledged) || nudges.length);
+  badge.hidden = !(open.some((a) => !a.acknowledged) || nudges.length || scams.length);
 }
 
 async function ack(id) {
@@ -474,6 +480,13 @@ async function setupSettings() {
     form.hearingLoss.checked = e.accessibility?.hearing === 'mild-loss';
     form.lowVision.checked = e.accessibility?.vision === 'low-vision';
     form.shareMoodWords.checked = e.privacy?.shareMoodWords !== false;
+    form.medAllergies.value = e.medical?.allergies ?? '';
+    form.medConditions.value = e.medical?.conditions ?? '';
+    form.medBlood.value = e.medical?.bloodGroup ?? '';
+    form.medDoctor.value = e.medical?.doctor ?? '';
+    form.medDoctorPhone.value = e.medical?.doctorPhone ?? '';
+    form.medFamilyPhone.value = e.medical?.familyPhone ?? '';
+    form.medNotes.value = e.medical?.notes ?? '';
     form.alexaMedicinePurposes.checked = e.alexaPrivacy?.medicinePurposes !== false;
     form.alexaDoctorNames.checked = e.alexaPrivacy?.doctorNames !== false;
     form.alexaStoryText.checked = e.alexaPrivacy?.storyText !== false;
@@ -537,6 +550,7 @@ async function setupSettings() {
         pharmacy: { name: form.pharmacyName.value, phone: form.pharmacyPhone.value },
         accessibility: { memorySupport: form.memorySupport.checked, hearingLoss: form.hearingLoss.checked, lowVision: form.lowVision.checked },
         shareMoodWords: form.shareMoodWords.checked,
+        medical: { allergies: form.medAllergies.value, conditions: form.medConditions.value, bloodGroup: form.medBlood.value, doctor: form.medDoctor.value, doctorPhone: form.medDoctorPhone.value, familyPhone: form.medFamilyPhone.value, notes: form.medNotes.value },
         alexaPrivacy: { medicinePurposes: form.alexaMedicinePurposes.checked, doctorNames: form.alexaDoctorNames.checked, storyText: form.alexaStoryText.checked },
       }) });
       const json = await res.json().catch(() => ({}));
