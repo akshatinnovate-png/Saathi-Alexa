@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Security
+- `npm run attack`: 47 automated attacks against a running install, run on every push alongside Semgrep and an OWASP ZAP scan.
+- Fixed: AES-GCM now refuses authentication tags shorter than 16 bytes.
+- Fixed: the sign-in page no longer follows a `next` link to another site.
+- docs/SELF_AUDIT.md records what we found and fixed; docs/PENTEST.md is the brief for outside testers.
+
 ## [1.1.0] - 2026-11-01
 
 Saathi now installs on Windows like any other program, keeps the family's keys in the computer's security chip, and encrypts private messages end to end.

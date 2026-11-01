@@ -41,7 +41,7 @@ function encrypt(key, plaintext, aad) {
 }
 
 function decrypt(key, { iv, tag, body }, aad) {
-  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  const decipher = createDecipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
   decipher.setAAD(Buffer.from(aad));
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(body), decipher.final()]);

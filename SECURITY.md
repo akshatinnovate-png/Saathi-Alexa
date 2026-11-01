@@ -58,6 +58,7 @@ A summary. The full reasoning, attacker by attacker, is in [docs/THREAT_MODEL.md
 | **Webhooks** | HMAC-signed, a 5-minute timestamp window and a replay cache, so a captured doorbell event cannot be sent again |
 | **Start-up checks** | Saathi refuses to start in unsafe configurations (for example, no login while reachable from the network) and warns about plain `http` public addresses |
 | **Fuzzing** | Property-based fuzzing (fast-check) of the JSON parser, route guard, cookies, sessions, webhooks, two-step codes, media paths, the icon filter and the WebAssembly core on every push, plus libFuzzer on the Rust core. It found and fixed an `<svg/onload>` filter bypass, a password equal to the email address being accepted, and an unnormalised media link |
+| **Attack testing** | `npm run attack` runs 47 attacks (cross-household access, CSRF, Host header, roles, sessions, path traversal, forged webhooks, brute force) against a public-mode install on every push, with Semgrep and an OWASP ZAP scan. Findings and fixes are in [docs/SELF_AUDIT.md](docs/SELF_AUDIT.md); outside testers start from [docs/PENTEST.md](docs/PENTEST.md) |
 | **Supply chain** | Every GitHub Action pinned to a commit SHA, the Docker base image pinned by digest, write permissions only on the release job, lockfile-only installs with install scripts disabled, `npm audit` and registry signature checks on every push, CodeQL, OpenSSF Scorecard, Dependabot, a CycloneDX and SPDX SBOM and signed build provenance on every release |
 
 ## Verifying a release

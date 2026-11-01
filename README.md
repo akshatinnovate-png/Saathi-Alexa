@@ -11,6 +11,7 @@ Kamala is 78. Everyone calls her **Aaji**. She lives alone in Pune, speaks Marat
   <br>
   <a href="https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/ci.yml"><img src="https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
   <a href="https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/formal.yml"><img src="https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/formal.yml/badge.svg?branch=main" alt="Proofs"></a>
+  <a href="https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/attack.yml"><img src="https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/attack.yml/badge.svg?branch=main" alt="Attack suite"></a>
   <a href="https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/codeql.yml"><img src="https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/codeql.yml/badge.svg?branch=main" alt="CodeQL"></a>
   <br>
   <a href="https://github.com/akshatinnovate-png/Saathi-Alexa/releases/latest"><img src="https://img.shields.io/github/v/release/akshatinnovate-png/Saathi-Alexa?label=release" alt="Latest release"></a>
@@ -363,6 +364,7 @@ Saathi is built for people scammers like to target, so it is deliberately over-e
 
 - **Everything on disk is encrypted.** The data file and every voice note and photo are sealed with AES-256-GCM. Keys come from one master key through HKDF, a different key for every purpose.
 - **Private messages the server cannot read.** Voice notes, photos and private messages are encrypted on your family's devices before they leave them (post-quantum hybrid keys). A new phone or Aaji's screen joins only when both screens show the same three pictures, and a fingerprint or face can lock them on each device.
+- **Attacked on every push.** `npm run attack` throws 47 attacks at a public install (another family trying to read yours, forged requests, brute force, path tricks), alongside Semgrep and OWASP ZAP. What we found and fixed is in the [self-audit](docs/SELF_AUDIT.md); friends who want to try harder start from the [pen-test brief](docs/PENTEST.md).
 - **The key lives outside the web server.** A small Rust key broker holds it and can lock it into your computer's TPM chip (`npm run protect-key`), so a copied disk is useless anywhere else.
 - **Saathi only talks to the services it needs.** Every other outbound connection is refused.
 - **Passwords are hard to steal and hard to use.** scrypt plus a secret pepper, checked against breached passwords without revealing them, progressive lockout, equal timing for unknown emails.

@@ -30,7 +30,8 @@ export function setEnv(text, key, value) {
 
 export function funnelAddress(status) {
   const name = status?.Self?.DNSName?.replace(/\.$/, '');
-  if (!name || !/^[a-z0-9-]+(\.[a-z0-9-]+)*\.ts\.net$/i.test(name)) return null;
+  const labels = typeof name === 'string' ? name.split('.') : [];
+  if (labels.length < 3 || labels.length > 6 || labels.at(-1).toLowerCase() !== 'net' || labels.at(-2).toLowerCase() !== 'ts' || !labels.every((l) => /^[a-z0-9-]{1,63}$/i.test(l))) return null;
   return `https://${name.toLowerCase()}`;
 }
 

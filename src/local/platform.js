@@ -68,7 +68,7 @@ export function createLocalMedia({ dir, signingKey = null, encryptionKey = null,
   const open = keyring
     ? (parts, aad) => keyring.open('media', parts, aad)
     : async ({ iv, tag, body }, aad) => {
-      const decipher = createDecipheriv('aes-256-gcm', encryptionKey, iv);
+      const decipher = createDecipheriv('aes-256-gcm', encryptionKey, iv, { authTagLength: 16 });
       decipher.setAAD(Buffer.from(aad));
       decipher.setAuthTag(tag);
       return Buffer.concat([decipher.update(body), decipher.final()]);

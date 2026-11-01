@@ -1,6 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
-const next = params.get('next');
+const asked = params.get('next');
+const next = typeof asked === 'string' && /^\/(?!\/|\\)[\w\-./?=&#%]*$/.test(asked) ? asked : null;
 let mode = params.get('step') === 'code' ? 'code' : location.hash === '#signup' ? 'signup' : 'login';
 let providers = { cognito: false, demo: false, social: [] };
 

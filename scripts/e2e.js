@@ -66,6 +66,15 @@ try {
   await cdp.send('WebAuthn.addVirtualAuthenticator', { options: { protocol: 'ctap2', ctap2Version: 'ctap2_1', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, hasPrf: true, automaticPresenceSimulation: true } });
   await signIn(fam, 'riya@saathi.demo');
 
+  for (const evil of ['https://evil.example/', '//evil.example/', '/\\evil.example/']) {
+    await fam.goto(`${B}/login.html?next=${encodeURIComponent(evil)}`);
+    await fam.waitForURL((u) => !u.pathname.endsWith('/login.html'), { timeout: 15000 }).catch(() => {});
+    await fam.waitForTimeout(300);
+    const landed = new URL(fam.url());
+    ok(landed.host === new URL(B).host && landed.pathname === '/family.html', `a signed-in visit to login.html?next=${evil} stays on Saathi (${landed.href})`);
+  }
+  await fam.goto(`${B}/family.html`);
+  await fam.waitForTimeout(1200);
   await fam.click('#open-security');
   await fam.waitForSelector('#security-body >> text=Add a passkey');
   const loaded = await fam.evaluate(async () => { await document.fonts.ready; return [...new Set([...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replaceAll('"', '')))]; });

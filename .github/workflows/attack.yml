@@ -1,0 +1,91 @@
+name: Attack
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  attack-suite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Attack a fresh public-mode install
+        run: node scripts/attack.js --report attack-report.md
+      - if: always()
+        run: cat attack-report.md >> "$GITHUB_STEP_SUMMARY"
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: attack-report
+          path: attack-report.md
+          retention-days: 30
+  semgrep:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    env:
+      SEMGREP_RULES_SHA: 16b9e6d45f10649f6a531ec4838ed9924372c3bc
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - run: pip install semgrep==1.183.0
+      - name: Rules at a pinned commit
+        run: |
+          git init -q rules && cd rules
+          git fetch -q --depth 1 https://github.com/semgrep/semgrep-rules "$SEMGREP_RULES_SHA"
+          git checkout -q FETCH_HEAD
+      - name: Scan
+        run: |
+          semgrep scan --metrics=off --disable-version-check \
+            --config rules/javascript --config rules/generic/secrets --config rules/rust --config rules/yaml/github-actions --config rules/dockerfile \
+            --exclude rules --exclude node_modules --exclude target --exclude build --exclude core/fuzz --exclude infra/cdk.out \
+            --exclude-rule rules.javascript.browser.security.insecure-document-method \
+            --exclude-rule rules.javascript.browser.security.insecure-innerhtml \
+            --sarif -o semgrep.sarif --severity ERROR --error
+      - if: always()
+        uses: github/codeql-action/upload-sarif@4bfa242aa49c5f7c6770b98670d354a7dfac05f8
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+  zap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Start a demo install
+        run: |
+          mkdir -p "$RUNNER_TEMP/zapdata"
+          SAATHI_DEMO=true SAATHI_BREACH_CHECK=off SAATHI_METRICS=off PORT=8790 SAATHI_DATA_FILE="$RUNNER_TEMP/zapdata/saathi.json" nohup node src/index.js > "$RUNNER_TEMP/saathi.log" 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:8790/healthz && break; sleep 1; done
+      - name: OWASP ZAP baseline scan
+        run: |
+          mkdir -p zap && chmod 777 zap
+          docker run --rm --network host -v "$PWD/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy@sha256:030d3df57735dacbb83464854758e674dd9ad01d79d12a129a8e58b1fd384238 \
+            zap-baseline.py -t http://localhost:8790/ -I -r zap.html -w zap.md -j
+      - if: always()
+        run: cat zap/zap.md >> "$GITHUB_STEP_SUMMARY" || true
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: zap-report
+          path: zap/
+          retention-days: 30

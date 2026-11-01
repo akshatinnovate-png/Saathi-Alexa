@@ -44,7 +44,7 @@ function inProcess(master, source) {
       return { iv, tag: cipher.getAuthTag(), body };
     },
     async open(purpose, { iv, tag, body }, aad) {
-      const decipher = createDecipheriv('aes-256-gcm', key(purpose), iv);
+      const decipher = createDecipheriv('aes-256-gcm', key(purpose), iv, { authTagLength: 16 });
       decipher.setAAD(Buffer.from(aad));
       decipher.setAuthTag(tag);
       return Buffer.concat([decipher.update(body), decipher.final()]);

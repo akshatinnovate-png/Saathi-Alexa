@@ -51,3 +51,12 @@ test('records written before sealing are sealed on the next start, and plain fie
   assert.equal((await sealed.get('medications', 'old')).supply.left, 9);
   assert.equal(await sealed.migrate(), 0);
 });
+
+test('a shortened authentication tag is refused, so a truncated record cannot be forged more cheaply', async () => {
+  const ring = keyringFromMaster(Buffer.alloc(32, 9));
+  const sealed = await ring.seal('class-b', Buffer.from('Amlodipine for blood pressure'), 'class-b|h|medications|m1');
+  assert.equal((await ring.open('class-b', sealed, 'class-b|h|medications|m1')).toString(), 'Amlodipine for blood pressure');
+  for (const length of [4, 8, 12, 15]) {
+    await assert.rejects(ring.open('class-b', { ...sealed, tag: sealed.tag.subarray(0, length) }, 'class-b|h|medications|m1'));
+  }
+});
