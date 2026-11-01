@@ -59,6 +59,7 @@ Saathi looks after an elder living with memory loss, disability or a language ga
 |---|---|
 | Read traffic | HSTS with preload and `upgrade-insecure-requests` whenever Saathi runs on https; start-up warns when the public address is plain http |
 | Steal a cookie | `HttpOnly`, `Secure`, and the `__Host-` prefix so a sibling subdomain cannot set or overwrite it |
+| Make Saathi fetch internal addresses (server-side request forgery), such as the cloud metadata service | Outbound connections are limited to the services Saathi uses; IP literals, private ranges and host names that resolve to private addresses are refused |
 | Reach the MCP server directly | When Saathi listens beyond `localhost` or has a public address, MCP refuses callers without a household key or OAuth token |
 | Reach an install that has login turned off | Saathi refuses to start with `SAATHI_REQUIRE_LOGIN=false` unless it listens on this computer alone |
 
@@ -79,7 +80,8 @@ Saathi looks after an elder living with memory loss, disability or a language ga
 | Read voice notes and photos | Each file is encrypted with AES-256-GCM, the file name bound as associated data |
 | Swap one household's file for another's | Media names are prefixed by household and authenticated; a moved file fails to decrypt |
 | Read Gmail and Ring tokens | Sealed separately with their own derived key |
-| Steal the key along with the data | Out of scope by design: the key must live somewhere the server can read. On AWS, data lives in DynamoDB with KMS encryption and IAM, not a key file |
+| Steal the key along with the data | After `npm run protect-key` there is no key file: the key is sealed in the TPM chip and only released to that computer, booted the same way (PCR 7 on Linux). A copied disk or backup cannot be opened elsewhere without the paper recovery key |
+| Read the key out of the running server | The web server never holds it. The key broker is a separate process with core dumps and debugger attachment blocked, the key locked in memory and a system-call allow-list. Root on the running machine can still read it; only an enclave would stop that |
 
 ### 8. Links that escape
 
@@ -126,11 +128,22 @@ Saathi looks after an elder living with memory loss, disability or a language ga
 | Run the demo on a network | Warns that the demo password is public |
 | Leak a stack trace | Errors return a generic message with an ID; details only go to the server log |
 
+### 13. A compromised or malicious server
+
+| Attack | Control |
+|---|---|
+| Read voice notes, photos and private messages | They are encrypted on family devices with the family key, which the server never holds |
+| Give the family key to a device the server controls | Devices join with commit-then-reveal and three matching pictures (15 bits, one guess per visible attempt). Rotation only wraps the key for devices that carry a certificate made with the family key |
+| Keep a removed relative able to read new messages | Removal rotates the family key; the removed person's devices get nothing new (checked by the KeyRotation model) |
+| Swap one private item for another | Each item is bound to its kind, its id and the household as associated data |
+
+What the server still sees: who sent a message, when, its size, and everything Alexa+ needs to answer (medicines, visits, stories, the house map). Those are protected by the key broker in step 4, not by end-to-end encryption.
+
 ## Not yet covered
 
 We would rather say so than pretend.
 
-- **A fully compromised server.** Anyone with root on the machine running Saathi can read the key. End-to-end encryption between family members would fix this but breaks server-side translation and alerts.
+- **A fully compromised server** can still read what is not end-to-end encrypted: medicines, visits, stories and the house map, because Alexa+ and the server-side assistant need them. Voice notes, photos and private messages stay unreadable.
 - **A compromised Google account.** If someone controls a family member's Google account, "Sign in with Google" lets them in. Two-step in Saathi still applies on top.
 - **Voice-clone scams over the phone.** Saathi cannot stop a scammer who calls the elder directly. It does keep family voice notes encrypted and behind short-lived links, so they are harder to harvest.
 - **Denial of service at scale.** Rate limits stop abuse from one place, not a botnet. Put Saathi behind a CDN or AWS WAF for that (the AWS deployment uses API Gateway throttling).

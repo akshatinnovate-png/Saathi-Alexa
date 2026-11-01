@@ -1,3 +1,11 @@
+FROM rust:1.97.0-slim-bookworm@sha256:6d220bf85c74e842a79da63997af8d2e74455c0b8847d8bb3a5888572334991d AS broker
+WORKDIR /src
+ENV RUSTUP_TOOLCHAIN=1.97.0 CARGO_INCREMENTAL=0
+COPY Cargo.toml Cargo.lock ./
+COPY core ./core
+COPY broker ./broker
+RUN cargo build --locked --release -p saathi-broker
+
 FROM node:22-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da
 LABEL org.opencontainers.image.source="https://github.com/akshatinnovate-png/Saathi-Alexa" org.opencontainers.image.description="Saathi: a companion for elders and the families who love them" org.opencontainers.image.licenses="MIT"
 WORKDIR /app
@@ -7,6 +15,7 @@ RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 COPY src ./src
 COPY public ./public
 COPY scripts ./scripts
+COPY --from=broker /src/target/release/saathi-broker ./bin/saathi-broker
 RUN mkdir -p /data && chown node:node /data
 VOLUME /data
 EXPOSE 8787

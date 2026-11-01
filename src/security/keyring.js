@@ -64,6 +64,7 @@ function viaBroker(bin, dir, { onExit, env }) {
     let ready = null;
     let nextId = 1;
     let closing = false;
+    let exited = false;
     const pending = new Map();
     const fail = (err) => {
       for (const { reject: r } of pending.values()) r(err);
@@ -72,8 +73,10 @@ function viaBroker(bin, dir, { onExit, env }) {
     let stderr = '';
     child.stderr.on('data', (d) => { stderr = (stderr + d).slice(-2000); });
     child.on('error', (err) => { if (!ready) reject(err); fail(err); });
-    child.on('exit', (code) => {
-      const err = new Error(`The Saathi key broker stopped (code ${code}). ${stderr.trim()}`.trim());
+    child.stdin.on('error', () => {});
+    child.on('exit', (code, signal) => {
+      exited = true;
+      const err = new Error(`The Saathi key broker stopped (${signal ?? `code ${code}`}). ${stderr.trim()}`.trim());
       if (!ready) reject(err);
       fail(err);
       if (ready && !closing) onExit?.(err);
@@ -99,7 +102,7 @@ function viaBroker(bin, dir, { onExit, env }) {
       }
     });
     const call = (request) => new Promise((res, rej) => {
-      if (child.exitCode !== null) return rej(new Error('The Saathi key broker is not running.'));
+      if (exited) return rej(new Error('The Saathi key broker is not running.'));
       const id = nextId++;
       pending.set(id, { resolve: res, reject: rej });
       const body = Buffer.from(JSON.stringify({ id, ...request }));
@@ -110,6 +113,7 @@ function viaBroker(bin, dir, { onExit, env }) {
     const b64 = (b) => Buffer.from(b).toString('base64');
     const api = {
       mode: 'broker',
+      get pid() { return child.pid; },
       get keySource() { return ready.keySource; },
       get fingerprint() { return ready.fingerprint; },
       get hardening() { return ready.hardening; },
@@ -132,7 +136,10 @@ function viaBroker(bin, dir, { onExit, env }) {
 export async function openKeyring({ dataDir, env = process.env, broker = findBroker(env), onBrokerExit } = {}) {
   const sealedFile = protectedKeyIn(dataDir);
   if (broker && env.SAATHI_KEYRING !== 'in-process') {
-    return viaBroker(broker, dataDir, { onExit: onBrokerExit, env });
+    const existed = Boolean(sealedFile || env.SAATHI_MASTER_KEY || existsSync(join(dataDir, 'saathi.key')));
+    const ring = await viaBroker(broker, dataDir, { onExit: onBrokerExit, env });
+    ring.created = !existed;
+    return ring;
   }
   if (sealedFile) {
     throw new Error(`The encryption key is locked inside this computer's security chip (${sealedFile}), and the Saathi key broker was not found. Reinstall Saathi, or set SAATHI_BROKER to the saathi-broker program.`);
