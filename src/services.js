@@ -10,6 +10,7 @@ import { createLocalEscalation } from './escalation/localEscalation.js';
 import { createMetrics } from './aws/metrics.js';
 import { createSaathi } from './domain/saathi.js';
 import { DEFAULT_HOUSEHOLD, isHouseholdId, scopeStore, scopeEvents, scopeNotifier } from './households/scope.js';
+import { sealRecords } from './security/sealed.js';
 
 export function createServices(config, overrides = {}) {
   const { aws, resources, region } = config;
@@ -60,14 +61,15 @@ export function createServices(config, overrides = {}) {
     });
   }
 
-  const saathi = createSaathi({ store, translator, sentiment, speech, events, notifier, media, metrics, config, clock: overrides.clock, householdId: DEFAULT_HOUSEHOLD });
+  const householdStore = (householdId) => sealRecords(scopeStore(store, householdId), { keyring: overrides.keyring ?? null, householdId });
+  const saathi = createSaathi({ store: householdStore(DEFAULT_HOUSEHOLD), translator, sentiment, speech, events, notifier, media, metrics, config, clock: overrides.clock, householdId: DEFAULT_HOUSEHOLD });
   const households = new Map([[DEFAULT_HOUSEHOLD, saathi]]);
 
   function forHousehold(householdId = DEFAULT_HOUSEHOLD) {
     if (!isHouseholdId(householdId)) throw new Error(`Invalid household ${householdId}`);
     if (!households.has(householdId)) {
       households.set(householdId, createSaathi({
-        store: scopeStore(store, householdId),
+        store: householdStore(householdId),
         translator, sentiment, speech, metrics, config, clock: overrides.clock, householdId,
         media: scopeMedia(media, householdId),
         events: scopeEvents(events, householdId),
@@ -84,12 +86,18 @@ export function createServices(config, overrides = {}) {
     }
   }
 
+  async function sealHouseholds() {
+    let sealed = 0;
+    for (const householdId of await householdIds()) sealed += (await householdStore(householdId).migrate?.()) ?? 0;
+    return sealed;
+  }
+
   async function householdIds() {
     return [DEFAULT_HOUSEHOLD, ...(await store.list('households')).map((h) => h.id).filter((id) => id !== DEFAULT_HOUSEHOLD)];
   }
 
   return {
-    saathi, forHousehold, householdIds, resetDemo, attachMail, store, translator, sentiment, speech, events, localBus, notifier, media, escalation, metrics,
+    saathi, forHousehold, householdIds, sealHouseholds, resetDemo, attachMail, store, translator, sentiment, speech, events, localBus, notifier, media, escalation, metrics,
     describe: () => ({
       store: store.kind, translate: translator.kind, sentiment: sentiment.kind, speech: speech.kind,
       events: events.kind, notifications: notifier.kind, media: media.kind, escalation: escalation.kind,

@@ -87,7 +87,7 @@ export function createHouseholdVerifier({ base, accounts }) {
       if (device) {
         return {
           token, clientId: `device:${device.label}`, scopes: device.scopes,
-          expiresAt: Math.floor(Date.now() / 1000) + 3600, extra: { householdId: device.householdId },
+          expiresAt: Math.floor(Date.now() / 1000) + 3600, extra: { householdId: device.householdId, internal: Boolean(device.internal), label: device.label },
         };
       }
       if (!base) throw new InvalidTokenError('Unknown token');

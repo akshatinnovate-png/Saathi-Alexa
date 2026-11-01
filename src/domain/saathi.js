@@ -126,22 +126,27 @@ export function createSaathi(deps) {
     })).sort((a, b) => a.time.localeCompare(b.time));
   }
 
-  async function medicationSchedule({ language } = {}) {
+  const discreetMed = ({ i18n, name, purpose, phrase, short, ...m }) => m;
+
+  async function medicationSchedule({ language, discreet = false } = {}) {
     const { lang } = await voice(language);
     const meds = await medicationStatus();
     const due = meds.filter((m) => m.status === 'due' || m.status === 'missed');
-    const upcoming = meds.filter((m) => m.status === 'upcoming').map((m) => ({ short: localized(m, 'short', lang), time: m.time }));
+    const label = (m, field) => (discreet ? t(lang, 'tabletAt', { time: m.time }) : localized(m, field, lang));
+    const upcoming = meds.filter((m) => m.status === 'upcoming').map((m) => ({ short: label(m, 'short'), time: m.time }));
     return {
-      medications: meds.map(({ i18n, ...m }) => m),
+      medications: meds.map(discreet ? discreetMed : ({ i18n, ...m }) => m),
+      discreet,
       sayLanguage: lang,
       say: due.length
-        ? t(lang, 'medsDue', { list: due.map((m) => localized(m, 'phrase', lang)).join(t(lang, 'medsDueJoin')), withFood: due.some((m) => m.withFood) })
+        ? t(lang, 'medsDue', { list: due.map((m) => label(m, 'phrase')).join(t(lang, 'medsDueJoin')), withFood: due.some((m) => m.withFood) })
         : t(lang, 'medsCaughtUp', { upcoming }),
     };
   }
 
-  async function confirmMedication(medicationQuery, { language } = {}) {
+  async function confirmMedication(medicationQuery, { language, discreet = false } = {}) {
     const { lang } = await voice(language);
+    const shortOf = (m) => (discreet ? t(lang, 'tabletAt', { time: m.time }) : localized(m, 'short', lang));
     const meds = await medicationStatus();
     const q = (medicationQuery ?? '').toLowerCase();
     const names = (m) => [m.id, m.name.toLowerCase(), m.purpose, ...Object.values(m.i18n ?? {}).flatMap((v) => [v.short, v.phrase])].filter(Boolean);
@@ -151,7 +156,7 @@ export function createSaathi(deps) {
     const med = open.find((m) => m.status === 'due') ?? [...open].reverse().find((m) => m.status === 'missed')
       ?? (named.length ? open.find((m) => m.status === 'upcoming') : null) ?? (named.length ? named[named.length - 1] : null);
     if (!med) return { recorded: false, sayLanguage: lang, say: t(lang, 'medNotFound') };
-    if (med.status === 'taken') return { recorded: false, alreadyTaken: true, medication: med.name, sayLanguage: lang, say: t(lang, 'medAlreadyTaken', { short: localized(med, 'short', lang), time: med.takenAt.slice(11, 16) }) };
+    if (med.status === 'taken') return { recorded: false, alreadyTaken: true, medication: discreet ? med.time : med.name, sayLanguage: lang, say: t(lang, 'medAlreadyTaken', { short: shortOf(med), time: med.takenAt.slice(11, 16) }) };
     const now = localParts();
     const dose = { id: `${med.id}-${now.date}-${med.slot}`, medicationId: med.id, slot: med.slot, date: now.date, takenAt: `${now.date}T${now.time}`, late: med.status === 'missed' };
     await store.put('doses', dose);
@@ -162,7 +167,7 @@ export function createSaathi(deps) {
     }
     await events.publish('DoseTaken', { medicationId: med.id, medication: med.name, late: dose.late });
     metrics.emit('DoseTaken', 1, { late: String(dose.late) });
-    return { recorded: true, medication: med.name, sayLanguage: lang, say: t(lang, 'medRecorded', { short: localized(med, 'short', lang) }) };
+    return { recorded: true, medication: discreet ? med.time : med.name, sayLanguage: lang, say: t(lang, 'medRecorded', { short: shortOf(med) }) };
   }
 
   async function sweepMissedDoses() {
@@ -498,7 +503,7 @@ export function createSaathi(deps) {
 
   const dayDiff = (from, to) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400e3);
 
-  async function upcomingAppointments({ language, days = 14 } = {}) {
+  async function upcomingAppointments({ language, days = 14, discreet = false } = {}) {
     const { lang } = await voice(language);
     const today = localParts().date;
     const circle = await store.list('circle');
@@ -510,10 +515,11 @@ export function createSaathi(deps) {
       const kind = a.daysAway === 0 ? 'today' : a.daysAway === 1 ? 'tomorrow' : 'later';
       const date = new Intl.DateTimeFormat(LANGUAGES[lang].bcp47, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${a.at.slice(0, 10)}T00:00:00Z`));
       const escort = a.escort ? localized(circle.find((p) => p.id === a.escort), 'name', lang) ?? a.escort : null;
+      if (discreet) return t(lang, 'apptPrivate', { when: t(lang, 'apptWhen', { kind, date }), time: a.at.slice(11, 16), escort });
       return t(lang, 'apptLine', { when: t(lang, 'apptWhen', { kind, date }), time: a.at.slice(11, 16), with: localized(a, 'with', lang), place: localized(a, 'place', lang), escort });
     };
     return {
-      appointments: items.map(({ i18n, ...a }) => ({ ...a, escortName: circle.find((p) => p.id === a.escort)?.name ?? null })),
+      appointments: items.map(({ i18n, ...a }) => (discreet ? { id: a.id, at: a.at, daysAway: a.daysAway, escort: a.escort, escortName: circle.find((p) => p.id === a.escort)?.name ?? null } : { ...a, escortName: circle.find((p) => p.id === a.escort)?.name ?? null })),
       sayLanguage: lang,
       say: items.length ? localDigits(lang, items.slice(0, 2).map(describe).join(' ')) : t(lang, 'apptNone'),
     };
@@ -770,6 +776,11 @@ export function createSaathi(deps) {
       };
     }
     if ('shareMoodWords' in patch) next.privacy = { ...me.privacy, shareMoodWords: Boolean(patch.shareMoodWords) };
+    if (patch.alexaPrivacy && typeof patch.alexaPrivacy === 'object') {
+      const current = { medicinePurposes: true, doctorNames: true, storyText: true, ...(me.alexaPrivacy ?? {}) };
+      for (const key of Object.keys(current)) if (key in patch.alexaPrivacy) current[key] = Boolean(patch.alexaPrivacy[key]);
+      next.alexaPrivacy = current;
+    }
     const updated = await store.update('profile', 'elder', next);
     await events.publish('ProfileUpdated', { fields: Object.keys(next) });
     return updated;

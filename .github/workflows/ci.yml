@@ -51,6 +51,11 @@ jobs:
       - run: npm test
         env:
           SAATHI_METRICS: 'off'
+      - name: Tests with Class B sealing on
+        run: npm test
+        env:
+          SAATHI_METRICS: 'off'
+          SAATHI_TEST_SEAL: '1'
       - run: npm run eval
       - run: npx asl-validator --json-path src/escalation/escalation.asl.json
       - run: npm run a11y

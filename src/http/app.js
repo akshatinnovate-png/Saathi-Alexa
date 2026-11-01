@@ -46,7 +46,7 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
   }
   app.use(express.json({ limit: '1mb', reviver: safeJsonReviver, verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); } }));
 
-  mountMcp(app, services, { verifier, optionalVerifier, bus: localBus, auth: config.auth, requireToken: Boolean(config.web?.exposed) });
+  mountMcp(app, services, { verifier, optionalVerifier, bus: localBus, auth: config.auth, requireToken: Boolean(config.web?.exposed), audit });
 
   const ringReplay = createReplayGuard();
   app.post('/ring/events', async (req, res, next) => {
@@ -307,7 +307,12 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
   }));
 
   api.get('/family/summary', wrap(async (req, res) => {
-    res.json(await req.saathi.familySummary({ forMemberId: req.memberId ?? req.query.member }));
+    const summary = await req.saathi.familySummary({ forMemberId: req.memberId ?? req.query.member });
+    if (req.role !== 'neighbour') return res.json(summary);
+    const alerts = summary.alerts.filter((a) => a.type === 'help').map(({ id, type, severity, reason, createdAt, acknowledged, acknowledgedBy, acknowledgedAt, escalationStage }) => ({ id, type, severity, reason, createdAt, acknowledged, acknowledgedBy, acknowledgedAt, escalationStage }));
+    const waiting = alerts.filter((a) => !a.acknowledged).length;
+    const english = waiting ? `${waiting} call(s) for help waiting for someone to respond.` : 'No calls for help right now.';
+    res.json({ english, text: english, language: 'en', neighbour: true, alerts, medications: [], checkins: [], stories: [], appointments: [], adherence: [], letter: null });
   }));
 
   api.get('/family/messages', wrap(async (req, res) => {

@@ -8,7 +8,7 @@ import { cognitoOAuthMetadata } from '../auth/verifier.js';
 import { ALL_SCOPES } from '../auth/scopes.js';
 import { DEFAULT_HOUSEHOLD } from '../households/scope.js';
 
-export function mountMcp(app, services, { verifier, optionalVerifier, bus, auth, requireToken = false } = {}) {
+export function mountMcp(app, services, { verifier, optionalVerifier, bus, auth, requireToken = false, audit = null } = {}) {
   const sessions = new Map();
   const middleware = [];
 
@@ -63,7 +63,7 @@ export function mountMcp(app, services, { verifier, optionalVerifier, bus, auth,
         onsessioninitialized: (id) => sessions.set(id, { transport, householdId }),
       });
       transport.onclose = () => transport.sessionId && sessions.delete(transport.sessionId);
-      await buildMcpServer(services.forHousehold(householdId), { bus }).connect(transport);
+      await buildMcpServer(services.forHousehold(householdId), { bus, audit, householdId }).connect(transport);
       entry = { transport, householdId };
     }
     await entry.transport.handleRequest(req, res, req.body);

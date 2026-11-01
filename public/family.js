@@ -474,6 +474,9 @@ async function setupSettings() {
     form.hearingLoss.checked = e.accessibility?.hearing === 'mild-loss';
     form.lowVision.checked = e.accessibility?.vision === 'low-vision';
     form.shareMoodWords.checked = e.privacy?.shareMoodWords !== false;
+    form.alexaMedicinePurposes.checked = e.alexaPrivacy?.medicinePurposes !== false;
+    form.alexaDoctorNames.checked = e.alexaPrivacy?.doctorNames !== false;
+    form.alexaStoryText.checked = e.alexaPrivacy?.storyText !== false;
     $('member-list').replaceChildren(...circle.map((p) => el('li', {},
       el('span', {}, `${p.name} · ${p.relationship}${p.email ? ` · ${p.email}` : ''}`),
       p.id === status.memberId ? el('span', { class: 'muted' }, 'You') : el('button', { class: 'text-action', type: 'button', onclick: async () => {
@@ -534,6 +537,7 @@ async function setupSettings() {
         pharmacy: { name: form.pharmacyName.value, phone: form.pharmacyPhone.value },
         accessibility: { memorySupport: form.memorySupport.checked, hearingLoss: form.hearingLoss.checked, lowVision: form.lowVision.checked },
         shareMoodWords: form.shareMoodWords.checked,
+        alexaPrivacy: { medicinePurposes: form.alexaMedicinePurposes.checked, doctorNames: form.alexaDoctorNames.checked, storyText: form.alexaStoryText.checked },
       }) });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error ?? 'Could not save.');

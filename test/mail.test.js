@@ -302,3 +302,23 @@ test('pairing Aaji\'s tablet: six digits, no passwords, and it only opens her sc
   assert.equal((await tablet.call('/api/status')).status, 401, 'a removed device loses access at once');
   assert.match((await tablet.call('/alexa.html')).location, /^\/login\.html/);
 });
+
+test('neighbours see only calls for help, never health details', async () => {
+  const owner = await riya();
+  sent.length = 0;
+  const res = await owner.call('/api/household/invite', { method: 'POST', body: { name: 'Meena', relationship: 'neighbour', email: 'meena@family.test', role: 'neighbour' } });
+  assert.equal(res.status, 200);
+  const token = decodeURIComponent(res.json.invite.link.match(/invite=(\S+)/)[1]);
+  const meena = agent();
+  assert.equal((await meena.call('/auth/signup', { method: 'POST', body: { email: 'meena@family.test', password: 'next-door-kindness-9', name: 'Meena', invite: token } })).status, 200);
+  await services.forHousehold('default').requestHelp({ reason: 'I fell near the bed', urgency: 'high' });
+  const family = (await owner.call('/api/family/summary')).json;
+  assert.ok(family.medications.length > 0);
+  const summary = (await meena.call('/api/family/summary')).json;
+  assert.equal(summary.neighbour, true);
+  assert.deepEqual([summary.medications, summary.checkins, summary.stories, summary.appointments], [[], [], [], []]);
+  assert.ok(summary.alerts.length > 0 && summary.alerts.every((a) => a.type === 'help'));
+  const text = JSON.stringify(summary);
+  for (const m of family.medications) assert.ok(!text.includes(m.name), `${m.name} stays hidden`);
+  assert.equal((await meena.call('/api/care')).status, 403);
+});

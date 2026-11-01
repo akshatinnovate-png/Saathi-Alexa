@@ -38,18 +38,38 @@ const forbidden = (tool) => ({
   content: [{ type: 'text', text: `This device isn't allowed to use ${tool}. It needs the ${TOOL_SCOPES[tool]} scope.` }],
 });
 
-export function buildMcpServer(saathi, { bus } = {}) {
+const HEALTH = new Set(['get_medication_schedule', 'confirm_medication_taken', 'get_upcoming_appointments', 'list_memory_stories', 'family_summary', 'weekly_family_letter', 'where_is', 'resource:today', 'resource:story', 'resource:home', 'resource:profile']);
+
+export function buildMcpServer(saathi, { bus, audit = null, householdId = null } = {}) {
   const server = new McpServer(SERVER_INFO, {
     instructions: INSTRUCTIONS,
     capabilities: { logging: {}, resources: { subscribe: Boolean(bus), listChanged: Boolean(bus) }, completions: {} },
   });
 
   const notSetUp = { content: [{ type: 'text', text: "Saathi isn't set up for this home yet. Ask the family to finish setting it up in the Saathi app." }], isError: true };
+  const external = (extra) => Boolean(extra?.authInfo) && !extra.authInfo.extra?.internal;
+  const privacy = async (extra) => {
+    const prefs = { medicinePurposes: true, doctorNames: true, storyText: true, ...((await saathi.elder())?.alexaPrivacy ?? {}) };
+    return external(extra) ? prefs : { medicinePurposes: true, doctorNames: true, storyText: true };
+  };
+  const record = (extra, what) => {
+    if (external(extra) && HEALTH.has(what)) {
+      audit?.append({ householdId, actor: extra.authInfo.clientId ?? 'alexa', action: 'alexa-read', detail: { what } }).catch(() => {});
+    }
+  };
   const tool = (name, config, handler) => server.registerTool(name, config, async (args, extra) => {
     if (!mayCallTool({ scopes: extra.authInfo ? extra.authInfo.scopes ?? [] : null, tool: name })) return forbidden(name);
     if (!(await saathi.elder())) return notSetUp;
+    record(extra, name);
     return handler(args, extra);
   });
+  const readable = (extra) => !extra?.authInfo || (extra.authInfo.scopes ?? []).some((s) => s === 'saathi/elder' || s === 'saathi/family');
+  const resource = (what, read) => async (...args) => {
+    const extra = args.at(-1);
+    if (!readable(extra)) throw new Error('This key cannot read Saathi resources.');
+    record(extra, what);
+    return read(...args);
+  };
 
   tool('what_day_is_it', {
     title: 'Gentle orientation',
@@ -75,14 +95,14 @@ export function buildMcpServer(saathi, { bus } = {}) {
     description: "Lists today's medications with status (taken, due, missed, upcoming), described by look and purpose so they are easy to identify.",
     inputSchema: { language: lang },
     outputSchema: {
-      say, sayLanguage,
+      say, sayLanguage, discreet: z.boolean().optional(),
       medications: z.array(z.object({
-        id: z.string(), name: z.string(), purpose: z.string(), time: z.string(), description: z.string(),
+        id: z.string(), name: z.string().optional(), purpose: z.string().optional(), time: z.string(), description: z.string(),
         status: z.enum(['taken', 'due', 'missed', 'upcoming']), takenAt: z.string().nullable(),
       }).loose()),
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  }, async ({ language }) => reply(await saathi.medicationSchedule({ language })));
+  }, async ({ language }, extra) => reply(await saathi.medicationSchedule({ language, discreet: !(await privacy(extra)).medicinePurposes })));
 
   tool('confirm_medication_taken', {
     title: 'I took my tablet',
@@ -90,7 +110,7 @@ export function buildMcpServer(saathi, { bus } = {}) {
     inputSchema: { medication: z.string().optional().describe('Name, purpose ("blood pressure", "रक्तदाब") or colour of the tablet'), language: lang },
     outputSchema: { say, sayLanguage, recorded: z.boolean(), alreadyTaken: z.boolean().optional(), medication: z.string().optional() },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  }, async ({ medication, language }) => reply(await saathi.confirmMedication(medication, { language })));
+  }, async ({ medication, language }, extra) => reply(await saathi.confirmMedication(medication, { language, discreet: !(await privacy(extra)).medicinePurposes })));
 
   tool('daily_check_in', {
     title: 'How are you feeling?',
@@ -171,9 +191,10 @@ export function buildMcpServer(saathi, { bus } = {}) {
     description: 'Lists the stories in their memory book (most recent first) so they can be retold. Each story is also a resource at saathi://stories/{storyId}.',
     inputSchema: { limit: z.number().int().min(1).max(20).default(5), language: lang },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  }, async ({ limit, language }) => {
+  }, async ({ limit, language }, extra) => {
     const spoken = language ?? (await saathi.elder()).language;
-    const stories = (await saathi.listStories()).slice(0, limit).map((s) => ({ id: s.id, uri: `saathi://stories/${s.id}`, title: s.title, text: s.text, english: s.translations.en?.text, createdAt: s.createdAt }));
+    const showText = (await privacy(extra)).storyText;
+    const stories = (await saathi.listStories()).slice(0, limit).map((s) => ({ id: s.id, uri: `saathi://stories/${s.id}`, title: s.title, ...(showText ? { text: s.text, english: s.translations.en?.text } : {}), createdAt: s.createdAt }));
     return reply({ stories, say: stories.length ? t(spoken, 'storyCount', { count: stories.length, title: stories[0].title }) : t(spoken, 'storyNone') });
   });
 
@@ -183,10 +204,10 @@ export function buildMcpServer(saathi, { bus } = {}) {
     inputSchema: { days: z.number().int().min(0).max(60).default(14), language: lang },
     outputSchema: {
       say, sayLanguage,
-      appointments: z.array(z.object({ id: z.string(), title: z.string(), with: z.string(), place: z.string(), at: z.string(), daysAway: z.number(), escort: z.string().nullable(), escortName: z.string().nullable() }).loose()),
+      appointments: z.array(z.object({ id: z.string(), title: z.string().optional(), with: z.string().optional(), place: z.string().optional(), at: z.string(), daysAway: z.number(), escort: z.string().nullable(), escortName: z.string().nullable() }).loose()),
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  }, async ({ days, language }) => reply(await saathi.upcomingAppointments({ days, language })));
+  }, async ({ days, language }, extra) => reply(await saathi.upcomingAppointments({ days, language, discreet: !(await privacy(extra)).doctorNames })));
 
   tool('record_refill', {
     title: 'Tablets refilled (family)',
@@ -255,25 +276,29 @@ export function buildMcpServer(saathi, { bus } = {}) {
     title: 'Elder profile and accessibility needs',
     description: 'Name, languages, home, routine, accessibility preferences (pace, hearing, memory support) and privacy choices.',
     mimeType: 'application/json',
-  }, async (uri) => json(uri, await saathi.elder()));
+  }, resource('resource:profile', async (uri) => json(uri, await saathi.elder())));
 
   server.registerResource('care-circle', 'saathi://circle', {
     title: 'Care circle',
     description: 'Family and neighbours, their languages and escalation order.',
     mimeType: 'application/json',
-  }, async (uri) => json(uri, await saathi.circle()));
+  }, resource('resource:circle', async (uri) => json(uri, await saathi.circle())));
 
   server.registerResource('today', 'saathi://today', {
     title: 'Today at a glance',
     description: 'Orientation plus medication status for right now. Subscribe to be told when it changes.',
     mimeType: 'application/json',
-  }, async (uri) => json(uri, { orientation: await saathi.orientation(), medications: await saathi.medicationStatus() }));
+  }, resource('resource:today', async (uri, extra) => {
+    const meds = await saathi.medicationStatus();
+    const discreet = !(await privacy(extra)).medicinePurposes;
+    return json(uri, { orientation: await saathi.orientation(), medications: discreet ? meds.map(({ i18n, name, purpose, phrase, short, ...m }) => m) : meds });
+  }));
 
   server.registerResource('home-map', 'saathi://home', {
     title: 'House map',
     description: 'Rooms (floor polygons in metres), where things are kept, and where the Echo and Ring devices are.',
     mimeType: 'application/json',
-  }, async (uri) => json(uri, await saathi.homeMap()));
+  }, resource('resource:home', async (uri) => json(uri, await saathi.homeMap())));
 
   server.registerResource('story', new ResourceTemplate('saathi://stories/{storyId}', {
     list: async () => ({
@@ -284,11 +309,12 @@ export function buildMcpServer(saathi, { bus } = {}) {
     title: 'A story from the memory book',
     description: 'One story, in their words and every family language, with narration links.',
     mimeType: 'application/json',
-  }, async (uri, { storyId }) => {
+  }, resource('resource:story', async (uri, { storyId }, extra) => {
     const story = (await saathi.listStories()).find((s) => s.id === storyId);
     if (!story) throw new Error(`No story ${storyId}`);
+    if (!(await privacy(extra)).storyText) return json(uri, { id: story.id, title: story.title, createdAt: story.createdAt, note: 'The family chose to keep story text off Alexa. Read it on the Saathi screen.' });
     return json(uri, story);
-  });
+  }));
 
   server.registerPrompt('gentle_morning_check_in', {
     title: 'Gentle morning check-in',

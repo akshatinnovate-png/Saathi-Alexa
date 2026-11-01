@@ -8,6 +8,7 @@ import { createApp } from '../src/http/app.js';
 import { createAlexaSimulator } from '../src/agent/alexaSimulator.js';
 import { createStaticVerifier, createCognitoVerifier, cognitoIssuer } from '../src/auth/verifier.js';
 import { createRingSimulator, sign, SIGNATURE_HEADER, TIMESTAMP_HEADER } from '../src/ring/webhook.js';
+import { createAuditLog } from '../src/security/audit.js';
 import { testServices, testConfig } from './helpers.js';
 
 const ELDER = 'elder-token';
@@ -18,10 +19,13 @@ let base;
 let services;
 let simulator;
 let ring;
+let audit;
 
 before(async () => {
   services = testServices();
+  audit = createAuditLog({ store: services.store, key: Buffer.alloc(32, 3) });
   const app = createApp({
+    audit,
     config: testConfig({ host: '127.0.0.1', ring: { webhookSecret: RING_SECRET } }),
     services,
     simulatorFor: async () => ({ brain: 'offline-planner', turn: (...a) => simulator.turn(...a), answer: (...a) => simulator.answer(...a), reset: () => {} }),
@@ -223,4 +227,35 @@ test('Amazon Cognito access tokens: issuer, token_use, client and scopes are enf
   const other = await new SignJWT({ token_use: 'access', client_id: 'alexa-client' }).setProtectedHeader({ alg: 'RS256', kid: 'k1' })
     .setIssuer('https://evil.example').setExpirationTime('1h').sign(privateKey);
   await assert.rejects(v.verifyAccessToken(other), /Invalid token/);
+});
+
+test('discreet Alexa: the family can keep medicine purposes, doctors and story text off the speaker, and every read is logged', async () => {
+  const saathi = services.forHousehold('default');
+  await saathi.updateProfile({ alexaPrivacy: { medicinePurposes: false, doctorNames: false, storyText: false } });
+  const client = await connect(ELDER);
+  try {
+    const meds = await client.callTool({ name: 'get_medication_schedule', arguments: { language: 'en' } });
+    assert.ok(!meds.isError);
+    const names = (await saathi.medicationStatus()).flatMap((m) => [m.name, m.purpose]).filter(Boolean);
+    const spoken = JSON.stringify(meds.structuredContent);
+    assert.ok(names.length && names.every((n) => !spoken.includes(n)), 'no medicine name or purpose reaches Alexa');
+    assert.match(meds.structuredContent.say, /tablet/);
+    const visits = await client.callTool({ name: 'get_upcoming_appointments', arguments: { language: 'en', days: 60 } });
+    const doctors = (await saathi.upcomingAppointments({ days: 60 })).appointments.flatMap((a) => [a.with, a.place]).filter(Boolean);
+    assert.ok(doctors.every((d) => !JSON.stringify(visits.structuredContent).includes(d)), 'no doctor or clinic reaches Alexa');
+    const today = JSON.parse((await client.readResource({ uri: 'saathi://today' })).contents[0].text);
+    assert.ok(today.medications.every((m) => !('name' in m) && !('purpose' in m)));
+    const stories = await saathi.listStories();
+    if (stories.length) {
+      const story = JSON.parse((await client.readResource({ uri: `saathi://stories/${stories[0].id}` })).contents[0].text);
+      assert.equal(story.text, undefined);
+    }
+    await new Promise((r) => setTimeout(r, 50));
+    const reads = (await audit.entries('default')).filter((e) => e.action === 'alexa-read').map((e) => e.detail.what);
+    for (const what of ['get_medication_schedule', 'get_upcoming_appointments', 'resource:today']) assert.ok(reads.includes(what), `${what} was logged`);
+    assert.equal((await audit.verify('default')).ok, true);
+  } finally {
+    await saathi.updateProfile({ alexaPrivacy: { medicinePurposes: true, doctorNames: true, storyText: true } });
+    await client.close();
+  }
 });

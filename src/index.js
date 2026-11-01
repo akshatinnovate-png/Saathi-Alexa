@@ -87,6 +87,8 @@ const accounts = createAccounts({
 const site = new URL(publicUrl);
 const security = createAccountSecurity({ accounts, store: services.store, sealer: vault, rp: { name: 'Saathi', id: site.hostname, origins: [site.origin] } });
 await accounts.ensureDemo();
+const newlySealed = keyring ? await services.sealHouseholds() : 0;
+if (newlySealed) console.log(`  Sealed ${newlySealed} health records with the key broker's Class B key.`);
 
 const baseVerifier = createVerifier(config.auth);
 const verifier = baseVerifier ? createHouseholdVerifier({ base: baseVerifier, accounts }) : null;

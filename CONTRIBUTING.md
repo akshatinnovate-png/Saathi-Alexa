@@ -44,6 +44,8 @@ CI runs all of them, plus Kani proofs, TLA+ model checking, CodeQL, fuzzing, dep
 
 **Every change in behaviour comes with a test.** New features need tests that show they work; bug fixes need a test that fails before the fix and passes after it. Security-relevant code (anything in `src/security`, `src/accounts`, `src/vault`, `src/http/guard.js`, `core/`, `broker/` or `public/vault-*.js`) also needs a test for how it fails safely: wrong keys, tampered data, missing permissions.
 
+Run the suite a second time with `SAATHI_TEST_SEAL=1 npm test`: every test then runs against a store where health records are sealed with a Class B key, as on a real install. CI runs both.
+
 Changes to who-may-do-what go in `core/src/policy.rs`, never in JavaScript, and need a Kani proof or an updated one.
 
 ## Style

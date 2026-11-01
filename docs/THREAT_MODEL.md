@@ -137,13 +137,30 @@ Saathi looks after an elder living with memory loss, disability or a language ga
 | Keep a removed relative able to read new messages | Removal rotates the family key; the removed person's devices get nothing new (checked by the KeyRotation model) |
 | Swap one private item for another | Each item is bound to its kind, its id and the household as associated data |
 
-What the server still sees: who sent a message, when, its size, and everything Alexa+ needs to answer (medicines, visits, stories, the house map). Those are protected by the key broker in step 4, not by end-to-end encryption.
+What the server still sees: who sent a message, when, its size, and everything Alexa+ needs to answer (medicines, visits, stories, the house map). Those are protected by the key broker, not by end-to-end encryption (section 14).
+
+### 14. Someone who reads the data file, the database or a backup while the server runs (Class B)
+
+| Attack | Control |
+|---|---|
+| Copy the decrypted store out of a backup, an export or a DynamoDB table | Medicine names and purposes, visit details, check-in words, stories, the house map, messages and letters are each sealed field by field with AES-256-GCM under the broker's `class-b` key. The web server only ever sees ciphertext at rest; it asks the broker to open a record when it needs it |
+| Move a sealed record to another household or another list (for example, make Aaji's stories appear in a stranger's account) | Every record is bound to `class-b`, its household, its collection and its id as associated data. A moved or edited record refuses to open |
+| Read old records written before sealing existed | On start-up Saathi seals any plaintext health record it finds, once, and says how many |
+
+### 15. Alexa+ (or anyone next to the speaker) hearing more than they should
+
+| Attack | Control |
+|---|---|
+| A visitor hears "your blood pressure tablet, Amlodipine" or the name of a memory clinic | The owner chooses in Settings what Alexa may say out loud. With a choice off, Alexa gets only "your 8:00 tablet" or "a doctor visit on Tuesday": the names never leave Saathi, so Alexa cannot say or store them |
+| Alexa+ or a token holder reads health data quietly | Every Alexa read of health details (tools and resources) is written to the HMAC-chained history, so the owner can see when and what |
+| A resource read skips the checks a tool call has | Resources go through the same scope check, privacy choices and logging as tools |
+| A neighbour, whose job is to help in an emergency, browses health details | Neighbours get only calls for help from the summary; medicines, visits, moods, stories and letters are removed on the server, not hidden in the browser |
 
 ## Not yet covered
 
 We would rather say so than pretend.
 
-- **A fully compromised server** can still read what is not end-to-end encrypted: medicines, visits, stories and the house map, because Alexa+ and the server-side assistant need them. Voice notes, photos and private messages stay unreadable.
+- **A fully compromised server** (code running as the server, while the broker is up) can still ask the broker to open Class B records: medicines, visits, stories and the house map, because Alexa+ and the server-side assistant need them. Copies at rest are sealed, and voice notes, photos and private messages stay unreadable even then.
 - **A compromised Google account.** If someone controls a family member's Google account, "Sign in with Google" lets them in. Two-step in Saathi still applies on top.
 - **Voice-clone scams over the phone.** Saathi cannot stop a scammer who calls the elder directly. It does keep family voice notes encrypted and behind short-lived links, so they are harder to harvest.
 - **Denial of service at scale.** Rate limits stop abuse from one place, not a botnet. Put Saathi behind a CDN or AWS WAF for that (the AWS deployment uses API Gateway throttling).

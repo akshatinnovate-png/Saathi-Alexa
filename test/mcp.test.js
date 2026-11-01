@@ -7,7 +7,7 @@ import { createAlexaSimulator } from '../src/agent/alexaSimulator.js';
 import { handler, _reset } from '../src/lambda/mcp.js';
 import { createStaticVerifier } from '../src/auth/verifier.js';
 import { createRingSimulator } from '../src/ring/webhook.js';
-import { testServices, testConfig } from './helpers.js';
+import { sealedSuite, testServices, testConfig } from './helpers.js';
 
 let server;
 let base;
@@ -129,7 +129,7 @@ test('family dashboard API: summary, message to Aaji and acknowledging an alert'
 
 test('Lambda handler serves stateless Streamable HTTP for API Gateway', async () => {
   _reset();
-  const overrides = { store: services.store, metrics: { emit() {} }, verifier };
+  const overrides = { store: services.store, metrics: { emit() {} }, verifier, keyring: sealedSuite };
   const event = (body) => ({
     rawPath: '/mcp', rawQueryString: '',
     headers: { host: 'abc.execute-api.us-east-1.amazonaws.com', 'content-type': 'application/json', accept: 'application/json, text/event-stream', authorization: `Bearer ${TOKEN}`, 'mcp-protocol-version': '2025-11-25' },

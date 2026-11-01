@@ -49,6 +49,13 @@ const ACTIONS = {
   'alexa-key-made': 'Alexa+ key made',
   'gmail-disconnected': 'Gmail disconnected',
   'doorbell-link-made': 'Doorbell link made',
+  'alexa-read': 'Alexa read health details',
+};
+
+const READS = {
+  get_medication_schedule: 'today\'s tablets', confirm_medication_taken: 'a tablet taken', get_upcoming_appointments: 'doctor visits',
+  list_memory_stories: 'stories', family_summary: 'the family summary', weekly_family_letter: 'the weekly letter', where_is: 'the house map',
+  'resource:today': 'today', 'resource:story': 'a story', 'resource:home': 'the house map', 'resource:profile': 'their details',
 };
 
 export function setupSecurity({ isOwner, toast, privateBlock = null }) {
@@ -188,7 +195,7 @@ export function setupSecurity({ isOwner, toast, privateBlock = null }) {
       ? el('p', { class: 'sec-badge ok' }, `✓ All ${log.verified.entries} entries are intact. Each one is sealed to the one before it, so nobody can quietly edit or delete history.`)
       : el('p', { class: 'sec-badge bad' }, `⚠ The history was changed after it was written (entry ${log.verified.brokenAt ?? '?'}). ${log.verified.reason ?? ''}`);
     return [badge, el('ul', { class: 'device-list sec-log' }, ...log.entries.slice(0, 60).map((e) => el('li', {},
-      el('span', {}, el('strong', {}, ACTIONS[e.action] ?? e.action), ' · ', e.actor ?? 'someone', e.detail?.emoji ? ` ${e.detail.emoji}` : ''),
+      el('span', {}, el('strong', {}, ACTIONS[e.action] ?? e.action), ' · ', e.actor ?? 'someone', e.detail?.emoji ? ` ${e.detail.emoji}` : '', e.action === 'alexa-read' && e.detail?.what ? ` · ${READS[e.detail.what] ?? e.detail.what}` : ''),
       el('span', { class: 'muted small' }, when(e.at))))) ];
   }
 
