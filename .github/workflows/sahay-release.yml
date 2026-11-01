@@ -1,0 +1,40 @@
+name: Sahay release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Sahay version, for example 1.0.0'
+        required: true
+permissions:
+  contents: read
+jobs:
+  sahay:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@f08ac54821369508305fcb9e0121ec6e30ae9ada
+      - run: cargo test --locked -p sahay
+      - run: cargo build --locked --release -p sahay
+      - name: Name and fingerprint the exe
+        shell: pwsh
+        run: |
+          $v = $env:VERSION -replace '^v', ''
+          "PLAIN=$v" | Out-File -Append $env:GITHUB_ENV
+          Copy-Item target\release\sahay.exe "Sahay-$v.exe"
+          (Get-FileHash "Sahay-$v.exe" -Algorithm SHA256).Hash.ToLower() + "  Sahay-$v.exe" | Out-File -Encoding ascii SHA256SUMS-sahay
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
+        with:
+          subject-path: Sahay-${{ env.PLAIN }}.exe
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: gh release create "sahay-v$env:PLAIN" "Sahay-$env:PLAIN.exe" SHA256SUMS-sahay --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Saathi byproduct - Sahay v$env:PLAIN" --notes-file sahay/RELEASE_NOTES.md
