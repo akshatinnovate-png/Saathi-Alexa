@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-01
+
+Saathi now installs on Windows like any other program, keeps the family's keys in the computer's security chip, and encrypts private messages end to end.
+
+### Get started
+- **Windows:** download **Saathi-Setup-1.1.0.exe** below and double-click it. No administrator rights and nothing else to install. Step-by-step guide: [docs/INSTALL_WINDOWS.md](docs/INSTALL_WINDOWS.md).
+- **Docker:** `docker run -p 8787:8787 -v saathi-data:/data ghcr.io/akshatinnovate-png/saathi-alexa:1.1.0`
+
+### New
+- Windows installer: desktop icon, start with Windows, Start-menu tools for the key and for reaching Saathi from anywhere, and an uninstaller that keeps the family's data.
+- Reach Saathi from anywhere with a fixed https address (Tailscale Funnel, free), or a temporary Cloudflare address for a test.
+- Private messages, voice notes and photos are encrypted on family devices; the server only ever holds ciphertext. Devices join by matching three pictures, recovery is one printed code or any two of three family sheets, and a passkey can lock private messages after every restart.
+- The family chooses what Alexa may say out loud: medicine names and purposes, doctor names and addresses, story words.
+- Neighbours see only calls for help.
+
 ### Security
+- A Rust security core, compiled to WebAssembly, decides who may do what; key properties are proved with Kani and the protocols are model-checked with TLA+.
+- A separate key broker holds the master key, sealed in the TPM (or by Windows) with a printed recovery key; the web server never holds it.
+- Health records are encrypted field by field with the broker's key, bound to their household, list and id.
+- Every Alexa read of health details goes into the tamper-evident history.
+- Outbound connections are limited to the services Saathi uses.
+- A Saathi meant for this computer only answers only to localhost, which stops hand-made tunnels and DNS rebinding.
+- Fonts are served by Saathi itself; nothing loads from Google.
+- Supply chain: every GitHub Action pinned to a commit, fuzzing with fast-check and libFuzzer, ESLint and Clippy with warnings as errors, and signed build provenance for the Windows installer.
+
+### Earlier hardening, also in this release
 - The data file, voice notes and photos are encrypted at rest with AES-256-GCM, keys derived with HKDF from one master key (`data/saathi.key` or `SAATHI_MASTER_KEY`). Existing plain files are encrypted on first start.
 - Passwords: scrypt with a secret pepper, silent upgrade of older hashes, breached-password check (k-anonymity), common-password and name checks, equal timing, progressive lockout.
 - Two-step sign-in with authenticator apps and single-use recovery codes. Passkeys with cloned-key detection.

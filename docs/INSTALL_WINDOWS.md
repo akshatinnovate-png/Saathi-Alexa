@@ -70,10 +70,10 @@ Only signed-in family members and approved devices can use that address. To go b
 Each installer is built by GitHub from this repository's public code and carries a signed record of how it was built. With the GitHub command line installed:
 
 ```
-gh attestation verify Saathi-Setup-1.0.0.exe --repo akshatinnovate-png/Saathi-Alexa
+gh attestation verify Saathi-Setup-1.1.0.exe --repo akshatinnovate-png/Saathi-Alexa
 ```
 
-The release also lists the file's SHA-256 in `SHA256SUMS-windows`. In PowerShell, `Get-FileHash Saathi-Setup-1.0.0.exe` must show the same value.
+The release also lists the file's SHA-256 in `SHA256SUMS-windows`. In PowerShell, `Get-FileHash Saathi-Setup-1.1.0.exe` must show the same value.
 
 ## What gets installed where
 

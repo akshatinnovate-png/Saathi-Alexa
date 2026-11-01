@@ -65,7 +65,7 @@ A summary. The full reasoning, attacker by attacker, is in [docs/THREAT_MODEL.md
 Every release ships a source archive, two SBOMs and `SHA256SUMS`, and every artifact and the Docker image carry a signed SLSA build-provenance attestation:
 
 ```bash
-gh attestation verify saathi-1.0.0.tar.gz --repo akshatinnovate-png/Saathi-Alexa
+gh attestation verify saathi-1.1.0.tar.gz --repo akshatinnovate-png/Saathi-Alexa
 gh attestation verify oci://ghcr.io/akshatinnovate-png/saathi-alexa:latest --repo akshatinnovate-png/Saathi-Alexa
 ```
 
