@@ -21,7 +21,7 @@ The core uses no `unsafe` code outside the six-line WebAssembly boundary (`core/
 | `no_cross_household_access` | No principal, for any action, is ever allowed into a household other than its own |
 | `anonymous_is_always_refused` | Someone who is not signed in is refused every action |
 | `owner_actions_need_the_owner` | Removing people, changing the elder's details, doorbells, the security history and key rotation are only ever allowed for the household owner |
-| `devices_only_reach_household_actions` | Aaji's tablet can never reach family or owner actions, even if its session is stolen |
+| `devices_only_reach_household_actions` | Aaji's tablet can never reach family or owner actions, even if its session is stolen; it can only see everyday household things and join the family vault |
 | `neighbours_only_see_household_actions` | A neighbour can never read medicines, pair devices or see the family's private letter |
 | `family_actions_need_an_account` | Family actions always need a signed-in person, never a device or an open local session |
 | `roles_are_monotone` | Whatever a neighbour may do, a member may do, and whatever a member may do, the owner may do |
