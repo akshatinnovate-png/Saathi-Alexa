@@ -82,7 +82,7 @@ On a phone:
 
 | Piece | What it is | Where |
 |---|---|---|
-| **Saathi MCP server** | 17 tools, 3 resources, a resource template, 2 prompts. Streamable HTTP, protocol `2025-11-25`, OAuth 2.1 | `src/mcp/server.js`, `src/http/mcpRoute.js` |
+| **Saathi MCP server** | 18 tools, 3 resources, a resource template, 2 prompts. Streamable HTTP, protocol `2025-11-25`, OAuth 2.1 | `src/mcp/server.js`, `src/http/mcpRoute.js` |
 | **Serverless deployment** | The same server as a stateless AWS Lambda behind API Gateway | `src/lambda/mcp.js` |
 | **Simulated Alexa+ device** | Echo Show-style web app. It is a real MCP client: Claude (on Amazon Bedrock or the Claude API) decides which tools to call. Voice in and out, 8 languages, large text, high contrast, slower speech, and the Saathi assistant for Aaji | `public/alexa.html`, `src/agent/` |
 | **Family Circle app** | Live dashboard for Riya, Anand and Meera, each in their own language. Alerts with escalation progress, mood timeline, memory book, translated messages, profile photos, the family assistant and the 3D house map | `public/family.html`, `public/assistant.js`, `public/home3d.js` |
