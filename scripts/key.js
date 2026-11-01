@@ -85,5 +85,6 @@ try {
   console.error(`\n  ${err.message}\n`);
   process.exitCode = 1;
 } finally {
+  if (process.env.SAATHI_PAUSE === '1') await ask('\n  Press Enter to close this window. ');
   rl.close();
 }

@@ -2,7 +2,7 @@ import { createInterface } from 'node:readline';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const envFile = fileURLToPath(new URL('../.env', import.meta.url));
+const envFile = process.env.SAATHI_ENV_FILE ?? fileURLToPath(new URL('../.env', import.meta.url));
 const current = existsSync(envFile)
   ? Object.fromEntries(readFileSync(envFile, 'utf8').split(/\r?\n/).filter((l) => /^[A-Z0-9_]+=/.test(l)).map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1).replace(/^"(.*)"$/, '$1')]))
   : {};

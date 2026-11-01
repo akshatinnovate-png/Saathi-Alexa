@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["core", "broker"]
+members = ["core", "broker", "launcher"]
 exclude = ["core/fuzz"]
 
 [workspace.package]

@@ -4,6 +4,7 @@ ENV RUSTUP_TOOLCHAIN=1.97.0 CARGO_INCREMENTAL=0
 COPY Cargo.toml Cargo.lock ./
 COPY core ./core
 COPY broker ./broker
+COPY launcher ./launcher
 RUN cargo build --locked --release -p saathi-broker
 
 FROM node:22-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da

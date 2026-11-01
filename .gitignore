@@ -12,3 +12,4 @@ core/fuzz/target/
 core/fuzz/corpus/
 core/fuzz/artifacts/
 core/fuzz/coverage/
+build/

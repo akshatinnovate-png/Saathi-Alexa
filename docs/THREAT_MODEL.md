@@ -61,6 +61,7 @@ Saathi looks after an elder living with memory loss, disability or a language ga
 | Steal a cookie | `HttpOnly`, `Secure`, and the `__Host-` prefix so a sibling subdomain cannot set or overwrite it |
 | Make Saathi fetch internal addresses (server-side request forgery), such as the cloud metadata service | Outbound connections are limited to the services Saathi uses; IP literals, private ranges and host names that resolve to private addresses are refused |
 | Reach the MCP server directly | When Saathi listens beyond `localhost` or has a public address, MCP refuses callers without a household key or OAuth token |
+| Reach a Saathi meant for this computer only, through a hand-made tunnel or DNS rebinding | With no public address and listening on `localhost`, Saathi answers only to `Host: localhost`, `127.0.0.1` or `[::1]`; any other name gets 403. A public address must be set (the "Reach Saathi from anywhere" tool does it), which switches on the network protections |
 | Reach an install that has login turned off | Saathi refuses to start with `SAATHI_REQUIRE_LOGIN=false` unless it listens on this computer alone |
 
 ### 6. A stranger who learns a pairing code
@@ -116,6 +117,7 @@ Saathi looks after an elder living with memory loss, disability or a language ga
 | A tampered or typosquatted tarball | `npm audit signatures` verifies registry signatures; CI fails if the lockfile resolves anything outside `registry.npmjs.org` |
 | A committed secret | CI fails on AWS keys, private keys, Anthropic, GitHub and Slack tokens |
 | A poisoned workflow | Least-privilege `permissions:` on every workflow, `persist-credentials: false`, CodeQL for JavaScript and for Actions, OpenSSF Scorecard, Dependabot for npm, Actions and Docker |
+| A tampered Windows installer or a swapped Node.js runtime | The installer is built by GitHub Actions from the tagged source, carries signed build provenance and a published SHA-256; the bundled Node.js is checked against a SHA-256 pinned in the repository before packaging, and CI installs, starts, stops and uninstalls every build on a clean Windows machine |
 | A tampered release | Each release has CycloneDX and SPDX SBOMs, `SHA256SUMS`, and signed SLSA build provenance for the archive and the Docker image (`gh attestation verify`) |
 
 ### 12. A careless operator

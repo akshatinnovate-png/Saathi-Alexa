@@ -131,7 +131,7 @@ const ringSimulator = createRingSimulator({ url: `${baseUrl}/ring/events`, secre
 const configuredHosts = process.env.SAATHI_ALLOWED_HOSTS?.split(',').map((h) => h.trim()).filter(Boolean) ?? [];
 const allowedHosts = configuredHosts.length || config.auth.publicUrl
   ? [...new Set([...configuredHosts, ...(config.auth.publicUrl ? [new URL(config.auth.publicUrl).hostname, 'localhost', '127.0.0.1'] : [])])]
-  : undefined;
+  : checks.exposed ? undefined : ['localhost', '127.0.0.1', '[::1]'];
 config.web.canonicalLocalhost = true;
 const familyVault = createFamilyVault({ store: services.store, audit });
 const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit, keyring, vault: familyVault });

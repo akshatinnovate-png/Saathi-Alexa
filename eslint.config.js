@@ -2,7 +2,7 @@ import js from '@eslint/js';
 import globals from 'globals';
 
 export default [
-  { ignores: ['node_modules/**', 'infra/node_modules/**', 'infra/cdk.out/**', 'target/**', 'core/**', 'broker/**', 'data/**', 'cdk.out/**'] },
+  { ignores: ['node_modules/**', 'infra/node_modules/**', 'infra/cdk.out/**', 'target/**', 'core/**', 'broker/**', 'data/**', 'cdk.out/**', 'build/**', 'launcher/**'] },
   js.configs.recommended,
   {
     languageOptions: { ecmaVersion: 2025, sourceType: 'module', globals: { ...globals.node } },

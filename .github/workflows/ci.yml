@@ -122,6 +122,59 @@ jobs:
           if (Test-Path (Join-Path $dir 'saathi.key')) { throw 'the plain key file was not removed' }
           $status = target/release/saathi-broker.exe status --dir $dir | ConvertFrom-Json
           Write-Output "protected with $($out.protection); status says $($status.protection)"
+  windows-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@f08ac54821369508305fcb9e0121ec6e30ae9ada
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: cargo build --locked --release -p saathi-broker -p saathi-launcher
+      - run: cargo test --locked -p saathi-launcher
+      - run: node scripts/package-windows.js
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress; if ($LASTEXITCODE) { throw 'Inno Setup could not be installed' } }
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          & $iscc "/DAppVersion=$version" installer\saathi.iss
+          if ($LASTEXITCODE) { throw 'the installer did not build' }
+      - name: Install, start, stop and uninstall it like a family would
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem build\out\Saathi-Setup-*.exe | Select-Object -First 1
+          Start-Process $setup.FullName -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/TASKS=desktopicon' -Wait
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\Saathi'
+          foreach ($f in 'saathi.exe', 'runtime\node.exe', 'app\bin\saathi-broker.exe', 'app\src\index.js') { if (-not (Test-Path (Join-Path $app $f))) { throw "missing $f" } }
+          if (-not (Test-Path (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Saathi.lnk'))) { throw 'no desktop icon' }
+          $env:SAATHI_BREACH_CHECK = 'off'
+          $env:SAATHI_METRICS = 'off'
+          Start-Process (Join-Path $app 'saathi.exe') -ArgumentList '--background'
+          $ok = $false
+          foreach ($i in 1..60) { try { if ((Invoke-WebRequest -UseBasicParsing http://localhost:8787/healthz).StatusCode -eq 200) { $ok = $true; break } } catch { }; Start-Sleep 2 }
+          $log = Join-Path $env:LOCALAPPDATA 'Saathi\logs\saathi.log'
+          if (-not $ok) { Get-Content $log -ErrorAction SilentlyContinue; throw 'Saathi did not start from the installed copy' }
+          Get-Content $log
+          if (-not (Test-Path (Join-Path $env:LOCALAPPDATA 'Saathi\data\saathi.json'))) { throw 'no encrypted data file in the data folder' }
+          & (Join-Path $app 'saathi.exe') --stop | Out-Null
+          Start-Sleep 3
+          $up = $true
+          try { Invoke-WebRequest -UseBasicParsing http://localhost:8787/healthz -TimeoutSec 3 | Out-Null } catch { $up = $false }
+          if ($up) { throw 'Saathi is still running after --stop' }
+          Start-Process (Join-Path $app 'unins000.exe') -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
+          Start-Sleep 3
+          if (Test-Path (Join-Path $app 'saathi.exe')) { throw 'the uninstaller left Saathi behind' }
+          if (-not (Test-Path (Join-Path $env:LOCALAPPDATA 'Saathi\data\saathi.json'))) { throw 'the uninstaller deleted the family data' }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: saathi-windows-installer
+          path: build/out/Saathi-Setup-*.exe
+          retention-days: 14
   docker:
     runs-on: ubuntu-latest
     steps:

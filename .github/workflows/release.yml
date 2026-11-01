@@ -84,3 +84,43 @@ jobs:
         run: |
           gh release create "$TAG" --title "Saathi $TAG" --notes-file notes.md --target "$GITHUB_SHA" \
             "saathi-$PLAIN.tar.gz" "saathi-$PLAIN.cdx.json" "saathi-$PLAIN.spdx.json" SHA256SUMS
+  windows:
+    needs: release
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ inputs.version || github.ref_name }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@f08ac54821369508305fcb9e0121ec6e30ae9ada
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: cargo build --locked --release -p saathi-broker -p saathi-launcher
+      - run: node scripts/package-windows.js
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $plain = $env:VERSION -replace '^v', ''
+          "PLAIN=$plain" | Out-File -Append $env:GITHUB_ENV
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress; if ($LASTEXITCODE) { throw 'Inno Setup could not be installed' } }
+          & $iscc "/DAppVersion=$plain" installer\saathi.iss
+          if ($LASTEXITCODE) { throw 'the installer did not build' }
+          $file = "build\out\Saathi-Setup-$plain.exe"
+          (Get-FileHash $file -Algorithm SHA256).Hash.ToLower() + "  Saathi-Setup-$plain.exe" | Out-File -Encoding ascii build\out\SHA256SUMS-windows
+      - name: Prove where the installer came from
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
+        with:
+          subject-path: build/out/Saathi-Setup-${{ env.PLAIN }}.exe
+      - name: Attach the installer to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: gh release upload "v$env:PLAIN" "build/out/Saathi-Setup-$env:PLAIN.exe" build/out/SHA256SUMS-windows --repo $env:GITHUB_REPOSITORY --clobber

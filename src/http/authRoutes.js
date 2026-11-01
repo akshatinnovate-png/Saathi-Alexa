@@ -21,7 +21,8 @@ function rateLimited(key, limit = 8, windowMs = 60_000) {
 const safeNext = (next) => (typeof next === 'string' && /^\/(?!\/|\\)[\w\-./?=&#%]*$/.test(next) ? next : null);
 
 export function mountAuth(app, { config, accounts, sessions, security = null, google = null, familyMail = null, audit = null, guard = null }) {
-  const secure = (req) => req.secure || req.get('x-forwarded-proto') === 'https';
+  const httpsSite = config.auth?.publicUrl?.startsWith('https://') ? new URL(config.auth.publicUrl).hostname : null;
+  const secure = (req) => req.secure || req.get('x-forwarded-proto') === 'https' || (httpsSite !== null && req.hostname === httpsSite);
   const cookieName = (req) => (secure(req) ? SECURE_SESSION_COOKIE : SESSION_COOKIE);
   const setCookie = (req, res, name, value, maxAge) => res.append('Set-Cookie', cookieHeader(name, value, { maxAge, secure: secure(req) }));
   const clearCookie = (req, res, name) => setCookie(req, res, name, '', 0);

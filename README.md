@@ -25,7 +25,7 @@ Kamala is 78. Everyone calls her **Aaji**. She lives alone in Pune, speaks Marat
 
 | Where | What to do |
 |---|---|
-| **Windows** | [Download Saathi](https://github.com/akshatinnovate-png/Saathi-Alexa/releases/latest) (*Source code (zip)*), unzip it and double-click **Start Saathi**. It installs what it needs, asks a few questions once, and opens in your browser. |
+| **Windows** | [Download **Saathi-Setup.exe**](https://github.com/akshatinnovate-png/Saathi-Alexa/releases/latest) and double-click it. No administrator rights, no Node.js to install: it adds a desktop icon, starts with Windows, keeps the key in the computer's security chip and shows your recovery key once. Step by step: [docs/INSTALL_WINDOWS.md](docs/INSTALL_WINDOWS.md). To reach it from anywhere, Start menu → **Saathi → Reach Saathi from anywhere** (free, with Tailscale). |
 | **Mac or Linux** | Download and unzip the same file, then run `./start.sh` in that folder. |
 | **Online, for the whole family** | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/akshatinnovate-png/Saathi-Alexa) Saathi gets its own web address that everyone can open, including the tablet by your elder's chair. |
 | **Docker** | `docker run -p 8787:8787 -v saathi-data:/data ghcr.io/akshatinnovate-png/saathi-alexa` |
