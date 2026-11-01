@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Saathi</string>
+    <string name="setup_title">Connect to Saathi</string>
+    <string name="setup_hint">Type your family\'s Saathi address, or paste the pairing link from the family app.</string>
+    <string name="address_label">Saathi address</string>
+    <string name="address_hint" translatable="false">aaji-pc.tail1a2b.ts.net</string>
+    <string name="address_invalid">That does not look like a Saathi address. It usually starts with https://</string>
+    <string name="connect">Connect</string>
+    <string name="setup_private">This app only ever opens your family\'s own Saathi. Other links open in the browser.</string>
+    <string name="problem_title">Saathi is not answering</string>
+    <string name="problem_offline">Saathi cannot be reached right now. Check the internet, or that the Saathi computer at home is on, and try again.</string>
+    <string name="problem_certificate">This address\'s security certificate is not valid, so the app stopped to keep the family safe.</string>
+    <string name="try_again">Try again</string>
+    <string name="change_address">Change address</string>
+</resources>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="setup_title">साथीशी जोडा</string>
+    <string name="setup_hint">कुटुंबाच्या साथीचा पत्ता लिहा, किंवा कुटुंब ॲपमधून जोडण्याची लिंक चिकटवा.</string>
+    <string name="address_label">साथीचा पत्ता</string>
+    <string name="address_invalid">हा साथीचा पत्ता वाटत नाही. तो सहसा https:// ने सुरू होतो.</string>
+    <string name="connect">जोडा</string>
+    <string name="setup_private">हे ॲप फक्त तुमच्या कुटुंबाचा साथी उघडते. इतर लिंक ब्राउझरमध्ये उघडतात.</string>
+    <string name="problem_title">साथी उत्तर देत नाही</string>
+    <string name="problem_offline">आत्ता साथीपर्यंत पोहोचता येत नाही. इंटरनेट तपासा, किंवा घरचा साथी संगणक चालू आहे का ते पाहा, आणि पुन्हा प्रयत्न करा.</string>
+    <string name="problem_certificate">या पत्त्याचे सुरक्षा प्रमाणपत्र योग्य नाही, म्हणून कुटुंबाच्या सुरक्षेसाठी ॲप थांबले.</string>
+    <string name="try_again">पुन्हा प्रयत्न करा</string>
+    <string name="change_address">पत्ता बदला</string>
+</resources>

@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### New
+- Android app for Aaji's tablet and family phones: opens only your own Saathi, https only, no screenshots, no backups, no third-party code. Built, tested and attested in CI ([docs/ANDROID.md](docs/ANDROID.md)).
+
 ### Security
 - `npm run attack`: 47 automated attacks against a running install, run on every push alongside Semgrep and an OWASP ZAP scan.
 - Fixed: AES-GCM now refuses authentication tags shorter than 16 bytes.
