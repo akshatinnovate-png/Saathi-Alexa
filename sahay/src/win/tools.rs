@@ -23,6 +23,8 @@ pub fn run(shared: Arc<Shared>, calls: Receiver<Call>) {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED).ok();
     }
     let reader = Reader::new();
+    let port = std::fs::read_to_string(system::home().join("saathi.env")).map(|t| crate::saathi::port_from_env_file(&t)).unwrap_or(8787);
+    let mut saathi = crate::saathi::Saathi::new(port);
     while let Ok(call) = calls.recv() {
         if shared.quit.load(Ordering::Relaxed) {
             return;
@@ -34,7 +36,7 @@ pub fn run(shared: Arc<Shared>, calls: Receiver<Call>) {
         } else {
             shared.set_status(Status::Working, &label(&call));
             let cancelled = || shared.cancel_gen.load(Ordering::Relaxed) != generation || shared.paused.load(Ordering::Relaxed) || shared.quit.load(Ordering::Relaxed);
-            let mut r = execute(&shared, reader.as_ref().ok(), &call, &cancelled);
+            let mut r = if call.name == "saathi" { ask_saathi(&mut saathi, &call.args) } else { execute(&shared, reader.as_ref().ok(), &call, &cancelled) };
             if ACTING.contains(&call.name.as_str()) {
                 std::thread::sleep(Duration::from_millis(450));
                 if let Ok(rd) = reader.as_ref() {
@@ -63,6 +65,7 @@ fn label(call: &Call) -> String {
         "open" => format!("Opening {}", text(&call.args, "target")),
         "type_text" => "Typing…".into(),
         "run_command" => "Running a command…".into(),
+        "saathi" => "Asking Saathi…".into(),
         "click" | "click_element" => "Clicking…".into(),
         "scroll" => "Scrolling…".into(),
         "wait" => "Waiting for it to load…".into(),
@@ -180,4 +183,14 @@ fn execute(shared: &Shared, reader: Option<&Reader>, call: &Call, cancelled: &dy
         other => Err(format!("There is no tool called {other}")),
     })();
     result.unwrap_or_else(fail)
+}
+
+fn ask_saathi(saathi: &mut crate::saathi::Saathi, args: &Value) -> Value {
+    let tool = text(args, "tool");
+    let arguments = match args.get("arguments_json") {
+        Some(Value::String(s)) if !s.trim().is_empty() => serde_json::from_str::<Value>(s).unwrap_or_else(|_| json!({})),
+        Some(v @ Value::Object(_)) => v.clone(),
+        _ => args.get("arguments").cloned().unwrap_or_else(|| json!({})),
+    };
+    saathi.call(tool, arguments)
 }

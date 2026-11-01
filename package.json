@@ -1,6 +1,6 @@
 {
   "name": "saathi-alexa",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Saathi: an Alexa+ MCP server (Streamable HTTP, spec 2025-11-25) that helps elders living with memory loss, disability or a language gap stay connected to the families who love them.",
   "main": "src/index.js",
   "scripts": {

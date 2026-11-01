@@ -48,6 +48,16 @@ At first Saathi works only on this computer. To use it from phones, from another
 
 Only signed-in family members and approved devices can use that address. To go back to this computer only, run **Reach Saathi from anywhere** again and choose **3**.
 
+## Sahay, the voice helper (optional)
+
+Saathi comes with **Sahay**, a helper that can see and use this computer when you talk to it: "open YouTube and play Bella Ciao", "did Aaji take her tablets?", "fill this form with my address".
+
+1. Start menu → **Saathi → Sahay**. The first time, Google's free key page opens: sign in, click **Create API key**, copy it, paste it into Sahay.
+2. Allow the microphone if Windows asks. Talk.
+3. **Click the sphere** to stop it, click again to start. **Drag** it anywhere. **×** on hover closes it. **Right-click** for more (type a request, more keys, restart as administrator).
+
+Sahay has full control of the computer while it is on, so stop it with one click when you are done.
+
 ## Everyday things
 
 | I want to… | Do this |
@@ -70,10 +80,10 @@ Only signed-in family members and approved devices can use that address. To go b
 Each installer is built by GitHub from this repository's public code and carries a signed record of how it was built. With the GitHub command line installed:
 
 ```
-gh attestation verify Saathi-Setup-1.2.0.exe --repo akshatinnovate-png/Saathi-Alexa
+gh attestation verify Saathi-Setup-1.3.0.exe --repo akshatinnovate-png/Saathi-Alexa
 ```
 
-The release also lists the file's SHA-256 in `SHA256SUMS-windows`. In PowerShell, `Get-FileHash Saathi-Setup-1.2.0.exe` must show the same value.
+The release also lists the file's SHA-256 in `SHA256SUMS-windows`. In PowerShell, `Get-FileHash Saathi-Setup-1.3.0.exe` must show the same value.
 
 ## What gets installed where
 

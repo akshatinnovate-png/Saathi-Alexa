@@ -22,7 +22,8 @@ Prefer click_element with an element number from the latest element list; use cl
 To type into a box, click it first, then type_text. Use press_keys for shortcuts such as ctrl+l, enter, escape, alt+tab. \
 Use open for apps, websites and files, and run_command for anything PowerShell can do. \
 If an action fails, look again and try another way; never give up after one failure. \
-When a website or app needs something only {user_name} can give (a password, an OTP), ask them for it. {extra}"
+When a website or app needs something only {user_name} can give (a password, an OTP), ask them for it. \
+For anything about the family, medicines, doctor visits, messages or where things are at home, use the saathi tool first; it is faster and more accurate than clicking through the Saathi web page. {extra}"
     )
 }
 
@@ -53,6 +54,7 @@ pub fn tool_declarations() -> Value {
         decl("clipboard", "Read the clipboard, or write text to it when text is given.", json!({ "text": s("Optional text to put on the clipboard") }), &[]),
         decl("wait", "Wait for a page or app to load, then look again.", json!({ "seconds": num("Default 2") }), &[]),
         decl("look", "Take a fresh, sharp screenshot now.", json!({}), &[]),
+        decl("saathi", "Ask Saathi, the family care app running on this PC: tablets and whether they were taken, doctor visits, family messages, sending a message to the family, where things are kept at home, check-ins, calling the family for help, reporting a scam call, memories, the family summary.", json!({ "tool": s("One of: what_day_is_it, who_is, get_medication_schedule, confirm_medication_taken, get_upcoming_appointments, get_family_messages, send_message_to_family, daily_check_in, ask_family_for_help, report_suspicious_call, where_is, save_memory_story, list_memory_stories, family_summary, weekly_family_letter"), "arguments_json": s("The tool's arguments as a JSON object, for example {\"message\":\"I am fine\",\"to\":\"Riya\"} or {}") }), &["tool"]),
     ] }])
 }
 
@@ -206,7 +208,7 @@ mod tests {
         assert!(s.pointer("/setup/contextWindowCompression/slidingWindow").is_some());
         assert_eq!(s.pointer("/setup/generationConfig/responseModalities/0").unwrap(), "AUDIO");
         let names: Vec<String> = s.pointer("/setup/tools/0/functionDeclarations").unwrap().as_array().unwrap().iter().map(|d| d["name"].as_str().unwrap().to_string()).collect();
-        for n in ["click_element", "click", "type_text", "press_keys", "open", "run_command", "scroll", "look", "screen_elements"] {
+        for n in ["click_element", "click", "type_text", "press_keys", "open", "run_command", "scroll", "look", "screen_elements", "saathi"] {
             assert!(names.contains(&n.to_string()), "{n}");
         }
         assert!(setup("m1", "x", "Kore", None).pointer("/setup/sessionResumption/handle").is_none());

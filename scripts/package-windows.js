@@ -12,8 +12,8 @@ const cache = join(ROOT, 'build', 'cache');
 const exe = (name) => join(ROOT, 'target', 'release', `${name}.exe`);
 const step = (text) => console.log(`\n> ${text}`);
 
-for (const bin of ['saathi', 'saathi-broker']) {
-  if (!existsSync(exe(bin))) throw new Error(`${exe(bin)} is missing. Build it first: cargo build --locked --release -p saathi-launcher -p saathi-broker`);
+for (const bin of ['saathi', 'saathi-broker', 'sahay']) {
+  if (!existsSync(exe(bin))) throw new Error(`${exe(bin)} is missing. Build it first: cargo build --locked --release -p saathi-launcher -p saathi-broker -p sahay`);
 }
 
 step('Fresh stage');
@@ -35,6 +35,7 @@ execFileSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['ci', '--omit=de
 step('Key broker and launcher');
 copyFileSync(exe('saathi-broker'), join(app, 'bin', 'saathi-broker.exe'));
 copyFileSync(exe('saathi'), join(stage, 'saathi.exe'));
+copyFileSync(exe('sahay'), join(stage, 'Sahay.exe'));
 copyFileSync(join(ROOT, 'installer', 'saathi.ico'), join(stage, 'saathi.ico'));
 
 step(`Node.js ${pin.version}, checked against its pinned SHA-256`);

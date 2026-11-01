@@ -133,7 +133,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: cargo build --locked --release -p saathi-broker -p saathi-launcher
+      - run: cargo build --locked --release -p saathi-broker -p saathi-launcher -p sahay
       - run: cargo test --locked -p saathi-launcher
       - run: node scripts/package-windows.js
       - name: Build the installer
@@ -150,7 +150,7 @@ jobs:
           $setup = Get-ChildItem build\out\Saathi-Setup-*.exe | Select-Object -First 1
           Start-Process $setup.FullName -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/TASKS=desktopicon' -Wait
           $app = Join-Path $env:LOCALAPPDATA 'Programs\Saathi'
-          foreach ($f in 'saathi.exe', 'runtime\node.exe', 'app\bin\saathi-broker.exe', 'app\src\index.js') { if (-not (Test-Path (Join-Path $app $f))) { throw "missing $f" } }
+          foreach ($f in 'saathi.exe', 'Sahay.exe', 'runtime\node.exe', 'app\bin\saathi-broker.exe', 'app\src\index.js') { if (-not (Test-Path (Join-Path $app $f))) { throw "missing $f" } }
           if (-not (Test-Path (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Saathi.lnk'))) { throw 'no desktop icon' }
           $env:SAATHI_BREACH_CHECK = 'off'
           $env:SAATHI_METRICS = 'off'

@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-01
+
+Saathi now comes with **Sahay**, a voice helper that sees and uses the Windows PC, and protects Aaji from phone scams.
+
+### Get started
+- **Windows:** download **Saathi-Setup-1.3.0.exe** below. Sahay is in the Start menu (tick "Put a Sahay icon on the desktop" in the installer if you want one). Guide: [docs/INSTALL_WINDOWS.md](docs/INSTALL_WINDOWS.md).
+- **Android:** **Saathi-1.3.0.apk** below. **Docker:** `ghcr.io/akshatinnovate-png/saathi-alexa:1.3.0`
+
+### New
+- **Sahay**, included with Saathi on Windows: talk to it and it opens apps and websites, clicks, types, fills forms, runs commands and reads the screen back to you. Talk over it mid-task and it changes plan; it asks when a choice is yours. Click the sphere to stop or start.
+- **Sahay knows Saathi**: ask it about Aaji's tablets, doctor visits, family messages or where something is kept at home, or have it message the family or call for help, and it asks Saathi directly instead of clicking through the web page.
+- **Sahay keeps going**: it resumes the same conversation after a dropped connection, rotates between your free Gemini keys and models when one hits its limit, and retries by itself.
+- **Scam shield**: when Aaji mentions a call asking for an OTP, PIN, KYC update, money, an app install, or threatening "digital arrest", Saathi calmly tells her what not to do and alerts the family once, in English, Hindi, Marathi and Hinglish, even from a private check-in. Alexa+ gets a matching tool.
+- **Medical ID card**: one printable page for a paramedic or hospital with allergies, conditions, blood group, medicines, doctor, who to call and the language spoken.
+
+### Security
+- Medical details and alert words are sealed at rest and never reach Alexa or the neighbour.
+
 ## [1.2.0] - 2026-11-01
 
 Saathi now has an Android app, and is attacked automatically on every change.

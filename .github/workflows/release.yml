@@ -102,7 +102,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: cargo build --locked --release -p saathi-broker -p saathi-launcher
+      - run: cargo build --locked --release -p saathi-broker -p saathi-launcher -p sahay
       - run: node scripts/package-windows.js
       - name: Build the installer
         shell: pwsh

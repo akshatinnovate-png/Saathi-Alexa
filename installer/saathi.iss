@@ -37,6 +37,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "Put a Saathi icon on the desktop"; GroupDescription: "Shortcuts:"
+Name: "sahaydesktop"; Description: "Put a Sahay icon on the desktop (the voice helper that can use this computer for you)"; GroupDescription: "Shortcuts:"; Flags: unchecked
 Name: "autostart"; Description: "Start Saathi when I sign in to Windows (recommended, so reminders and help calls always work)"; GroupDescription: "Start-up:"
 
 [Files]
@@ -44,6 +45,7 @@ Source: "..\build\windows\*"; DestDir: "{app}"; Flags: ignoreversion recursesubd
 
 [Icons]
 Name: "{group}\Saathi"; Filename: "{app}\saathi.exe"; IconFilename: "{app}\saathi.ico"; Comment: "Open Saathi"
+Name: "{group}\Sahay"; Filename: "{app}\Sahay.exe"; Comment: "A voice helper that sees and uses this computer"
 Name: "{group}\Stop Saathi"; Filename: "{app}\saathi.exe"; Parameters: "--stop"; IconFilename: "{app}\saathi.ico"
 Name: "{group}\Lock the key into this computer"; Filename: "{app}\saathi.exe"; Parameters: "--protect-key"; IconFilename: "{app}\saathi.ico"
 Name: "{group}\Restore the key from a recovery key"; Filename: "{app}\saathi.exe"; Parameters: "--restore-key"; IconFilename: "{app}\saathi.ico"
@@ -52,6 +54,7 @@ Name: "{group}\Where is my key?"; Filename: "{app}\saathi.exe"; Parameters: "--k
 Name: "{group}\Saathi data folder"; Filename: "{localappdata}\Saathi"
 Name: "{group}\Uninstall Saathi"; Filename: "{uninstallexe}"
 Name: "{userdesktop}\Saathi"; Filename: "{app}\saathi.exe"; IconFilename: "{app}\saathi.ico"; Tasks: desktopicon
+Name: "{userdesktop}\Sahay"; Filename: "{app}\Sahay.exe"; Tasks: sahaydesktop
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Saathi"; ValueData: """{app}\saathi.exe"" --background"; Tasks: autostart; Flags: uninsdeletevalue
@@ -61,6 +64,7 @@ Filename: "{app}\saathi.exe"; Description: "Open Saathi now"; Flags: postinstall
 
 [UninstallRun]
 Filename: "{app}\saathi.exe"; Parameters: "--stop"; RunOnceId: "StopSaathi"; Flags: runhidden waituntilterminated
+Filename: "{sys}\taskkill.exe"; Parameters: "/IM Sahay.exe /F"; RunOnceId: "StopSahay"; Flags: runhidden waituntilterminated
 
 [Code]
 function PrepareToInstall(var NeedsRestart: Boolean): String;
@@ -70,6 +74,7 @@ begin
   Result := '';
   if FileExists(ExpandConstant('{app}\saathi.exe')) then
     Exec(ExpandConstant('{app}\saathi.exe'), '--stop', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM Sahay.exe /F', '', SW_HIDE, ewWaitUntilTerminated, Code);
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
