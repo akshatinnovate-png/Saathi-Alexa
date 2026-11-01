@@ -29,7 +29,7 @@ To point the app at a different Saathi later, long-press the Saathi icon and cho
 Each APK on the release page is built by GitHub Actions from this repository's public code and carries a signed record of how it was built:
 
 ```
-gh attestation verify Saathi-1.1.0.apk --repo akshatinnovate-png/Saathi-Alexa
+gh attestation verify Saathi-1.2.0.apk --repo akshatinnovate-png/Saathi-Alexa
 ```
 
 `SHA256SUMS-android` lists its SHA-256, and `apk-signature.txt` shows the certificate that signed it.

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-01
+
+Saathi now has an Android app, and is attacked automatically on every change.
+
+### Get started
+- **Android:** on Aaji's tablet or a family phone, download **Saathi-1.2.0.apk** below, open it and type your Saathi address. Guide: [docs/ANDROID.md](docs/ANDROID.md).
+- **Windows:** download **Saathi-Setup-1.2.0.exe** below and double-click it. Guide: [docs/INSTALL_WINDOWS.md](docs/INSTALL_WINDOWS.md).
+- **Docker:** `docker run -p 8787:8787 -v saathi-data:/data ghcr.io/akshatinnovate-png/saathi-alexa:1.2.0`
+
 ### New
 - Android app for Aaji's tablet and family phones: opens only your own Saathi, https only, no screenshots, no backups, no third-party code. Built, tested and attested in CI ([docs/ANDROID.md](docs/ANDROID.md)).
 
