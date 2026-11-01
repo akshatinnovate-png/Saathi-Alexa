@@ -17,6 +17,11 @@ const RULES = [
 ];
 
 
+const suggestionsFor = (name) => {
+  const who = name || 'them';
+  return [`How was ${who} this week?`, `Who is taking ${who} to the doctor?`, `Does ${who} need a refill?`, `Where are ${who}'s glasses?`];
+};
+
 export function createFamilyAssistant({ mcpUrl, headers, llm }) {
   let mcp;
   let tools = [];

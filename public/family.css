@@ -339,3 +339,13 @@ button.person:hover { background: rgb(255 255 255 / 90%); }
 .sec-log li { display: flex; justify-content: space-between; gap: 12px; }
 .approve-emoji { margin: 6px 0; text-align: center; font-size: clamp(2.6rem, 12vw, 3.6rem); letter-spacing: 0.2em; padding: 14px; border-radius: 18px; background: #f6f7fa; }
 @media (max-width: 560px) { .sec-inline, .sec-codes { grid-template-columns: 1fr; } }
+
+.private-toggle { margin-top: 6px; font-size: 0.88rem; color: #3b4252; }
+.recovery-code { font: 600 1.15rem/1.6 ui-monospace, "SFMono-Regular", Menlo, monospace; letter-spacing: 0.04em; word-break: break-all; padding: 12px 14px; border-radius: 12px; background: #f6f7fa; border: 1px dashed #c9cfdb; }
+.recovery-sheet { display: grid; gap: 6px; }
+.sheet-actions.stack { flex-direction: column; align-items: stretch; }
+@media print {
+  body > *:not(#private-dialog) { display: none !important; }
+  #private-dialog { position: static; box-shadow: none; width: auto; }
+  #private-dialog .sheet-actions, #private-dialog form, #private-dialog .form-error { display: none; }
+}

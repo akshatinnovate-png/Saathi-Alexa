@@ -96,6 +96,7 @@ export function createAccountSecurity({ accounts, store, sealer, rp, clock = () 
         excludeCredentials: (account.passkeys ?? []).map((p) => ({ id: p.id, transports: p.transports })),
         authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
         supportedAlgorithmIDs: [-7, -8, -257],
+        extensions: { prf: {} },
       });
       await accounts.update(account.email, { webauthnChallenge: { value: options.challenge, at: clock().toISOString() } });
       return options;
