@@ -2,6 +2,7 @@ import { svg } from './trusted.js';
 import { api, loadSettings, saveSettings, applyDisplay, bindToggle, onEvents, el, timeOf, pronounsOf } from './common.js';
 import { icon, iconEl } from './icons.js';
 import { setupSecurity, setupPairApprovals } from './security.js';
+import { createPrivate } from './private.js';
 
 const settings = loadSettings({ member: 'riya', large: false, contrast: false });
 applyDisplay(settings);
@@ -20,11 +21,19 @@ const me = () => circle.find((p) => p.id === meId());
 const nameOf = (id) => (id === 'elder' ? elderName : id === 'front-door' ? 'The Ring doorbell' : circle.find((p) => p.id === id)?.name ?? id);
 const initials = (name) => String(name ?? '?').split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 
+let priv = null;
+const avatarCache = new Map();
+
 function avatar(person, size = '') {
   const shade = ['', 'c1', 'c2', 'c3'][[...String(person?.id ?? '')].reduce((a, c) => a + c.charCodeAt(0), 0) % 4];
   const node = el('span', { class: `avatar ${size} ${shade}`, 'aria-hidden': 'true' });
-  if (person?.avatarUrl) node.append(el('img', { src: person.avatarUrl, alt: '' }));
-  else node.textContent = initials(person?.preferredName ?? person?.name);
+  node.textContent = initials(person?.preferredName ?? person?.name);
+  if (person?.avatarUrl && person.avatarE2e) {
+    const key = person.avatarE2e.itemId;
+    const show = (url) => { if (url) node.replaceChildren(el('img', { src: url, alt: '' })); };
+    if (avatarCache.has(key)) show(avatarCache.get(key));
+    else if (priv?.ready()) priv.decryptUrl('photo', key, person.avatarUrl, person.avatarE2e.mediaType).then((url) => { avatarCache.set(key, url); show(url); }).catch(() => {});
+  } else if (person?.avatarUrl) node.replaceChildren(el('img', { src: person.avatarUrl, alt: '' }));
   return node;
 }
 
@@ -190,7 +199,14 @@ async function renderThread() {
     const mine = m.from === meId();
     if (m.system) return el('div', { class: 'notice' }, el('small', {}, `Saathi told ${elderName} · ${timeOf(m.createdAt)}`), el('span', { lang: m.language }, m.text));
     if (m.kind === 'voice') {
-      return el('div', { class: `bubble${mine ? ' mine' : ''}` }, el('small', {}, `${nameOf(m.from)} · ${timeOf(m.createdAt)} · voice note${m.read ? ` · heard by ${elderName}` : ''}`), el('audio', { controls: true, src: m.audioUrl, preload: 'none' }));
+      const player = el('audio', { controls: true, preload: 'none', src: m.e2e ? undefined : m.audioUrl });
+      if (m.e2e) priv?.decryptUrl('voice', m.e2e.itemId, m.audioUrl, m.e2e.mediaType).then((url) => { if (url) player.src = url; }).catch(() => {});
+      return el('div', { class: `bubble${mine ? ' mine' : ''}` }, el('small', {}, `${nameOf(m.from)} · ${timeOf(m.createdAt)} · ${m.e2e ? '🔒 private ' : ''}voice note${m.read ? ` · heard by ${elderName}` : ''}`), player);
+    }
+    if (m.kind === 'private') {
+      const body = el('span', {}, priv?.ready() ? 'Opening…' : '🔒 Private message. Turn on private messages on this device to read it.');
+      if (priv?.ready()) priv.openText(m.e2e.itemId, m.e2e.blob).then((value) => { body.textContent = value; }).catch(() => { body.textContent = '🔒 This private message could not be opened on this device.'; });
+      return el('div', { class: `bubble${mine ? ' mine' : ''}` }, el('small', {}, `${nameOf(m.from)} · ${timeOf(m.createdAt)} · 🔒 private`), body);
     }
     const text = !mine && m.translated ? m.translated : m.text;
     return el('div', { class: `bubble${mine ? ' mine' : ''}` },
@@ -245,7 +261,10 @@ function pickAvatar(forId) {
   input.onchange = async () => {
     const file = input.files[0];
     if (!file) return;
-    const res = await fetch(`/api/family/avatar?for=${encodeURIComponent(forId)}`, { method: 'POST', headers: { 'content-type': file.type }, body: file });
+    const sealed = priv?.ready() ? await priv.encrypt('photo', new Uint8Array(await file.arrayBuffer())) : null;
+    const res = sealed
+      ? await fetch(`/api/family/avatar?for=${encodeURIComponent(forId)}`, { method: 'POST', headers: { 'content-type': 'application/vnd.saathi.e2e', 'x-saathi-e2e': sealed.itemId, 'x-saathi-media-type': file.type }, body: sealed.blob })
+      : await fetch(`/api/family/avatar?for=${encodeURIComponent(forId)}`, { method: 'POST', headers: { 'content-type': file.type }, body: file });
     input.value = '';
     if (res.ok) await init(false);
   };
@@ -459,7 +478,7 @@ async function setupSettings() {
       el('span', {}, `${p.name} · ${p.relationship}${p.email ? ` · ${p.email}` : ''}`),
       p.id === status.memberId ? el('span', { class: 'muted' }, 'You') : el('button', { class: 'text-action', type: 'button', onclick: async () => {
         if (!confirm(`Remove ${p.name} from ${elderName}'s circle? They will stop getting updates.`)) return;
-        try { await call(`/household/members/${encodeURIComponent(p.id)}`, 'DELETE'); await init(false); fill(); toast(`${p.name} was removed.`); } catch (err) { toast(err.message); }
+        try { const out = await call(`/household/members/${encodeURIComponent(p.id)}`, 'DELETE'); await init(false); fill(); toast(`${p.name} was removed.`); await priv?.removeOwners(out.accounts ?? []); } catch (err) { toast(err.message); }
       } }, 'Remove'))));
   }
 
@@ -747,8 +766,13 @@ $('record').addEventListener('click', async () => {
       const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
       const duration = Math.round((Date.now() - startedAt) / 1000);
       $('record-status').textContent = 'Sending…';
-      const res = await fetch(`/api/family/voice-note?from=${encodeURIComponent(meId())}&duration=${duration}`, { method: 'POST', headers: { 'content-type': blob.type }, body: blob });
-      $('record-status').textContent = res.ok ? `Sent. ${elderName} will hear your voice (${duration}s).` : 'Could not send the voice note.';
+      const type = blob.type.split(';')[0] || 'audio/webm';
+      const sealed = priv?.ready() ? await priv.encrypt('voice', new Uint8Array(await blob.arrayBuffer())) : null;
+      const url = `/api/family/voice-note?from=${encodeURIComponent(meId())}&duration=${duration}`;
+      const res = sealed
+        ? await fetch(url, { method: 'POST', headers: { 'content-type': 'application/vnd.saathi.e2e', 'x-saathi-e2e': sealed.itemId, 'x-saathi-media-type': type }, body: sealed.blob })
+        : await fetch(url, { method: 'POST', headers: { 'content-type': blob.type }, body: blob });
+      $('record-status').textContent = res.ok ? `Sent${sealed ? ' privately' : ''}. ${elderName} will hear your voice (${duration}s).` : 'Could not send the voice note.';
       renderThread();
     };
     startedAt = Date.now();
@@ -766,7 +790,8 @@ $('compose').addEventListener('submit', async (e) => {
   const text = $('compose-text').value.trim();
   if (!text) return;
   $('compose-text').value = '';
-  await api('/family/message', { from: meId(), text });
+  if ($('compose-private').checked && priv?.ready()) await api('/family/message', { from: meId(), e2e: await priv.sealText(text) });
+  else await api('/family/message', { from: meId(), text });
   renderThread();
 });
 $('letter-preview').addEventListener('click', async () => renderLetter(await api('/family/letter', { member: meId() })));
@@ -807,8 +832,14 @@ async function init(first = true) {
     setupDevices();
     setupSettings();
     setupCareEditing();
+    if (status.me && circle.find((p) => p.id === status.memberId)?.role !== 'neighbour') {
+      priv = createPrivate({ householdId: status.me.householdId, me: status.me, isOwner: () => status.me?.role === 'owner', toast, onChange: () => { $('compose-private-row').hidden = !priv.ready(); renderThread(); renderPeople(); } });
+      await priv.load();
+      priv.watchJoins();
+      $('compose-private-row').hidden = !priv.ready();
+    }
     if (status.me) {
-      setupSecurity({ isOwner: () => status.me?.role === 'owner', toast });
+      setupSecurity({ isOwner: () => status.me?.role === 'owner', toast, privateBlock: priv ? (again) => priv.block(again) : null });
       setupPairApprovals({ toast, canApprove: () => Boolean(status.me) && status.me.role !== 'neighbour' });
     }
     $('open-security').hidden = !status.me;

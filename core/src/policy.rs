@@ -20,6 +20,7 @@ pub enum Principal {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Level {
     Household,
+    Circle,
     Caregiver,
     Family,
     Owner,
@@ -64,6 +65,7 @@ actions! {
     Assistant => "assistant": Household,
     Speak => "speak": Household,
     RingSimulate => "ring.simulate": Household,
+    VaultRead => "vault.read": Circle,
     DemoReset => "demo.reset": Caregiver,
     Refill => "care.refill": Caregiver,
     Escort => "care.escort": Caregiver,
@@ -136,7 +138,7 @@ pub fn decide(principal: Principal, action: Action, household: u32) -> Result<()
                 return Err(Deny::OtherHousehold);
             }
             match level {
-                Level::Household | Level::Caregiver => Ok(()),
+                Level::Household | Level::Circle | Level::Caregiver => Ok(()),
                 _ => Err(Deny::NeedsAccount),
             }
         }
@@ -145,7 +147,7 @@ pub fn decide(principal: Principal, action: Action, household: u32) -> Result<()
                 return Err(Deny::OtherHousehold);
             }
             match level {
-                Level::Household => Ok(()),
+                Level::Household | Level::Circle => Ok(()),
                 _ => Err(Deny::DeviceCannot),
             }
         }
@@ -294,7 +296,7 @@ mod tests {
                     let out = decide(p, *a, h);
                     match (p, a.level()) {
                         (Principal::Anonymous, _) => assert_eq!(out, Err(Deny::NotSignedIn)),
-                        (Principal::Device { household }, Level::Household) if household == h => assert!(out.is_ok()),
+                        (Principal::Device { household }, Level::Household | Level::Circle) if household == h => assert!(out.is_ok()),
                         (Principal::Device { .. }, _) => assert!(out.is_err()),
                         (Principal::User { role: Some(Role::Neighbour), household: Some(x) }, l) if x == h => {
                             assert_eq!(out.is_ok(), matches!(l, Level::Household | Level::SignedIn));
@@ -310,7 +312,7 @@ mod tests {
     #[test]
     fn neighbours_cannot_read_health_or_pair_devices() {
         let n = Principal::User { household: Some(1), role: Some(Role::Neighbour) };
-        for a in [Action::CareRead, Action::CareEdit, Action::PairingCode, Action::DeviceDecide, Action::Letter, Action::AuditLog, Action::VaultKeys] {
+        for a in [Action::CareRead, Action::CareEdit, Action::PairingCode, Action::DeviceDecide, Action::Letter, Action::AuditLog, Action::VaultKeys, Action::VaultRead] {
             assert_eq!(decide(n, a, 1), Err(Deny::NeighbourCannot));
         }
         assert!(decide(n, Action::AlertAck, 1).is_ok());
@@ -370,7 +372,7 @@ mod proofs {
         let own: u32 = kani::any();
         let a: Action = kani::any();
         if decide(Principal::Device { household: own }, a, h).is_ok() {
-            assert!(a.level() == Level::Household);
+            assert!(matches!(a.level(), Level::Household | Level::Circle));
         }
     }
 

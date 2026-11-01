@@ -281,16 +281,22 @@ export function createSaathi(deps) {
   }
 
   async function familyMessages({ unreadOnly = true, markRead = true, language } = {}) {
-    const { me, lang } = await voice(language);
+    const { lang } = await voice(language);
     const circle = await store.list('circle');
     const all = (await store.list('messages')).filter((m) => m.to === 'elder' && (!unreadOnly || !m.read))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     const out = [];
     const voiceNotes = [];
+    const privateNotes = [];
     for (const m of all) {
       const sender = circle.find((p) => p.id === m.from);
+      if (m.kind === 'private') {
+        privateNotes.push({ id: m.id, fromId: m.from, from: localized(sender, 'name', lang) ?? m.from, language: m.language, e2e: m.e2e, at: m.createdAt });
+        if (markRead && !m.read) await store.update('messages', m.id, { read: true });
+        continue;
+      }
       if (m.kind === 'voice') {
-        voiceNotes.push({ id: m.id, from: localized(sender, 'name', lang) ?? m.from, url: await (media.playbackUrl?.(m.audio) ?? m.audio), durationSec: m.durationSec, at: m.createdAt });
+        voiceNotes.push({ id: m.id, from: localized(sender, 'name', lang) ?? m.from, url: await (media.playbackUrl?.(m.audio) ?? m.audio), durationSec: m.durationSec, at: m.createdAt, e2e: m.e2e ?? null });
         if (markRead && !m.read) await store.update('messages', m.id, { read: true });
         continue;
       }
@@ -309,10 +315,12 @@ export function createSaathi(deps) {
     const lines = [
       ...out.map((m) => (m.system ? m.translated : t(lang, 'messageLine', { from: m.spokenFrom, relationship: m.spokenRelationship, text: m.translated }))),
       ...voiceNotes.map((v) => t(lang, 'voiceNote', { from: v.from })),
+      ...privateNotes.map((p) => t(lang, 'privateMessage', { from: p.from })),
     ];
     return {
       messages: out,
       voiceNotes,
+      privateMessages: privateNotes,
       sayLanguage: lang,
       say: lines.length ? lines.join(' ') : t(lang, 'noMessages'),
     };
@@ -340,10 +348,14 @@ export function createSaathi(deps) {
     return { sent: true, deliveries, sayLanguage: speak, say: t(speak, 'sent', { names: joinNames(speak, recipients.map((r) => localized(r, 'name', speak))), translated }) };
   }
 
-  async function messageFromFamily({ fromId, text, language }) {
+  async function messageFromFamily({ fromId, text, language, e2e = null }) {
     const circle = await store.list('circle');
     const sender = circle.find((p) => p.id === fromId);
     if (!sender) throw invalid(`Unknown family member ${fromId}`);
+    if (e2e) {
+      if (!/^[A-Za-z0-9_-]{8,48}$/.test(String(e2e.itemId ?? '')) || typeof e2e.blob !== 'string' || !/^[A-Za-z0-9+/=]+$/.test(e2e.blob) || e2e.blob.length > 200000) throw invalid('That private message is not valid.');
+      return deliverToElder({ fromId, text: '🔒', language: language ?? sender.language, extra: { kind: 'private', e2e: { itemId: e2e.itemId, blob: e2e.blob } } });
+    }
     return deliverToElder({ fromId, text, language: language ?? sender.language });
   }
 
@@ -546,9 +558,15 @@ export function createSaathi(deps) {
     return { ...appt, escort: member };
   }
 
-  async function addVoiceNote({ fromId, audio, contentType = 'audio/webm', durationSec }) {
+  async function addVoiceNote({ fromId, audio, contentType = 'audio/webm', durationSec, e2e = null }) {
     const sender = (await store.list('circle')).find((p) => p.id === fromId);
     if (!sender) throw invalid(`Unknown family member ${fromId}`);
+    if (e2e) {
+      if (!/^[A-Za-z0-9_-]{8,48}$/.test(String(e2e.itemId ?? '')) || !/^audio\/[\w.+-]+$/.test(String(e2e.mediaType ?? ''))) throw invalid('That private voice note is not valid.');
+      const ref = await media.save(`voice/e2e-${e2e.itemId}.bin`, audio, 'application/octet-stream');
+      metrics.emit('VoiceNote', 1);
+      return deliverToElder({ fromId, text: '🎤', language: sender.language, extra: { kind: 'voice', audio: ref, durationSec: durationSec ?? null, e2e: { itemId: e2e.itemId, mediaType: e2e.mediaType } } });
+    }
     const ext = { 'audio/webm': 'webm', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a', 'audio/mpeg': 'mp3', 'audio/wav': 'wav' }[contentType.split(';')[0]] ?? 'webm';
     const noteId = id('voice');
     const ref = await media.save(`voice/${noteId}.${ext}`, audio, contentType);
@@ -818,12 +836,20 @@ export function createSaathi(deps) {
     return notifier.subscribe({ email, memberId, audiences: role === 'neighbour' ? ['neighbour', 'everyone'] : ['family', 'everyone'] });
   }
 
-  async function setAvatar({ memberId, image, contentType }) {
-    const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[contentType];
-    if (!ext) throw invalid('Use a PNG, JPEG or WebP image.');
-    const ref = await media.save(`avatars/${memberId}-${Date.now().toString(36)}.${ext}`, image, contentType);
-    if (memberId === 'elder') return store.update('profile', 'elder', { avatar: ref });
-    return store.update('circle', memberId, { avatar: ref });
+  async function setAvatar({ memberId, image, contentType, e2e = null }) {
+    let ref;
+    let avatarE2e = null;
+    if (e2e) {
+      if (!/^[A-Za-z0-9_-]{8,48}$/.test(String(e2e.itemId ?? '')) || !['image/png', 'image/jpeg', 'image/webp'].includes(e2e.mediaType)) throw invalid('That private photo is not valid.');
+      ref = await media.save(`avatars/e2e-${e2e.itemId}.bin`, image, 'application/octet-stream');
+      avatarE2e = { itemId: e2e.itemId, mediaType: e2e.mediaType };
+    } else {
+      const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[contentType];
+      if (!ext) throw invalid('Use a PNG, JPEG or WebP image.');
+      ref = await media.save(`avatars/${memberId}-${Date.now().toString(36)}.${ext}`, image, contentType);
+    }
+    if (memberId === 'elder') return store.update('profile', 'elder', { avatar: ref, avatarE2e });
+    return store.update('circle', memberId, { avatar: ref, avatarE2e });
   }
 
   async function messages() {

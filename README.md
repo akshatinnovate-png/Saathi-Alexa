@@ -362,6 +362,7 @@ The server also sends `instructions` on initialize: short, warm sentences, never
 Saathi is built for people scammers like to target, so it is deliberately over-engineered. The short version (the full version is [SECURITY.md](SECURITY.md) and the attacker-by-attacker [threat model](docs/THREAT_MODEL.md)):
 
 - **Everything on disk is encrypted.** The data file and every voice note and photo are sealed with AES-256-GCM. Keys come from one master key through HKDF, a different key for every purpose.
+- **Private messages the server cannot read.** Voice notes, photos and private messages are encrypted on your family's devices before they leave them (post-quantum hybrid keys). A new phone or Aaji's screen joins only when both screens show the same three pictures, and a fingerprint or face can lock them on each device.
 - **The key lives outside the web server.** A small Rust key broker holds it and can lock it into your computer's TPM chip (`npm run protect-key`), so a copied disk is useless anywhere else.
 - **Saathi only talks to the services it needs.** Every other outbound connection is refused.
 - **Passwords are hard to steal and hard to use.** scrypt plus a secret pepper, checked against breached passwords without revealing them, progressive lockout, equal timing for unknown emails.

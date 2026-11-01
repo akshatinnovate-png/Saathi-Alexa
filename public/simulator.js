@@ -1,4 +1,7 @@
 import { api, loadSettings, saveSettings, applyDisplay, bindToggle, onEvents, el, timeOf, EVENT_LABELS } from './common.js';
+import { createTabletPrivate } from './tablet-private.js';
+
+let tabletPrivate = null;
 
 const settings = loadSettings({ language: null, large: true, contrast: false, slow: true, voice: true });
 applyDisplay(settings);
@@ -147,13 +150,27 @@ async function playVoiceNotes(notes) {
   for (const note of notes) {
     setRing('speaking', `Playing a voice message from ${note.from}`);
     $('progress').textContent = `🎤 ${note.from}`;
+    const url = note.e2e ? await tabletPrivate?.decryptUrl(note).catch(() => null) : note.url;
+    if (!url) { $('progress').textContent = ''; continue; }
     await new Promise((resolve) => {
-      const audio = new Audio(note.url);
+      const audio = new Audio(url);
       audio.onended = resolve;
       audio.onerror = resolve;
       audio.play().catch(resolve);
     });
     $('progress').textContent = '';
+  }
+}
+
+async function showPrivateMessages(items) {
+  for (const item of items) {
+    const opened = await tabletPrivate?.readPrivate(item).catch(() => null);
+    if (!opened) continue;
+    $('alexa-said').textContent = `🔒 ${opened.from}: ${opened.text}`;
+    if (settings.voice) {
+      setRing('speaking', `Reading a private message from ${opened.from}`);
+      await tabletPrivate.speakLocally(opened.text, opened.translated ? settings.language : item.language ?? settings.language);
+    }
   }
 }
 
@@ -167,6 +184,7 @@ async function handleResult(result) {
     const alarm = result.trace.some((t) => t.tool === 'ask_family_for_help');
     await speak(result.reply);
     await playVoiceNotes(result.trace.flatMap((t) => t.result?.voiceNotes ?? []));
+    await showPrivateMessages(result.trace.flatMap((t) => t.result?.privateMessages ?? []));
     setRing(alarm ? 'alert' : 'idle', alarm ? 'Help is on the way' : 'Saathi is idle');
     refreshNext();
   }
@@ -267,6 +285,11 @@ async function init() {
   if (status.device) {
     document.body.classList.add('kiosk');
     keepAwake();
+    const session = await api('/session').catch(() => null);
+    if (session?.device?.id) {
+      tabletPrivate = createTabletPrivate({ householdId: status.householdId, deviceId: session.device.id, language: () => settings.language });
+      tabletPrivate.start();
+    }
   }
   const select = $('language');
   select.replaceChildren(...Object.entries(languages).map(([code, l]) => el('option', { value: code, selected: code === settings.language }, `${l.native} · ${l.name}`)));

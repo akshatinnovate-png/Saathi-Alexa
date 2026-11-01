@@ -128,11 +128,22 @@ Saathi looks after an elder living with memory loss, disability or a language ga
 | Run the demo on a network | Warns that the demo password is public |
 | Leak a stack trace | Errors return a generic message with an ID; details only go to the server log |
 
+### 13. A compromised or malicious server
+
+| Attack | Control |
+|---|---|
+| Read voice notes, photos and private messages | They are encrypted on family devices with the family key, which the server never holds |
+| Give the family key to a device the server controls | Devices join with commit-then-reveal and three matching pictures (15 bits, one guess per visible attempt). Rotation only wraps the key for devices that carry a certificate made with the family key |
+| Keep a removed relative able to read new messages | Removal rotates the family key; the removed person's devices get nothing new (checked by the KeyRotation model) |
+| Swap one private item for another | Each item is bound to its kind, its id and the household as associated data |
+
+What the server still sees: who sent a message, when, its size, and everything Alexa+ needs to answer (medicines, visits, stories, the house map). Those are protected by the key broker in step 4, not by end-to-end encryption.
+
 ## Not yet covered
 
 We would rather say so than pretend.
 
-- **A fully compromised server.** Anyone with root on the machine running Saathi can read the key. End-to-end encryption between family members would fix this but breaks server-side translation and alerts.
+- **A fully compromised server** can still read what is not end-to-end encrypted: medicines, visits, stories and the house map, because Alexa+ and the server-side assistant need them. Voice notes, photos and private messages stay unreadable.
 - **A compromised Google account.** If someone controls a family member's Google account, "Sign in with Google" lets them in. Two-step in Saathi still applies on top.
 - **Voice-clone scams over the phone.** Saathi cannot stop a scammer who calls the elder directly. It does keep family voice notes encrypted and behind short-lived links, so they are harder to harvest.
 - **Denial of service at scale.** Rate limits stop abuse from one place, not a botnet. Put Saathi behind a CDN or AWS WAF for that (the AWS deployment uses API Gateway throttling).
