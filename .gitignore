@@ -13,3 +13,9 @@ core/fuzz/corpus/
 core/fuzz/artifacts/
 core/fuzz/coverage/
 build/
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+*.jks
+*.keystore
