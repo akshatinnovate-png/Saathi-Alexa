@@ -273,17 +273,26 @@ fn handle_event(shared: &Arc<Shared>, ev: Event, handle: &mut Option<String>, re
             shared.set_status(Status::Listening, "");
         }
         Event::TurnComplete => {
+            let heard = std::mem::take(&mut *shared.heard.lock().unwrap_or_else(|p| p.into_inner()));
+            if shared.awaiting.load(Ordering::Relaxed) && !heard.trim().is_empty() {
+                let _ = shared.operator.send(super::operator::Cmd::Update(heard.trim().to_string()));
+            }
             if shared.status() != Status::Working {
                 shared.set_status(Status::Listening, "");
             }
         }
-        Event::Heard(t) => shared.remember("You", &t),
+        Event::Heard(t) => {
+            super::system::log(&format!("heard: {t}"));
+            shared.heard.lock().unwrap_or_else(|p| p.into_inner()).push_str(&t);
+            shared.remember("You", &t);
+        }
         Event::Said(t) => {
             shared.remember("Sahay", &t);
             shared.caption(&t);
         }
         Event::Calls(calls) => {
             for c in calls {
+                super::system::log(&format!("voice model called {} {}", c.name, c.args));
                 shared.remember("Sahay does", &format!("{} {}", c.name, c.args));
                 let _ = shared.calls.send(c);
             }

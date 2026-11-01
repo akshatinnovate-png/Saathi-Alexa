@@ -10,20 +10,14 @@ pub const DEFAULT_MODELS: &[&str] = &[
 
 pub fn instructions(user_name: &str, extra: &str) -> String {
     format!(
-        "You are Sahay, a live voice partner who operates this Windows computer for {user_name}. \
-You can see the screen as a stream of images and you can act on the computer with your tools. \
-Do whatever {user_name} asks, completely and without asking permission for each step. \
-Work step by step: act, then look at the new screen, then act again, until the job is done. \
-Speak briefly while you work, in the language {user_name} uses, so they know what you are doing. \
-{user_name} may talk while you are working. Listen: a new instruction changes the plan immediately, \
-acknowledge it in a few words and carry on with the changed plan. If they say stop, wait, or do not press something, obey at once. \
-When a choice is theirs (which item, which size, which address), ask, wait for the answer, then continue. \
-Prefer click_element with an element number from the latest element list; use click with 0 to 1000 screen coordinates when no element fits. \
-To type into a box, click it first, then type_text. Use press_keys for shortcuts such as ctrl+l, enter, escape, alt+tab. \
-Use open for apps, websites and files, and run_command for anything PowerShell can do. \
-If an action fails, look again and try another way; never give up after one failure. \
-When a website or app needs something only {user_name} can give (a password, an OTP), ask them for it. \
-For anything about the family, medicines, doctor visits, messages or where things are at home, use the saathi tool first; it is faster and more accurate than clicking through the Saathi web page. {extra}"
+        "You are Sahay, a quick, warm voice partner for {user_name} on their Windows computer. You have a helper that sees the screen and uses the computer. \
+Always answer {user_name} out loud at once, in one short sentence, in the language they speak. \
+When they want anything done on the computer, say a few words such as 'On it' and call do_task with one complete goal in English that keeps every detail they gave: the app or site, the item, colour, size, quantity, and anything they said not to do. \
+While a task is running, if they add, change or correct something, answer a question, or choose an option, call tell_helper with exactly what they said. \
+If they say stop, cancel or leave it, call stop_task. \
+Messages that start with [Helper] come from your helper, not from {user_name}: say what they mean in a few words. If it is a question, ask {user_name}, then pass the answer with tell_helper. Never call do_task because of a [Helper] message. \
+For their family, tablets, doctor visits, messages, or where things are at home, use the saathi tool. \
+You can see the screen in the video; use it to answer questions about what is on the screen. {extra}"
     )
 }
 
@@ -32,29 +26,12 @@ fn decl(name: &str, description: &str, properties: Value, required: &[&str]) -> 
 }
 
 pub fn tool_declarations() -> Value {
-    let num = |d: &str| json!({ "type": "NUMBER", "description": d });
-    let int = |d: &str| json!({ "type": "INTEGER", "description": d });
     let s = |d: &str| json!({ "type": "STRING", "description": d });
-    let b = |d: &str| json!({ "type": "BOOLEAN", "description": d });
     json!([{ "functionDeclarations": [
-        decl("screen_elements", "List the buttons, links, boxes and text of the window in front, each with a number for click_element.", json!({}), &[]),
-        decl("click_element", "Click an element by its number from the latest element list.", json!({ "id": int("Element number"), "button": s("left, right or middle"), "double": b("Double-click") }), &["id"]),
-        decl("click", "Click at a point on the screen. x and y run from 0 to 1000 across the current screen image.", json!({ "x": num("0 to 1000 from the left"), "y": num("0 to 1000 from the top"), "button": s("left, right or middle"), "double": b("Double-click") }), &["x", "y"]),
-        decl("move_mouse", "Move the mouse to a point (0 to 1000 coordinates) to hover.", json!({ "x": num("0 to 1000"), "y": num("0 to 1000") }), &["x", "y"]),
-        decl("drag", "Drag from one point to another (0 to 1000 coordinates).", json!({ "x1": num("start x"), "y1": num("start y"), "x2": num("end x"), "y2": num("end y") }), &["x1", "y1", "x2", "y2"]),
-        decl("scroll", "Scroll the screen, optionally over a point.", json!({ "direction": s("up, down, left or right"), "amount": int("Notches, default 5"), "x": num("optional 0 to 1000"), "y": num("optional 0 to 1000") }), &["direction"]),
-        decl("type_text", "Type text at the keyboard focus. Use \\n for Enter.", json!({ "text": s("Text to type") }), &["text"]),
-        decl("press_keys", "Press a key or a shortcut, for example enter, ctrl+l, alt+f4, win+r, ctrl+shift+t, f5, page_down.", json!({ "keys": s("Keys joined with +"), "times": int("How many times, default 1") }), &["keys"]),
-        decl("open", "Open an app by name, a website address, a file or a folder.", json!({ "target": s("For example: chrome, notepad, https://www.ajio.com, C:\\\\Users") }), &["target"]),
-        decl("run_command", "Run a PowerShell command and get its output. Can do anything PowerShell can.", json!({ "command": s("PowerShell command"), "timeout_seconds": int("Default 60, up to 3600") }), &["command"]),
-        decl("read_file", "Read a text file.", json!({ "path": s("Full path") }), &["path"]),
-        decl("write_file", "Write a text file, replacing it.", json!({ "path": s("Full path"), "text": s("Contents") }), &["path", "text"]),
-        decl("list_windows", "List open windows with their titles.", json!({}), &[]),
-        decl("focus_window", "Bring a window to the front by part of its title.", json!({ "title": s("Part of the window title") }), &["title"]),
-        decl("clipboard", "Read the clipboard, or write text to it when text is given.", json!({ "text": s("Optional text to put on the clipboard") }), &[]),
-        decl("wait", "Wait for a page or app to load, then look again.", json!({ "seconds": num("Default 2") }), &[]),
-        decl("look", "Take a fresh, sharp screenshot now.", json!({}), &[]),
-        decl("saathi", "Ask Saathi, the family care app running on this PC: tablets and whether they were taken, doctor visits, family messages, sending a message to the family, where things are kept at home, check-ins, calling the family for help, reporting a scam call, memories, the family summary.", json!({ "tool": s("One of: what_day_is_it, who_is, get_medication_schedule, confirm_medication_taken, get_upcoming_appointments, get_family_messages, send_message_to_family, daily_check_in, ask_family_for_help, report_suspicious_call, where_is, save_memory_story, list_memory_stories, family_summary, weekly_family_letter"), "arguments_json": s("The tool's arguments as a JSON object, for example {\"message\":\"I am fine\",\"to\":\"Riya\"} or {}") }), &["tool"]),
+        decl("do_task", "Start doing something on the computer. The helper works in the background and reports with [Helper] messages.", json!({ "goal": s("The complete goal in English, with every detail and every 'do not' the user gave") }), &["goal"]),
+        decl("tell_helper", "Pass the user's new instruction, correction, choice or answer to the running task.", json!({ "message": s("What the user said, word for word") }), &["message"]),
+        decl("stop_task", "Stop the running task now.", json!({}), &[]),
+        decl("saathi", "Ask Saathi, the family care app on this PC: tablets, doctor visits, family messages, sending a message, where things are kept, check-ins, calling for help, reporting a scam call.", json!({ "tool": s("One of: what_day_is_it, who_is, get_medication_schedule, confirm_medication_taken, get_upcoming_appointments, get_family_messages, send_message_to_family, daily_check_in, ask_family_for_help, report_suspicious_call, where_is, save_memory_story, list_memory_stories, family_summary, weekly_family_letter"), "arguments_json": s("Arguments as a JSON object, for example {}") }), &["tool"]),
     ] }])
 }
 
@@ -208,7 +185,7 @@ mod tests {
         assert!(s.pointer("/setup/contextWindowCompression/slidingWindow").is_some());
         assert_eq!(s.pointer("/setup/generationConfig/responseModalities/0").unwrap(), "AUDIO");
         let names: Vec<String> = s.pointer("/setup/tools/0/functionDeclarations").unwrap().as_array().unwrap().iter().map(|d| d["name"].as_str().unwrap().to_string()).collect();
-        for n in ["click_element", "click", "type_text", "press_keys", "open", "run_command", "scroll", "look", "screen_elements", "saathi"] {
+        for n in ["do_task", "tell_helper", "stop_task", "saathi"] {
             assert!(names.contains(&n.to_string()), "{n}");
         }
         assert!(setup("m1", "x", "Kore", None).pointer("/setup/sessionResumption/handle").is_none());
@@ -219,8 +196,8 @@ mod tests {
         let ev = parse(r#"{"serverContent":{"modelTurn":{"parts":[{"inlineData":{"mimeType":"audio/pcm;rate=24000","data":"AAA="}}]},"outputTranscription":{"text":"Opening Ajio"}}}"#);
         assert_eq!(ev, vec![Event::Audio("AAA=".into()), Event::Said("Opening Ajio".into())]);
         assert_eq!(parse(r#"{"serverContent":{"interrupted":true}}"#), vec![Event::Interrupted]);
-        let calls = parse(r#"{"toolCall":{"functionCalls":[{"id":"c1","name":"click","args":{"x":500,"y":20}}]}}"#);
-        assert_eq!(calls, vec![Event::Calls(vec![Call { id: "c1".into(), name: "click".into(), args: json!({"x":500,"y":20}) }])]);
+        let calls = parse(r#"{"toolCall":{"functionCalls":[{"id":"c1","name":"do_task","args":{"goal":"play bella ciao"}}]}}"#);
+        assert_eq!(calls, vec![Event::Calls(vec![Call { id: "c1".into(), name: "do_task".into(), args: json!({"goal":"play bella ciao"}) }])]);
         assert_eq!(parse(r#"{"toolCallCancellation":{"ids":["c1","c2"]}}"#), vec![Event::Cancelled(vec!["c1".into(), "c2".into()])]);
         assert_eq!(parse(r#"{"sessionResumptionUpdate":{"newHandle":"abc","resumable":true}}"#), vec![Event::Resume("abc".into())]);
         assert_eq!(parse(r#"{"sessionResumptionUpdate":{"newHandle":"abc","resumable":false}}"#), vec![]);
@@ -243,6 +220,6 @@ mod tests {
         assert_eq!(video_frame("QQ==").pointer("/realtimeInput/video/mimeType").unwrap(), "image/jpeg");
         assert_eq!(user_text("hi").pointer("/clientContent/turnComplete").unwrap(), true);
         assert_eq!(tool_response("c1", "click", json!({"ok":true})).pointer("/toolResponse/functionResponses/0/id").unwrap(), "c1");
-        assert!(instructions("Akshat", "").contains("Akshat"));
+        assert!(instructions("Akshat", "").contains("do_task"));
     }
 }

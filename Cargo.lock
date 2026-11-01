@@ -870,6 +870,7 @@ version = "1.1.0"
 dependencies = [
  "base64 0.22.1",
  "jpeg-encoder",
+ "native-tls",
  "serde_json",
  "tungstenite",
  "windows",

@@ -1,6 +1,8 @@
 pub mod audio;
+pub mod https;
 pub mod input;
 pub mod live;
+pub mod operator;
 pub mod orb;
 pub mod screen;
 pub mod system;
@@ -54,6 +56,9 @@ pub struct Shared {
     pub out: Sender<Out>,
     pub play: Sender<audio::Play>,
     pub calls: Sender<Call>,
+    pub operator: Sender<operator::Cmd>,
+    pub awaiting: AtomicBool,
+    pub heard: Mutex<String>,
     state: Mutex<(Status, String)>,
     frame: Mutex<Rect>,
     config: Mutex<Config>,
@@ -114,6 +119,12 @@ impl Shared {
             c.clone()
         };
         let _ = std::fs::write(system::home().join("sahay.json"), snapshot.to_json(system::seal));
+    }
+
+    pub fn set_frame_rect(&self, rect: Rect) {
+        if let Ok(mut r) = self.frame.lock() {
+            *r = rect;
+        }
     }
 
     pub fn frame_rect(&self) -> Rect {
@@ -181,6 +192,7 @@ pub fn run() {
     let (out_tx, out_rx) = channel::<Out>();
     let (play_tx, play_rx) = channel::<audio::Play>();
     let (call_tx, call_rx) = channel::<Call>();
+    let (op_tx, op_rx) = channel::<operator::Cmd>();
     let levels = Arc::new(audio::Levels { playing: AtomicBool::new(false), play_level: std::sync::atomic::AtomicU32::new(0) });
     let shared = Arc::new(Shared {
         paused: AtomicBool::new(false),
@@ -196,6 +208,9 @@ pub fn run() {
         out: out_tx,
         play: play_tx,
         calls: call_tx,
+        operator: op_tx,
+        awaiting: AtomicBool::new(false),
+        heard: Mutex::new(String::new()),
         state: Mutex::new((Status::Connecting, "Starting…".into())),
         frame: Mutex::new(screen::active_monitor()),
         config: Mutex::new(config),
@@ -271,6 +286,10 @@ pub fn run() {
     {
         let s = shared.clone();
         std::thread::spawn(move || tools::run(s, call_rx));
+    }
+    {
+        let s = shared.clone();
+        std::thread::spawn(move || operator::run(s, op_rx));
     }
     {
         let s = shared.clone();

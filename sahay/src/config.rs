@@ -21,7 +21,7 @@ impl Default for Config {
             name: "you".into(),
             color: [99, 102, 241],
             position: None,
-            frame_ms: 1000,
+            frame_ms: 1500,
             extra: String::new(),
         }
     }

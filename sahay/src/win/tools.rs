@@ -6,9 +6,7 @@ use std::sync::atomic::Ordering;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 use std::time::Duration;
-use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
 
-const ACTING: &[&str] = &["click_element", "click", "drag", "scroll", "type_text", "press_keys", "open", "focus_window"];
 
 fn num(args: &Value, key: &str) -> Option<f64> {
     args.get(key).and_then(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.trim().parse().ok())))
@@ -19,48 +17,51 @@ fn text<'a>(args: &'a Value, key: &str) -> &'a str {
 }
 
 pub fn run(shared: Arc<Shared>, calls: Receiver<Call>) {
-    unsafe {
-        let _ = CoInitializeEx(None, COINIT_MULTITHREADED).ok();
-    }
-    let reader = Reader::new();
     let port = std::fs::read_to_string(system::home().join("saathi.env")).map(|t| crate::saathi::port_from_env_file(&t)).unwrap_or(8787);
     let mut saathi = crate::saathi::Saathi::new(port);
     while let Ok(call) = calls.recv() {
         if shared.quit.load(Ordering::Relaxed) {
             return;
         }
-        let generation = shared.cancel_gen.load(Ordering::Relaxed);
-        let was_cancelled = shared.cancelled.lock().map(|mut s| s.remove(&call.id)).unwrap_or(false);
-        let response = if was_cancelled || shared.paused.load(Ordering::Relaxed) {
-            json!({ "ok": false, "error": "Cancelled because the user spoke or paused. Listen to them." })
-        } else {
-            shared.set_status(Status::Working, &label(&call));
-            let cancelled = || shared.cancel_gen.load(Ordering::Relaxed) != generation || shared.paused.load(Ordering::Relaxed) || shared.quit.load(Ordering::Relaxed);
-            let mut r = if call.name == "saathi" { ask_saathi(&mut saathi, &call.args) } else { execute(&shared, reader.as_ref().ok(), &call, &cancelled) };
-            if ACTING.contains(&call.name.as_str()) {
-                std::thread::sleep(Duration::from_millis(450));
-                if let Ok(rd) = reader.as_ref() {
-                    let rect = shared.frame_rect();
-                    if let Ok((title, els)) = rd.snapshot(rect, 70) {
-                        r["window"] = json!(title);
-                        r["elements"] = json!(describe_elements(&title, &els, rect));
-                        *shared.elements.lock().unwrap_or_else(|p| p.into_inner()) = els;
+        let text_arg = |k: &str| call.args.get(k).and_then(Value::as_str).unwrap_or("").trim().to_string();
+        let response = match call.name.as_str() {
+            "do_task" => {
+                let goal = text_arg("goal");
+                if goal.is_empty() {
+                    fail("Say what the task is")
+                } else {
+                    if shared.paused.load(Ordering::Relaxed) {
+                        shared.paused.store(false, Ordering::Relaxed);
                     }
+                    let _ = shared.operator.send(super::operator::Cmd::Start(goal));
+                    shared.set_status(Status::Working, "On it…");
+                    ok("Started. The helper is working now and will send [Helper] messages. Tell the user you are on it.")
                 }
-                shared.force_frame.store(true, Ordering::Relaxed);
-                std::thread::sleep(Duration::from_millis(250));
             }
-            r
+            "tell_helper" => {
+                let message = text_arg("message");
+                let _ = shared.operator.send(super::operator::Cmd::Update(message));
+                ok("Passed to the helper. Acknowledge the change in a few words.")
+            }
+            "stop_task" => {
+                let _ = shared.operator.send(super::operator::Cmd::Stop);
+                shared.cancel_gen.fetch_add(1, Ordering::Relaxed);
+                ok("Stopped.")
+            }
+            "saathi" => {
+                shared.set_status(Status::Working, "Asking Saathi…");
+                let r = ask_saathi(&mut saathi, &call.args);
+                shared.set_status(Status::Listening, "");
+                r
+            }
+            other => fail(format!("There is no tool called {other}. Use do_task for anything on the computer.")),
         };
-        system::log(&format!("tool {} -> {}", call.name, response.get("ok").map(|v| v.to_string()).unwrap_or_default()));
+        system::log(&format!("voice tool {} {} -> {}", call.name, call.args.to_string().chars().take(200).collect::<String>(), response.to_string().chars().take(200).collect::<String>()));
         let _ = shared.out.send(Out::Important(protocol::tool_response(&call.id, &call.name, response)));
-        if shared.status() == Status::Working {
-            shared.set_status(Status::Listening, "");
-        }
     }
 }
 
-fn label(call: &Call) -> String {
+pub fn label(call: &Call) -> String {
     match call.name.as_str() {
         "open" => format!("Opening {}", text(&call.args, "target")),
         "type_text" => "Typing…".into(),
@@ -85,7 +86,7 @@ fn point(shared: &Shared, args: &Value, x: &str, y: &str) -> Option<(i32, i32)> 
     Some(to_screen(shared.frame_rect(), num(args, x)?, num(args, y)?))
 }
 
-fn execute(shared: &Shared, reader: Option<&Reader>, call: &Call, cancelled: &dyn Fn() -> bool) -> Value {
+pub fn execute(shared: &Shared, reader: Option<&Reader>, call: &Call, cancelled: &dyn Fn() -> bool) -> Value {
     let a = &call.args;
     let result: Result<Value, String> = (|| match call.name.as_str() {
         "screen_elements" => {

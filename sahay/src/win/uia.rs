@@ -1,7 +1,7 @@
 use crate::actions::{Element, Rect};
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
 use windows::Win32::UI::Accessibility::{
-    CUIAutomation, IUIAutomation, TreeScope_Descendants, UIA_BoundingRectanglePropertyId, UIA_ControlTypePropertyId, UIA_IsEnabledPropertyId, UIA_IsOffscreenPropertyId, UIA_NamePropertyId,
+    CUIAutomation, IUIAutomation, IUIAutomationCacheRequest, IUIAutomationElement, IUIAutomationTreeWalker, UIA_BoundingRectanglePropertyId, UIA_ControlTypePropertyId, UIA_IsEnabledPropertyId, UIA_IsOffscreenPropertyId, UIA_NamePropertyId,
 };
 use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
 
@@ -67,48 +67,71 @@ impl Reader {
     }
 
     pub fn snapshot(&self, screen: Rect, limit: usize) -> Result<(String, Vec<Element>), String> {
+        self.snapshot_within(screen, limit, std::time::Duration::from_millis(1200))
+    }
+
+    pub fn snapshot_within(&self, screen: Rect, limit: usize, budget: std::time::Duration) -> Result<(String, Vec<Element>), String> {
         unsafe {
             let hwnd = GetForegroundWindow();
             let title = crate::win::system::window_title(hwnd);
-            let root = self.automation.ElementFromHandle(hwnd).map_err(|e| format!("The window in front cannot be read: {e}"))?;
             let cache = self.automation.CreateCacheRequest().map_err(|e| e.to_string())?;
             for p in [UIA_NamePropertyId, UIA_ControlTypePropertyId, UIA_BoundingRectanglePropertyId, UIA_IsEnabledPropertyId, UIA_IsOffscreenPropertyId] {
                 cache.AddProperty(p).map_err(|e| e.to_string())?;
             }
-            let condition = self.automation.ControlViewCondition().map_err(|e| e.to_string())?;
-            let all = root.FindAllBuildCache(TreeScope_Descendants, &condition, &cache).map_err(|e| format!("The window's contents could not be listed: {e}"))?;
-            let count = all.Length().unwrap_or(0).max(0) as usize;
-            let mut out: Vec<Element> = Vec::new();
-            let mut seen = std::collections::HashSet::new();
-            for i in 0..count {
-                if out.len() >= limit {
-                    break;
-                }
-                let Ok(el) = all.GetElement(i as i32) else { continue };
-                if el.CachedIsOffscreen().map(|b| b.as_bool()).unwrap_or(false) {
-                    continue;
-                }
-                let Ok(r) = el.CachedBoundingRectangle() else { continue };
+            let root = self.automation.ElementFromHandleBuildCache(hwnd, &cache).map_err(|e| format!("The window in front cannot be read: {e}"))?;
+            let walker = self.automation.ControlViewWalker().map_err(|e| e.to_string())?;
+            let mut walk = Walk { deadline: std::time::Instant::now() + budget, visited: 0, out: Vec::new(), seen: std::collections::HashSet::new(), screen, limit };
+            walk.visit(&walker, &cache, &root, 0);
+            Ok((title, walk.out))
+        }
+    }
+}
+
+struct Walk {
+    deadline: std::time::Instant,
+    visited: usize,
+    out: Vec<Element>,
+    seen: std::collections::HashSet<(&'static str, String, i32, i32)>,
+    screen: Rect,
+    limit: usize,
+}
+
+impl Walk {
+    fn done(&self) -> bool {
+        self.out.len() >= self.limit || self.visited > 5000 || std::time::Instant::now() > self.deadline
+    }
+
+    unsafe fn visit(&mut self, walker: &IUIAutomationTreeWalker, cache: &IUIAutomationCacheRequest, el: &IUIAutomationElement, depth: usize) {
+        if self.done() || depth > 60 {
+            return;
+        }
+        self.visited += 1;
+        let offscreen = unsafe { el.CachedIsOffscreen() }.map(|b| b.as_bool()).unwrap_or(false);
+        if offscreen && depth > 1 {
+            return;
+        }
+        if depth > 0 {
+            if let Ok(r) = unsafe { el.CachedBoundingRectangle() } {
                 let rect = Rect { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
-                if rect.right - rect.left < 3 || rect.bottom - rect.top < 3 {
-                    continue;
-                }
                 let (cx, cy) = rect.center();
-                if cx < screen.left || cx >= screen.right || cy < screen.top || cy >= screen.bottom {
-                    continue;
+                let on_screen = rect.right - rect.left >= 3 && rect.bottom - rect.top >= 3 && cx >= self.screen.left && cx < self.screen.right && cy >= self.screen.top && cy < self.screen.bottom;
+                if on_screen {
+                    let name = unsafe { el.CachedName() }.map(|b| b.to_string()).unwrap_or_default();
+                    let k = kind(unsafe { el.CachedControlType() }.map(|c| c.0).unwrap_or(0));
+                    if interesting(k, !name.trim().is_empty()) && self.seen.insert((k, name.clone(), rect.left / 4, rect.top / 4)) {
+                        let enabled = unsafe { el.CachedIsEnabled() }.map(|b| b.as_bool()).unwrap_or(true);
+                        self.out.push(Element { id: self.out.len() + 1, kind: k.to_string(), name, value: String::new(), rect, enabled });
+                    }
                 }
-                let name = el.CachedName().map(|b| b.to_string()).unwrap_or_default();
-                let k = kind(el.CachedControlType().map(|c| c.0).unwrap_or(0));
-                if !interesting(k, !name.trim().is_empty()) {
-                    continue;
-                }
-                if !seen.insert((k, name.clone(), rect.left / 4, rect.top / 4)) {
-                    continue;
-                }
-                let enabled = el.CachedIsEnabled().map(|b| b.as_bool()).unwrap_or(true);
-                out.push(Element { id: out.len() + 1, kind: k.to_string(), name, value: String::new(), rect, enabled });
             }
-            Ok((title, out))
+        }
+        let mut child = unsafe { walker.GetFirstChildElementBuildCache(el, cache) }.ok();
+        while let Some(c) = child {
+            if self.done() {
+                return;
+            }
+            unsafe { self.visit(walker, cache, &c, depth + 1) };
+            child = unsafe { walker.GetNextSiblingElementBuildCache(&c, cache) }.ok();
         }
     }
 }

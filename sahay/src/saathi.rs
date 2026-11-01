@@ -27,10 +27,10 @@ pub struct Saathi {
     next_id: u64,
 }
 
-struct Reply {
-    status: u16,
-    session: Option<String>,
-    body: String,
+pub(crate) struct Reply {
+    pub status: u16,
+    pub session: Option<String>,
+    pub body: String,
 }
 
 fn post(port: u16, session: Option<&str>, body: &Value) -> Result<Reply, String> {
@@ -53,7 +53,7 @@ fn post(port: u16, session: Option<&str>, body: &Value) -> Result<Reply, String>
     parse_http(&String::from_utf8_lossy(&raw))
 }
 
-fn parse_http(raw: &str) -> Result<Reply, String> {
+pub(crate) fn parse_http(raw: &str) -> Result<Reply, String> {
     let (head, body) = raw.split_once("\r\n\r\n").ok_or("Saathi gave an empty answer")?;
     let mut lines = head.lines();
     let status: u16 = lines.next().and_then(|l| l.split_whitespace().nth(1)).and_then(|s| s.parse().ok()).ok_or("Saathi gave a broken answer")?;
