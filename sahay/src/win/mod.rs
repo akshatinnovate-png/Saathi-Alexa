@@ -10,6 +10,7 @@ pub mod screen;
 pub mod system;
 pub mod uia;
 pub mod ui;
+pub mod voice;
 
 use crate::config::{split_keys, Config};
 use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
@@ -41,6 +42,7 @@ pub struct Shared {
     pub panel: AtomicIsize,
     pub cursor: AtomicIsize,
     pub asks: Sender<String>,
+    voice: Mutex<Option<Sender<String>>>,
     state: Mutex<(Status, String)>,
     config: Mutex<Config>,
 }
@@ -82,6 +84,17 @@ impl Shared {
         if !post(&self.panel, panel::WM_APPEND, ptr as isize) {
             unsafe {
                 drop(Box::from_raw(ptr));
+            }
+        }
+    }
+
+    pub fn reply(&self, text: &str) {
+        self.say("Sahay", text);
+        if self.config().speak {
+            if let Ok(v) = self.voice.lock() {
+                if let Some(tx) = v.as_ref() {
+                    let _ = tx.send(text.to_string());
+                }
             }
         }
     }
@@ -148,6 +161,7 @@ pub fn run() {
         panel: AtomicIsize::new(0),
         cursor: AtomicIsize::new(0),
         asks: tx,
+        voice: Mutex::new(voice::start()),
         state: Mutex::new((Status::Idle, "Click me to talk".into())),
         config: Mutex::new(config),
     });

@@ -19,15 +19,28 @@ const EM_REPLACESEL: u32 = 0x00C2;
 const EM_SCROLLCARET: u32 = 0x00B7;
 const ID_SEND: usize = 1;
 const ID_STOP: usize = 2;
+const ID_TALK: usize = 4;
 const ID_LOG: isize = 10;
 const ID_INPUT: isize = 11;
 
 static SHARED: OnceLock<Arc<Shared>> = OnceLock::new();
 static BG: OnceLock<isize> = OnceLock::new();
 static CONTROLS: OnceLock<(isize, isize, isize, isize)> = OnceLock::new();
+static TALK: OnceLock<isize> = OnceLock::new();
 
 fn controls() -> Option<(HWND, HWND, HWND, HWND)> {
     CONTROLS.get().map(|&(l, i, s, p)| (HWND(l as *mut _), HWND(i as *mut _), HWND(s as *mut _), HWND(p as *mut _)))
+}
+
+fn talk() {
+    let Some((_, input, ..)) = controls() else { return };
+    unsafe {
+        let _ = SetFocus(input);
+    }
+    std::thread::spawn(|| {
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        let _ = super::input::combo(&[0x5B, 0x48], 1);
+    });
 }
 
 fn layout(hwnd: HWND) {
@@ -37,7 +50,10 @@ fn layout(hwnd: HWND) {
         let _ = GetClientRect(hwnd, &mut r);
         let (w, h) = (r.right, r.bottom);
         let _ = MoveWindow(log, 10, 10, w - 20, h - 70, true);
-        let _ = MoveWindow(input, 10, h - 50, w - 200, 38, true);
+        let _ = MoveWindow(input, 58, h - 50, w - 248, 38, true);
+        if let Some(&t) = TALK.get() {
+            let _ = MoveWindow(HWND(t as *mut _), 10, h - 50, 40, 38, true);
+        }
         let _ = MoveWindow(send, w - 182, h - 50, 82, 38, true);
         let _ = MoveWindow(stop, w - 92, h - 50, 82, 38, true);
     }
@@ -88,6 +104,7 @@ unsafe extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPA
             WM_COMMAND => {
                 match wparam.0 & 0xffff {
                     ID_SEND => send_input(),
+                    ID_TALK => talk(),
                     ID_STOP => {
                         if let Some(s) = SHARED.get() {
                             s.stop.store(true, Ordering::Relaxed);
@@ -158,9 +175,11 @@ pub fn create(shared: Arc<Shared>) -> HWND {
         let input = child(w!("EDIT"), "", ES_AUTOHSCROLL as u32 | WS_TABSTOP.0, WINDOW_EX_STYLE(0), hwnd, ID_INPUT, font);
         let send = child(w!("BUTTON"), "Send", BS_DEFPUSHBUTTON as u32 | WS_TABSTOP.0, WINDOW_EX_STYLE(0), hwnd, ID_SEND as isize, font);
         let stop = child(w!("BUTTON"), "Stop", BS_PUSHBUTTON as u32 | WS_TABSTOP.0, WINDOW_EX_STYLE(0), hwnd, ID_STOP as isize, font);
+        let mic = child(w!("BUTTON"), "🎤", BS_PUSHBUTTON as u32 | WS_TABSTOP.0, WINDOW_EX_STYLE(0), hwnd, ID_TALK as isize, font);
+        let _ = TALK.set(mic.0 as isize);
         let _ = CONTROLS.set((log.0 as isize, input.0 as isize, send.0 as isize, stop.0 as isize));
         layout(hwnd);
-        append("Sahay: Hi! Tell me what to do on this computer, and I'll do it. Every reply and every step shows here. Press Stop or click the sphere to stop me.");
+        append("Sahay: Hi! Tell me what to do on this computer, and I'll do it. Every reply and every step shows here. Press 🎤 to talk instead of typing, and Stop (or the sphere) to stop me.");
         hwnd
     }
 }

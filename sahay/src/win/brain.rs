@@ -174,8 +174,140 @@ fn with_browser(url: &str, browser: Option<&str>) -> String {
     }
 }
 
-fn instant(shared: &Shared, engine: &mut Engine, intent: &Intent) -> Result<String, String> {
+fn fetch(host: &str, path: &str) -> Result<String, String> {
+    match https::get(host, path, &[("Accept-Language", "en-US,en;q=0.9")], Duration::from_secs(20))? {
+        (200, body) => Ok(body),
+        (status, _) => Err(format!("{host} answered {status}")),
+    }
+}
+
+fn powershell(script: &str) -> Result<String, String> {
+    let (ok, out) = system::run_powershell(script, Duration::from_secs(20), &|| false);
+    if ok { Ok(out.trim().to_string()) } else { Err(out) }
+}
+
+fn wiki(topic: &str) -> Result<String, String> {
+    let found = fetch("en.wikipedia.org", &format!("/w/rest.php/v1/search/title?q={}&limit=1", intent::encode(topic)))?;
+    let v: Value = serde_json::from_str(&found).map_err(|e| e.to_string())?;
+    let key = v.pointer("/pages/0/key").and_then(Value::as_str).ok_or("nothing on Wikipedia")?;
+    let summary = fetch("en.wikipedia.org", &format!("/api/rest_v1/page/summary/{}", intent::encode(key).replace('+', "_")))?;
+    let v: Value = serde_json::from_str(&summary).map_err(|e| e.to_string())?;
+    let extract = v.get("extract").and_then(Value::as_str).ok_or("no summary")?;
+    let mut out = String::new();
+    for sentence in extract.split_inclusive(". ").take(3) {
+        out.push_str(sentence);
+    }
+    Ok(out.trim().to_string())
+}
+
+fn instant(shared: &Arc<Shared>, engine: &mut Engine, rx: &Receiver<String>, intent: &Intent) -> Result<String, String> {
     match intent {
+        Intent::Answer(a) => Ok(a.clone()),
+        Intent::Weather(place) => {
+            shared.say("→", &format!("check the weather{}", if place.is_empty() { String::new() } else { format!(" in {place}") }));
+            let path = format!("/{}?format=%25l:+%25C,+%25t,+feels+like+%25f,+humidity+%25h,+wind+%25w", intent::encode(place));
+            let text = fetch("wttr.in", &path)?;
+            let line = text.lines().next().unwrap_or("").trim().to_string();
+            if line.is_empty() || line.to_lowercase().contains("unknown location") { Err("no weather".into()) } else { Ok(line) }
+        }
+        Intent::Wiki(topic) => {
+            shared.say("→", &format!("look up \"{topic}\" on Wikipedia"));
+            wiki(topic)
+        }
+        Intent::Timer { secs, note } => {
+            let s = shared.clone();
+            let (secs, note) = (*secs, note.clone());
+            let later = note.clone();
+            std::thread::spawn(move || {
+                let end = Instant::now() + Duration::from_secs(secs);
+                while Instant::now() < end {
+                    if s.quit.load(Ordering::Relaxed) {
+                        return;
+                    }
+                    std::thread::sleep(Duration::from_millis(500));
+                }
+                unsafe {
+                    let _ = windows::Win32::System::Diagnostics::Debug::MessageBeep(windows::Win32::UI::WindowsAndMessaging::MB_ICONEXCLAMATION);
+                }
+                s.reply(&if later.is_empty() { "Time's up!".to_string() } else { format!("Reminder: {later}") });
+            });
+            let mins = secs / 60;
+            let when = if secs < 60 { format!("{secs} seconds") } else if secs % 60 == 0 { format!("{mins} minute{}", if mins == 1 { "" } else { "s" }) } else { format!("{mins} min {} s", secs % 60) };
+            Ok(if note.is_empty() { format!("Timer set for {when}.") } else { format!("I'll remind you in {when} to {note}.") })
+        }
+        Intent::Theme(dark) => {
+            let v = if *dark { 0 } else { 1 };
+            shared.say("→", if *dark { "switch Windows to dark mode" } else { "switch Windows to light mode" });
+            powershell(&format!("$p='HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize'; Set-ItemProperty $p AppsUseLightTheme {v}; Set-ItemProperty $p SystemUsesLightTheme {v}"))?;
+            Ok(if *dark { "Dark mode is on.".into() } else { "Light mode is on.".into() })
+        }
+        Intent::Lock => {
+            shared.say("→", "lock the PC");
+            std::process::Command::new("rundll32.exe").args(["user32.dll,LockWorkStation"]).spawn().map_err(|e| e.to_string())?;
+            Ok("Locked.".into())
+        }
+        Intent::Battery => {
+            let out = powershell("$b = Get-CimInstance Win32_Battery | Select-Object -First 1; if ($b) { \"$($b.EstimatedChargeRemaining) $($b.BatteryStatus)\" } else { 'none' }")?;
+            if out.trim() == "none" || out.trim().is_empty() {
+                return Ok("This PC runs on mains power; it has no battery.".into());
+            }
+            let mut parts = out.split_whitespace();
+            let pct = parts.next().unwrap_or("?");
+            let charging = matches!(parts.next(), Some("2" | "6" | "7" | "8" | "9"));
+            Ok(format!("Battery is at {pct}%{}.", if charging { " and charging" } else { "" }))
+        }
+        Intent::Volume(n) => {
+            shared.say("→", &format!("set the volume to {n}%"));
+            engine.press_times("volumedown", 50)?;
+            if *n >= 2 {
+                engine.press_times("volumeup", n / 2)?;
+            }
+            Ok(format!("Volume set to about {n}%."))
+        }
+        Intent::Folder(name) => {
+            let shell = match *name {
+                "Documents" => "shell:Personal",
+                "Pictures" => "shell:My Pictures",
+                "Music" => "shell:My Music",
+                "Videos" => "shell:My Video",
+                "Desktop" => "shell:Desktop",
+                _ => "shell:Downloads",
+            };
+            shared.say("→", &format!("open {name}"));
+            if system::shell_open(shell, "open") { Ok(format!("Opened {name}.")) } else { Err(format!("could not open {name}")) }
+        }
+        Intent::Type(text) => {
+            shared.say("→", &format!("type \"{}\"", text.chars().take(50).collect::<String>()));
+            let stop = || shared.stop.load(Ordering::Relaxed);
+            engine.type_here(text, &stop)?;
+            Ok("Typed it.".into())
+        }
+        Intent::Email { to, subject, body } => {
+            let url = format!("https://mail.google.com/mail/?view=cm&fs=1&to={}&su={}&body={}", intent::encode(to), intent::encode(subject), intent::encode(body));
+            shared.say("→", &format!("open a Gmail draft to {to}"));
+            let (ok, msg) = system::open(&url);
+            if ok { Ok(format!("Your email to {to} is ready in Gmail. Check it and press Send.")) } else { Err(msg) }
+        }
+        Intent::WhatsApp { to, text } => {
+            let steps: Vec<String> = vec![
+                "open https://web.whatsapp.com".into(),
+                "wait for \"Search\"".into(),
+                "click \"Search\"".into(),
+                format!("type {to}"),
+                "wait 1.5".into(),
+                format!("click \"{to}\""),
+                "wait for \"Type a message\"".into(),
+                "click \"Type a message\"".into(),
+                format!("type {text}"),
+                "key enter".into(),
+            ];
+            match carry_out(shared, engine, rx, &steps) {
+                Ran::Done(_) => Ok(format!("Sent \"{text}\" to {to} on WhatsApp.")),
+                Ran::Stopped => Ok("Stopped.".into()),
+                Ran::Interrupted { .. } => Err("interrupted".into()),
+                Ran::Failed { reason, .. } => Err(reason),
+            }
+        }
         Intent::Time => {
             let now = local_time();
             if now.is_empty() { Err("no clock".into()) } else { Ok(format!("It's {now}.")) }
@@ -309,10 +441,10 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
         agent::new_task(&mut messages);
         if let Some(intent) = intent::route(&first) {
             shared.set_status(Status::Acting, "On it…");
-            match instant(&shared, &mut engine, &intent) {
+            match instant(&shared, &mut engine, &rx, &intent) {
                 Ok(said) => {
                     system::log(&format!("instant {intent:?}: {said}"));
-                    shared.say("Sahay", &said);
+                    shared.reply(&said);
                     messages.push(json!({ "role": "user", "content": first }));
                     messages.push(json!({ "role": "assistant", "content": said }));
                     engine.cursor.hide();
@@ -320,12 +452,21 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
                     shared.set_status(Status::Idle, "");
                     continue;
                 }
-                Err(e) => system::log(&format!("instant {intent:?} failed: {e}; asking Groq")),
+                Err(e) => {
+                    system::log(&format!("instant {intent:?} failed: {e}; asking Groq"));
+                    if matches!(intent, Intent::WhatsApp { .. }) {
+                        shared.say("Sahay", "WhatsApp needs a closer look; working it out…");
+                    }
+                }
             }
         }
-        shared.set_status(Status::Acting, "Reading the screen…");
-        let seen = engine.look_brief();
-        messages.push(json!({ "role": "user", "content": format!("{first}\n{seen}") }));
+        if intent::is_question(&first) {
+            messages.push(json!({ "role": "user", "content": format!("{first}\n(No screen attached. Answer directly; if it needs the PC, call do_steps.)") }));
+        } else {
+            shared.set_status(Status::Acting, "Reading the screen…");
+            let seen = engine.look_brief();
+            messages.push(json!({ "role": "user", "content": format!("{first}\n{seen}") }));
+        }
         shared.set_status(Status::Thinking, "Thinking…");
         let mut told = false;
         let mut calls = 0;
@@ -364,7 +505,7 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
             }
             messages.push(reply.message.clone());
             let Some(call) = reply.calls.first() else {
-                shared.say("Sahay", &reply.text);
+                shared.reply(&reply.text);
                 break;
             };
             for extra in reply.calls.iter().skip(1) {
@@ -383,7 +524,7 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
                 Ran::Done(reports) if reports.is_empty() => {
                     messages.push(agent::tool_result(call, "All steps done."));
                     let final_words = if say.is_empty() { "Done.".to_string() } else { say };
-                    shared.say("Sahay", &final_words);
+                    shared.reply(&final_words);
                     messages.push(json!({ "role": "assistant", "content": final_words }));
                     break;
                 }
@@ -415,5 +556,16 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
         engine.cursor.hide();
         shared.busy.store(false, Ordering::Relaxed);
         shared.set_status(if shared.stop.load(Ordering::Relaxed) { Status::Stopped } else { Status::Idle }, "");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wikipedia_answers_who_is_questions() {
+        let text = wiki("APJ Abdul Kalam").expect("Wikipedia answers");
+        assert!(text.contains("Kalam"), "{text}");
     }
 }

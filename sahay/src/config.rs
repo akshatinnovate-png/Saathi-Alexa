@@ -8,11 +8,12 @@ pub struct Config {
     pub color: [u8; 3],
     pub position: Option<(i32, i32)>,
     pub extra: String,
+    pub speak: bool,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { keys: Vec::new(), model: crate::agent::MODEL.into(), name: "you".into(), color: [99, 102, 241], position: None, extra: String::new() }
+        Self { keys: Vec::new(), model: crate::agent::MODEL.into(), name: "you".into(), color: [99, 102, 241], position: None, extra: String::new(), speak: true }
     }
 }
 
@@ -42,6 +43,9 @@ impl Config {
         if let (Some(x), Some(y)) = (v.pointer("/position/0").and_then(Value::as_i64), v.pointer("/position/1").and_then(Value::as_i64)) {
             c.position = Some((x as i32, y as i32));
         }
+        if let Some(b) = v.get("speak").and_then(Value::as_bool) {
+            c.speak = b;
+        }
         if let Some(s) = v.get("instructions").and_then(Value::as_str) {
             c.extra = s.chars().take(4000).collect();
         }
@@ -57,6 +61,7 @@ impl Config {
             "color": self.color,
             "position": self.position.map(|(x, y)| vec![x, y]),
             "instructions": self.extra,
+            "speak": self.speak,
         }))
         .unwrap_or_default()
     }

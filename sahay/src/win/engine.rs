@@ -127,8 +127,22 @@ impl Engine {
     }
 
     pub fn press(&mut self, keys: &str) -> Result<(), String> {
+        self.press_times(keys, 1)
+    }
+
+    pub fn press_times(&mut self, keys: &str, times: u32) -> Result<(), String> {
         system::bring_forward();
-        input::combo(&parse_combo(keys)?, 1)
+        input::combo(&parse_combo(keys)?, times)
+    }
+
+    pub fn type_here(&mut self, text: &str, stop: &dyn Fn() -> bool) -> Result<(), String> {
+        system::bring_forward();
+        if text.chars().count() > 80 {
+            system::clipboard_set(text)?;
+            input::combo(&parse_combo("ctrl+v")?, 1)
+        } else {
+            input::type_text(text, stop)
+        }
     }
 
     fn find_words(&mut self, words: &str, patience: Duration, stop: &dyn Fn() -> bool) -> Result<(i32, i32, String), String> {

@@ -1,5 +1,18 @@
 **Sahay** (सहाय, "help") drives your Windows PC for you. You type what you want; it moves its own cursor, clicks and types until the job is done. A byproduct of [Saathi](https://github.com/akshatinnovate-png/Saathi-Alexa).
 
+### New in 2.2.0: it talks, and does far more on its own
+- **Speaks its answers** in Windows' own voice (turn it off from the sphere's menu: Speak replies aloud).
+- **🎤 Talk button** in the chat starts Windows voice typing, so you can speak instead of type.
+- **More instant skills, no Groq needed:**
+  - Sums: "what is 23 x 45", "15% of 2000", "10 divided by 4".
+  - Weather: "weather in Pune" (from wttr.in).
+  - Facts: "who is APJ Abdul Kalam", "tell me about the Taj Mahal" (from Wikipedia).
+  - Timers and reminders: "set a timer for 5 minutes", "remind me in 10 minutes to take my tablets". It beeps and says it out loud.
+  - WhatsApp: "send Good morning to Ravi on WhatsApp" is done step by step on WhatsApp Web (log in once first).
+  - Email: "email asha@example.com saying I reached safely" opens a ready Gmail draft for you to check and send.
+  - PC: "dark mode", "light mode", "lock the PC", "set volume to 30", "battery", "take a screenshot", "open downloads", "type …".
+- **Plain questions** ("why is the sky blue?") go to Groq without a screen description, so they are quick and light.
+
 ### New in 2.1.0: instant commands, smarter plans
 - **Everyday requests need no Groq at all**, so they are instant and can never hit a limit: play a song or video ("play bella ciao", "open youtube in edge and play bella ciao"), open sites and apps ("open gmail in chrome", "open notepad", "go to irctc.co.in"), search ("search blue shirts on amazon", "google weather in pune"), close a tab or app ("close github", "close tab"), media and volume ("pause", "next song", "volume up", "mute"), and back, refresh, new tab, scroll, zoom, full screen, minimise, the time and date.
 - **Play goes straight to the video.** Sahay finds the first real result for your search itself and opens it, so there is nothing to click and no ad to land on.
@@ -31,7 +44,7 @@
 - **Doesn't quit on limits.** If Groq's free limit is hit it waits exactly as long as Groq says and carries on; add several keys to switch between them.
 
 ### Get started
-1. Download **Sahay-2.1.0.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
+1. Download **Sahay-2.2.0.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
 2. Groq's free key page opens (console.groq.com/keys). Sign in, click **Create API Key**, copy it and paste it into Sahay. Older Gemini keys are no longer used.
 3. The chat opens. Type what you want done, for example "play Bella Ciao on YouTube".
 

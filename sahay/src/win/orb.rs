@@ -14,7 +14,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{ReleaseCapture, SetCapture, Tr
 use windows::Win32::UI::WindowsAndMessaging::{
     AppendMenuW, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyMenu, DispatchMessageW, GetCursorPos, GetMessageW, GetSystemMetrics, GetWindowRect, IsDialogMessageW, KillTimer, LoadCursorW,
     PostQuitMessage, RegisterClassW, SetForegroundWindow, SetLayeredWindowAttributes, SetTimer, SetWindowPos, ShowWindow, TrackPopupMenu, TranslateMessage, UpdateLayeredWindow, HWND_TOPMOST, IDC_HAND,
-    LWA_ALPHA, MF_SEPARATOR, MF_STRING, MSG, SM_CXSCREEN, SM_CYSCREEN, SWP_NOACTIVATE, SWP_NOSIZE, SW_HIDE, SW_SHOWNOACTIVATE, TPM_RETURNCMD, TPM_RIGHTBUTTON, ULW_ALPHA, WM_APP, WM_DESTROY,
+    LWA_ALPHA, MF_CHECKED, MF_SEPARATOR, MF_STRING, MSG, SM_CXSCREEN, SM_CYSCREEN, SWP_NOACTIVATE, SWP_NOSIZE, SW_HIDE, SW_SHOWNOACTIVATE, TPM_RETURNCMD, TPM_RIGHTBUTTON, ULW_ALPHA, WM_APP, WM_DESTROY,
     WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE, WM_PAINT, WM_RBUTTONUP, WM_TIMER, WNDCLASSW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
 };
 
@@ -246,6 +246,7 @@ fn menu(hwnd: HWND) {
         let _ = AppendMenuW(m, MF_STRING, 4, w!("Get a free Groq key"));
         let _ = AppendMenuW(m, MF_STRING, 5, w!("Your name…"));
         let _ = AppendMenuW(m, MF_STRING, 6, w!("Extra instructions…"));
+        let _ = AppendMenuW(m, if s.config().speak { MF_STRING | MF_CHECKED } else { MF_STRING }, 10, w!("Speak replies aloud"));
         let _ = AppendMenuW(m, MF_STRING, 7, w!("Restart as administrator"));
         let _ = AppendMenuW(m, MF_STRING, 8, w!("Open the log"));
         let _ = AppendMenuW(m, MF_SEPARATOR, 0, None);
@@ -281,6 +282,7 @@ fn menu(hwnd: HWND) {
                 let _ = system::shell_open(&system::home().join("logs").join("sahay.log").to_string_lossy(), "open");
             }
             9 => quit(),
+            10 => s.update_config(|c| c.speak = !c.speak),
             _ => {}
         }
     }
