@@ -156,10 +156,36 @@ fn looks_like_url(t: &str) -> bool {
         && !std::path::Path::new(t).exists()
 }
 
+fn browser_and_url(t: &str) -> Option<(&'static str, String)> {
+    let (first, rest) = t.split_once(char::is_whitespace)?;
+    let rest = rest.trim().trim_start_matches("in ").trim();
+    let browser = match first.to_ascii_lowercase().trim_end_matches(".exe") {
+        "msedge" | "edge" | "microsoft-edge" => "msedge",
+        "chrome" | "googlechrome" => "chrome",
+        "firefox" => "firefox",
+        "brave" => "brave",
+        "opera" => "opera",
+        _ => return None,
+    };
+    if !looks_like_url(rest) {
+        return None;
+    }
+    let url = if rest.contains("://") { rest.to_string() } else { format!("https://{rest}") };
+    Some((browser, url))
+}
+
 pub fn open(target: &str) -> (bool, String) {
     let t = target.trim().trim_matches('"');
     if t.is_empty() {
         return (false, "Nothing to open".into());
+    }
+    if let Some((browser, url)) = browser_and_url(t) {
+        if browser == "msedge" && shell_open(&format!("microsoft-edge:{url}"), "open") {
+            return (true, format!("Opened {url} in Microsoft Edge"));
+        }
+        let script = format!("Start-Process '{browser}' -ArgumentList '{}'", url.replace('\'', "''"));
+        let (ok, out) = run_powershell(&script, Duration::from_secs(20), &|| false);
+        return if ok { (true, format!("Opened {url} in {browser}")) } else { (false, format!("{browser} could not open {url}: {}", out.lines().last().unwrap_or(""))) };
     }
     if looks_like_url(t) {
         let url = if t.contains("://") || t.starts_with("mailto:") { t.to_string() } else { format!("https://{t}") };

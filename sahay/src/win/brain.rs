@@ -2,13 +2,19 @@ use super::cursor::Cursor;
 use super::engine::Engine;
 use super::{https, system, Shared, Status};
 use crate::agent::{self, Reply};
-use crate::retry::{classify, retry_after_from, Failure, Rotation};
+use crate::plan;
+use crate::retry::{classify, estimate_tokens, retry_after_from, Failure, Pacer, Rotation};
 use serde_json::{json, Value};
 use std::sync::atomic::Ordering;
-use std::sync::mpsc::{Receiver, TryRecvError};
+use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
+
+const TOKENS_PER_MINUTE: usize = 7000;
+const ANSWER_BUDGET: usize = 700;
+const MAX_CALLS: usize = 10;
+const MAX_REPLANS: usize = 4;
 
 enum Outcome {
     Reply(Reply),
@@ -16,8 +22,35 @@ enum Outcome {
     Fail(String),
 }
 
-fn ask_groq(shared: &Shared, rotation: &mut Rotation, keys: &mut usize, messages: &mut Vec<Value>) -> Outcome {
-    let mut announced = false;
+struct Groq {
+    rotation: Rotation,
+    keys: usize,
+    pacers: Vec<Pacer>,
+}
+
+impl Groq {
+    fn new(keys: usize) -> Self {
+        Self { rotation: Rotation::new(keys.max(1), 1, 5), keys, pacers: (0..keys.max(1)).map(|_| Pacer::new(TOKENS_PER_MINUTE)).collect() }
+    }
+}
+
+fn pause(shared: &Shared, d: Duration, msg: &str, told: &mut bool) -> bool {
+    if d >= Duration::from_secs(4) && !std::mem::replace(told, true) {
+        shared.say("Sahay", msg);
+    }
+    shared.set_status(Status::Waiting, msg);
+    let end = Instant::now() + d;
+    while Instant::now() < end {
+        if shared.stop.load(Ordering::Relaxed) || shared.quit.load(Ordering::Relaxed) {
+            return false;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    shared.set_status(Status::Thinking, "Thinking…");
+    true
+}
+
+fn ask_groq(shared: &Shared, groq: &mut Groq, messages: &mut Vec<Value>, told: &mut bool) -> Outcome {
     loop {
         if shared.stop.load(Ordering::Relaxed) || shared.quit.load(Ordering::Relaxed) {
             return Outcome::Fail("Stopped.".into());
@@ -27,13 +60,22 @@ fn ask_groq(shared: &Shared, rotation: &mut Rotation, keys: &mut usize, messages
             shared.ask_for_key();
             return Outcome::Fail("Add a Groq key first: right-click the sphere, then Groq keys.".into());
         }
-        if *keys != cfg.keys.len() {
-            *keys = cfg.keys.len();
-            *rotation = Rotation::new(*keys, 1, 5);
+        if groq.keys != cfg.keys.len() {
+            *groq = Groq::new(cfg.keys.len());
         }
-        let key = cfg.keys[rotation.current().0.min(cfg.keys.len() - 1)].clone();
+        let index = groq.rotation.current().0.min(cfg.keys.len() - 1);
+        let key = cfg.keys[index].clone();
         let body = agent::request(messages, &cfg.model).to_string();
-        system::log(&format!("groq request: {} messages, {} bytes", messages.len(), body.len()));
+        let tokens = estimate_tokens(body.len(), ANSWER_BUDGET);
+        let wait = groq.pacers[index].wait_for(Instant::now(), tokens);
+        if !wait.is_zero() {
+            system::log(&format!("pacing {} ms before a {tokens}-token request", wait.as_millis()));
+            if !pause(shared, wait, &format!("Keeping inside Groq's free per-minute limit: continuing in {}s…", wait.as_secs().max(1)), told) {
+                return Outcome::Fail("Stopped.".into());
+            }
+        }
+        groq.pacers[index].record(Instant::now(), tokens);
+        system::log(&format!("groq request: {} messages, {} bytes, ~{tokens} tokens", messages.len(), body.len()));
         let started = Instant::now();
         let auth = format!("Bearer {key}");
         let (status, text) = match https::post_json(agent::HOST, agent::PATH, &[("Authorization", &auth)], &body, Duration::from_secs(120)) {
@@ -41,11 +83,11 @@ fn ask_groq(shared: &Shared, rotation: &mut Rotation, keys: &mut usize, messages
             Err(e) => (0, e),
         };
         if status == 200 {
-            rotation.connected();
+            groq.rotation.connected();
             system::log(&format!("groq answered in {} ms", started.elapsed().as_millis()));
             return match agent::parse(&text) {
                 Ok(r) => Outcome::Reply(r),
-                Err(e) => Outcome::Note(format!("Your last answer could not be read ({e}). Answer again.")),
+                Err(e) => Outcome::Note(format!("(Your last answer could not be read: {e}. Answer again.)")),
             };
         }
         let short: String = text.chars().take(400).collect();
@@ -53,46 +95,40 @@ fn ask_groq(shared: &Shared, rotation: &mut Rotation, keys: &mut usize, messages
         let lower = short.to_ascii_lowercase();
         if status == 413 || lower.contains("request too large") || lower.contains("reduce your message") || lower.contains("context_length") || lower.contains("context length") {
             if agent::shrink(messages) {
-                shared.set_status(Status::Thinking, "Trimming what I send to fit Groq's limit…");
                 continue;
             }
             return Outcome::Fail(format!("The request is too big for Groq: {}", groq_message(&text)));
         }
         if status == 400 && (lower.contains("tool") || lower.contains("function")) {
-            return Outcome::Note(format!("Your last tool call was rejected: {short}. Call the tool again with valid JSON arguments."));
+            return Outcome::Note(format!("(Your last tool call was rejected: {short}. Use do_steps with a list of step strings.)"));
         }
         if (400..500).contains(&status) && !matches!(status, 401 | 403 | 404 | 408 | 409 | 429) && classify(status, &text) == Failure::Network {
             return Outcome::Fail(format!("Groq refused the request ({status}): {}", groq_message(&text)));
         }
         let failure = if status == 0 { Failure::Network } else { classify(status, &text) };
+        if failure == Failure::Quota {
+            groq.pacers[index].slow_down();
+        }
         if failure == Failure::BadModel && cfg.model != agent::MODEL {
             system::log(&format!("model {} refused, going back to {}", cfg.model, agent::MODEL));
             shared.update_config(|c| c.model = agent::MODEL.to_string());
             continue;
         }
-        match rotation.failed(failure, retry_after_from(&text)) {
+        match groq.rotation.failed(failure, retry_after_from(&text)) {
             Some(d) => {
                 let msg = match failure {
-                    Failure::Quota => format!("Groq's free limit is busy; trying again in {}s…", d.as_secs().max(1)),
+                    Failure::Quota if lower.contains("per day") || lower.contains("(tpd)") || lower.contains("(rpd)") => format!("Groq's free daily allowance is used up; it refills in {}. Waiting…", human(d)),
+                    Failure::Quota => format!("Groq asked me to slow down; continuing in {}s…", d.as_secs().max(1)),
                     Failure::BadKey => "That Groq key was refused; trying the next one…".to_string(),
                     _ if status == 0 => format!("Can't reach Groq ({}); trying again in {}s…", short.chars().take(120).collect::<String>(), d.as_secs().max(1)),
                     _ => format!("Groq had a problem ({status}); trying again in {}s…", d.as_secs().max(1)),
                 };
-                if rotation_attempts_announce(&mut announced) {
-                    shared.say("Sahay", &msg);
+                if !pause(shared, d, &msg, told) {
+                    return Outcome::Fail("Stopped.".into());
                 }
-                shared.set_status(Status::Waiting, &msg);
-                let end = Instant::now() + d;
-                while Instant::now() < end {
-                    if shared.stop.load(Ordering::Relaxed) || shared.quit.load(Ordering::Relaxed) {
-                        return Outcome::Fail("Stopped.".into());
-                    }
-                    std::thread::sleep(Duration::from_millis(100));
-                }
-                shared.set_status(Status::Thinking, "Thinking…");
             }
             None => {
-                *rotation = Rotation::new(cfg.keys.len(), 1, 5);
+                *groq = Groq::new(cfg.keys.len());
                 if failure == Failure::BadKey {
                     shared.ask_for_key();
                     return Outcome::Fail("Groq refused every key. Add a working key from console.groq.com/keys.".into());
@@ -103,8 +139,9 @@ fn ask_groq(shared: &Shared, rotation: &mut Rotation, keys: &mut usize, messages
     }
 }
 
-fn rotation_attempts_announce(announced: &mut bool) -> bool {
-    !std::mem::replace(announced, true)
+fn human(d: Duration) -> String {
+    let s = d.as_secs();
+    if s >= 3600 { format!("{}h {}m", s / 3600, (s % 3600) / 60) } else if s >= 60 { format!("{}m {}s", s / 60, s % 60) } else { format!("{s}s") }
 }
 
 fn groq_message(body: &str) -> String {
@@ -117,6 +154,65 @@ fn groq_message(body: &str) -> String {
 fn first_line(s: &str) -> String {
     let line = s.lines().next().unwrap_or("").trim();
     line.chars().take(160).collect()
+}
+
+fn step_list(args: &Value) -> Vec<String> {
+    match args.get("steps") {
+        Some(Value::Array(a)) => a.iter().filter_map(|v| v.as_str().map(String::from).or_else(|| (!v.is_null()).then(|| v.to_string()))).flat_map(|s| s.lines().map(String::from).collect::<Vec<_>>()).filter(|s| !s.trim().is_empty()).collect(),
+        Some(Value::String(s)) => s.lines().map(String::from).filter(|s| !s.trim().is_empty()).collect(),
+        _ => Vec::new(),
+    }
+}
+
+enum Ran {
+    Done(Vec<String>),
+    Failed { done: Vec<String>, failed: String, reason: String },
+    Interrupted { done: Vec<String>, message: String },
+    Stopped,
+}
+
+fn carry_out(shared: &Shared, engine: &mut Engine, rx: &Receiver<String>, steps: &[String]) -> Ran {
+    let snapshot = engine.snapshot();
+    let mut changed = false;
+    let mut done = Vec::new();
+    let mut reports = Vec::new();
+    for line in steps {
+        if shared.stop.load(Ordering::Relaxed) {
+            return Ran::Stopped;
+        }
+        if let Ok(message) = rx.try_recv() {
+            return Ran::Interrupted { done, message };
+        }
+        let step = match plan::parse(line) {
+            Ok(s) => s,
+            Err(e) => return Ran::Failed { done, failed: line.clone(), reason: e },
+        };
+        shared.say("→", line.trim());
+        shared.set_status(Status::Acting, line.trim());
+        let stop = || shared.stop.load(Ordering::Relaxed) || shared.quit.load(Ordering::Relaxed);
+        match engine.step(&step, &snapshot, changed, &stop) {
+            Ok(result) => {
+                system::log(&format!("step {line}: {}", first_line(&result)));
+                shared.say("   ", &first_line(&result));
+                if step.reports() {
+                    reports.push(format!("{line}:\n{}", result.chars().take(6000).collect::<String>()));
+                }
+                done.push(line.clone());
+            }
+            Err(e) => {
+                system::log(&format!("step {line} failed: {e}"));
+                if shared.stop.load(Ordering::Relaxed) {
+                    return Ran::Stopped;
+                }
+                shared.say("   ", &format!("Couldn't: {e}"));
+                return Ran::Failed { done, failed: line.clone(), reason: e };
+            }
+        }
+        if plan::changes_screen(&step) {
+            changed = true;
+        }
+    }
+    Ran::Done(reports)
 }
 
 pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
@@ -133,8 +229,7 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
     let own = vec![shared.orb.load(Ordering::Relaxed), shared.panel.load(Ordering::Relaxed)];
     let mut engine = Engine::new(Cursor::new(shared.cursor.load(Ordering::Relaxed), cfg.color), own);
     let mut messages: Vec<Value> = vec![json!({ "role": "system", "content": agent::system_prompt(&cfg.name, &cfg.extra) })];
-    let mut rotation = Rotation::new(cfg.keys.len().max(1), 1, 5);
-    let mut keys = cfg.keys.len();
+    let mut groq = Groq::new(cfg.keys.len());
     while let Ok(first) = rx.recv() {
         if shared.quit.load(Ordering::Relaxed) {
             return;
@@ -143,35 +238,30 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
         shared.busy.store(true, Ordering::Relaxed);
         let cfg = shared.config();
         messages[0] = json!({ "role": "system", "content": agent::system_prompt(&cfg.name, &cfg.extra) });
+        agent::new_task(&mut messages);
         shared.set_status(Status::Acting, "Reading the screen…");
         let seen = engine.look();
-        messages.push(json!({ "role": "user", "content": format!("{first}\n\nWhat the Mover sees now:\n{seen}") }));
+        messages.push(json!({ "role": "user", "content": format!("{first}\n{seen}") }));
         shared.set_status(Status::Thinking, "Thinking…");
-        let mut steps = 0;
+        let mut told = false;
+        let mut calls = 0;
+        let mut replans = 0;
         let mut empty = 0;
         loop {
-            match rx.try_recv() {
-                Ok(more) => {
-                    messages.push(json!({ "role": "user", "content": format!("(New message while you work) {more}") }));
-                }
-                Err(TryRecvError::Disconnected) => return,
-                Err(TryRecvError::Empty) => {}
-            }
             if shared.stop.load(Ordering::Relaxed) {
                 shared.say("Sahay", "Stopped.");
-                messages.push(json!({ "role": "user", "content": "(The user pressed stop. Do nothing more until they ask again.)" }));
                 break;
             }
-            if steps >= agent::MAX_STEPS {
-                shared.say("Sahay", "I've taken a lot of steps on this, so I'm pausing. Tell me to carry on if you want.");
+            if calls >= MAX_CALLS {
+                shared.say("Sahay", "This is taking too many tries, so I've paused. Tell me how you'd like to carry on.");
                 break;
             }
+            calls += 1;
             agent::compact(&mut messages);
-            let reply = match ask_groq(&shared, &mut rotation, &mut keys, &mut messages) {
+            let reply = match ask_groq(&shared, &mut groq, &mut messages, &mut told) {
                 Outcome::Reply(r) => r,
                 Outcome::Note(n) => {
                     messages.push(json!({ "role": "user", "content": n }));
-                    steps += 1;
                     continue;
                 }
                 Outcome::Fail(e) => {
@@ -181,43 +271,62 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
             };
             if reply.text.is_empty() && reply.calls.is_empty() {
                 empty += 1;
-                steps += 1;
                 if empty <= 2 {
-                    system::log(&format!("empty answer from groq (cut off: {})", reply.cut_off));
-                    messages.push(json!({ "role": "user", "content": "(Your last answer was empty. Keep your thinking short, then either call one tool or reply to me.)" }));
+                    messages.push(json!({ "role": "user", "content": "(Your last answer was empty. Think briefly, then call do_steps or reply.)" }));
                     continue;
                 }
-                shared.say("Sahay", "I couldn't work out what to do next. Tell me again, maybe in other words.");
+                shared.say("Sahay", "I couldn't work out what to do. Tell me again, maybe in other words.");
                 break;
             }
-            empty = 0;
+            messages.push(reply.message.clone());
+            let Some(call) = reply.calls.first() else {
+                shared.say("Sahay", &reply.text);
+                break;
+            };
+            for extra in reply.calls.iter().skip(1) {
+                messages.push(agent::tool_result(extra, "Not done: send one do_steps call with all the steps."));
+            }
+            let steps = step_list(&call.args);
+            if call.name != "do_steps" || steps.is_empty() {
+                messages.push(agent::tool_result(call, "Use do_steps with a non-empty list of step strings."));
+                continue;
+            }
             if !reply.text.is_empty() {
                 shared.say("Sahay", &reply.text);
             }
-            messages.push(reply.message.clone());
-            if reply.calls.is_empty() {
-                break;
-            }
-            for (n, call) in reply.calls.iter().enumerate() {
-                steps += 1;
-                if n > 0 {
-                    messages.push(agent::tool_result(call, "Not done: only one step runs at a time and the screen has changed. Call it again if it is still needed, using the newest numbers."));
-                    continue;
+            let say = call.args.get("say").and_then(Value::as_str).unwrap_or("").trim().to_string();
+            match carry_out(&shared, &mut engine, &rx, &steps) {
+                Ran::Done(reports) if reports.is_empty() => {
+                    messages.push(agent::tool_result(call, "All steps done."));
+                    let final_words = if say.is_empty() { "Done.".to_string() } else { say };
+                    shared.say("Sahay", &final_words);
+                    messages.push(json!({ "role": "assistant", "content": final_words }));
+                    break;
                 }
-                if shared.stop.load(Ordering::Relaxed) {
-                    messages.push(agent::tool_result(call, "Not done: the user pressed stop."));
-                    continue;
+                Ran::Done(reports) => {
+                    messages.push(agent::tool_result(call, &format!("All steps done. Results:\n{}\nNow tell the user what you found.", reports.join("\n\n"))));
                 }
-                let what = agent::describe(call);
-                shared.say("→", &what);
-                shared.set_status(Status::Acting, &what);
-                let stop = || shared.stop.load(Ordering::Relaxed) || shared.quit.load(Ordering::Relaxed);
-                let result = engine.run(call, &stop);
-                system::log(&format!("mover {what}: {}", first_line(&result)));
-                shared.say("   ", &first_line(&result));
-                messages.push(agent::tool_result(call, &result));
+                Ran::Failed { done, failed, reason } => {
+                    replans += 1;
+                    if replans > MAX_REPLANS {
+                        shared.say("Sahay", &format!("I couldn't finish: {reason}"));
+                        messages.push(agent::tool_result(call, &format!("Stopped after repeated failures. Last: {failed}: {reason}")));
+                        break;
+                    }
+                    shared.set_status(Status::Thinking, "Finding another way…");
+                    let seen = engine.look();
+                    messages.push(agent::tool_result(call, &format!("Done: {}\nFailed: {failed} ({reason}). The rest was not done.\nThe screen now:\n{seen}Send a new plan from here.", if done.is_empty() { "nothing".to_string() } else { done.join(" | ") })));
+                }
+                Ran::Interrupted { done, message } => {
+                    let seen = engine.look();
+                    messages.push(agent::tool_result(call, &format!("Paused after: {}. The user wrote: {message}\nThe screen now:\n{seen}", if done.is_empty() { "nothing".to_string() } else { done.join(" | ") })));
+                }
+                Ran::Stopped => {
+                    messages.push(agent::tool_result(call, "The user pressed stop. Do nothing more until they ask."));
+                    shared.say("Sahay", "Stopped.");
+                    break;
+                }
             }
-            shared.set_status(Status::Thinking, "Thinking…");
         }
         engine.cursor.hide();
         shared.busy.store(false, Ordering::Relaxed);

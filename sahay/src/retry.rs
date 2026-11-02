@@ -140,6 +140,46 @@ pub fn retry_after_from(reason: &str) -> Option<Duration> {
     if secs.is_finite() && secs > 0.0 && secs < 86_400.0 { Some(Duration::from_millis((secs * 1000.0).round() as u64)) } else { None }
 }
 
+pub fn estimate_tokens(body_chars: usize, answer_budget: usize) -> usize {
+    body_chars / 3 + answer_budget
+}
+
+#[derive(Debug, Clone)]
+pub struct Pacer {
+    per_minute: usize,
+    sent: Vec<(std::time::Instant, usize)>,
+}
+
+impl Pacer {
+    pub fn new(per_minute: usize) -> Self {
+        Self { per_minute: per_minute.max(1000), sent: Vec::new() }
+    }
+
+    pub fn wait_for(&mut self, now: std::time::Instant, tokens: usize) -> Duration {
+        let window = Duration::from_secs(60);
+        self.sent.retain(|(t, _)| now.duration_since(*t) < window);
+        let mut used: usize = self.sent.iter().map(|(_, n)| n).sum();
+        if used + tokens <= self.per_minute {
+            return Duration::ZERO;
+        }
+        for (t, n) in &self.sent {
+            used -= n;
+            if used + tokens <= self.per_minute {
+                return (window - now.duration_since(*t)) + Duration::from_millis(250);
+            }
+        }
+        self.sent.last().map(|(t, _)| window - now.duration_since(*t)).unwrap_or(Duration::ZERO) + Duration::from_millis(250)
+    }
+
+    pub fn record(&mut self, now: std::time::Instant, tokens: usize) {
+        self.sent.push((now, tokens));
+    }
+
+    pub fn slow_down(&mut self) {
+        self.per_minute = (self.per_minute * 3 / 4).max(1000);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -210,5 +250,21 @@ mod tests {
         assert_eq!(retry_after_from("Please try again in 2h3m."), Some(Duration::from_secs(7380)));
         assert_eq!(retry_after_from("retry after 12"), Some(Duration::from_secs(12)));
         assert_eq!(retry_after_from("no hint here"), None);
+    }
+
+    #[test]
+    fn the_pacer_waits_before_the_minute_limit_instead_of_hitting_it() {
+        let start = std::time::Instant::now();
+        let mut p = Pacer::new(8000);
+        assert_eq!(p.wait_for(start, 3000), Duration::ZERO);
+        p.record(start, 3000);
+        assert_eq!(p.wait_for(start + Duration::from_secs(5), 3000), Duration::ZERO);
+        p.record(start + Duration::from_secs(5), 3000);
+        let w = p.wait_for(start + Duration::from_secs(10), 3000);
+        assert!(w > Duration::from_secs(49) && w < Duration::from_secs(51), "{w:?}");
+        assert_eq!(p.wait_for(start + Duration::from_secs(61), 3000), Duration::ZERO);
+        p.slow_down();
+        assert_eq!(p.per_minute, 6000);
+        assert_eq!(estimate_tokens(9000, 500), 3500);
     }
 }

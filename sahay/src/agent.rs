@@ -3,52 +3,38 @@ use serde_json::{json, Value};
 pub const HOST: &str = "api.groq.com";
 pub const PATH: &str = "/openai/v1/chat/completions";
 pub const MODEL: &str = "openai/gpt-oss-120b";
-pub const MAX_STEPS: usize = 80;
+
+pub const SCREEN: &str = "[Screen]";
 
 pub fn system_prompt(name: &str, extra: &str) -> String {
     let user_name = if name.trim().is_empty() || name.trim().eq_ignore_ascii_case("you") { "the user" } else { name.trim() };
     format!(
-        "You are Sahay, {user_name}'s helper on their Windows computer. You talk with {user_name} and you direct the Mover, \
-a fast local engine that reads the screen and moves its own cursor to click and type. You cannot see the screen yourself: \
-the Mover tells you what is on it. Every screen description lists controls (E numbers) and text read from the screen (T numbers), \
-each with its position as @x,y from 0 to 1000.\n\
-How to work:\n\
-- For anything to do on the computer, give the Mover one instruction at a time with the tools, read what happened, then decide the next step. Keep going until the job is done.\n\
-- Give exactly one tool call per answer. After each one the screen is read again and the numbers change, so always use numbers from the newest screen description.\n\
-- Click things by their E or T number, or by the exact words shown on them. Use @x,y only when nothing else fits.\n\
-- To search or fill a box: click it, then type (enter true to submit). Shortcuts go through key (ctrl+l focuses a browser's address bar, k pauses YouTube, shift+. makes it faster).\n\
-- Open apps and websites with open, for example open https://www.youtube.com/results?search_query=bella+ciao.\n\
-- If a click changed nothing, look again and try another way: another element, the keyboard, scroll, or wait for loading.\n\
-- Do exactly what {user_name} asks. If they say not to do something, never do it. When a choice is theirs (which item, size, address, payment), stop and ask them in your reply.\n\
-- Reply to {user_name} in short, plain sentences in the language they write in. Say what you did and what you found.\n\
-- For their family, tablets, doctor visits, messages or where things are at home, use the saathi tool. {extra}"
+        "You are Sahay, {user_name}'s helper on their Windows PC. You plan; the Mover on the PC carries the plan out. \
+You get a [Screen]: controls (E numbers) and text (T numbers), each with x,y from 0 to 1000 across the screen.\n\
+Answer a task with ONE do_steps call holding every step to finish it, plus what to tell {user_name} at the end. Steps, one per item:\n\
+open <app | url | browser url>   e.g. open msedge https://www.youtube.com/results?search_query=bella+ciao\n\
+click <E# | T# | x,y | \"words on screen\">   also double <..>, right <..>, hover <..>\n\
+type <text>   key <keys> (e.g. enter, ctrl+l, alt+f4, tab x3)   scroll down|up <n> [at <target>]   drag <a> to <b>\n\
+wait <seconds>   wait for \"words\"   focus <window title words>   run <PowerShell>   clipboard   saathi <tool> <json>\n\
+How to plan:\n\
+- After the screen changes (a page opens or loads), name later targets by the words you expect on it, e.g. click \"Bella Ciao\". The Mover waits for those words to appear and finds them itself. Use E/T numbers only for what is on the current [Screen].\n\
+- Open sites straight at the result page. For a chosen browser write it first: open msedge <url>, open chrome <url>.\n\
+- Close a tab with key ctrl+w and a window with key alt+f4. Never click a window's own close button.\n\
+- If a step fails you get a new [Screen] and can send a new plan. If you only need to talk, reply without a tool.\n\
+- Do only what {user_name} asks; when a choice is theirs (which item, size, payment) ask first. Reply briefly in {user_name}'s language.\n\
+- Saathi tools (family care app): what_day_is_it, get_medication_schedule, confirm_medication_taken, get_upcoming_appointments, get_family_messages, send_message_to_family, daily_check_in, ask_family_for_help, report_suspicious_call, where_is, list_memory_stories, family_summary. {extra}"
     )
 }
 
-fn tool(name: &str, description: &str, properties: Value, required: &[&str]) -> Value {
-    json!({ "type": "function", "function": { "name": name, "description": description, "parameters": { "type": "object", "properties": properties, "required": required } } })
-}
-
 pub fn tools() -> Value {
-    let s = |d: &str| json!({ "type": "string", "description": d });
-    let n = |d: &str| json!({ "type": "number", "description": d });
-    let b = |d: &str| json!({ "type": "boolean", "description": d });
-    json!([
-        tool("look", "Read the screen again and list its controls and text.", json!({}), &[]),
-        tool("click", "Move the cursor to something and click it.", json!({ "target": s("An E or T number, the words on it, or @x,y"), "button": s("left (default), right or middle"), "double": b("Double-click") }), &["target"]),
-        tool("hover", "Move the cursor over something without clicking.", json!({ "target": s("An E or T number, words, or @x,y") }), &["target"]),
-        tool("type", "Type text where the cursor last clicked.", json!({ "text": s("Text to type"), "enter": b("Press Enter afterwards") }), &["text"]),
-        tool("key", "Press a key or shortcut, such as enter, escape, tab, ctrl+l, alt+tab, shift+., page_down.", json!({ "keys": s("Keys joined with +"), "times": n("How many times, default 1") }), &["keys"]),
-        tool("scroll", "Scroll the page or a part of it.", json!({ "direction": s("up, down, left or right"), "amount": n("Notches, default 5"), "target": s("Optional: where to scroll, as an E or T number or words") }), &["direction"]),
-        tool("drag", "Drag from one thing to another.", json!({ "from": s("Start: E or T number, words, or @x,y"), "to": s("End: E or T number, words, or @x,y") }), &["from", "to"]),
-        tool("open", "Open an app by name, a website address, a file or a folder.", json!({ "target": s("For example chrome, notepad, https://www.ajio.com") }), &["target"]),
-        tool("focus", "Bring a window to the front by part of its title.", json!({ "title": s("Part of the window title") }), &["title"]),
-        tool("clipboard", "Read the text on the clipboard (after you copy something with ctrl+c).", json!({}), &[]),
-        tool("find", "Find where some words appear on screen without clicking.", json!({ "text": s("Words to find") }), &["text"]),
-        tool("wait", "Wait for something to load, then look again.", json!({ "seconds": n("Default 2") }), &[]),
-        tool("run", "Run a PowerShell command and get its output.", json!({ "command": s("PowerShell command"), "timeout_seconds": n("Default 60") }), &["command"]),
-        tool("saathi", "Ask Saathi, the family care app on this PC.", json!({ "tool": s("what_day_is_it, get_medication_schedule, confirm_medication_taken, get_upcoming_appointments, get_family_messages, send_message_to_family, daily_check_in, ask_family_for_help, report_suspicious_call, where_is, list_memory_stories, family_summary"), "arguments_json": s("Arguments as a JSON object, for example {}") }), &["tool"]),
-    ])
+    json!([{ "type": "function", "function": {
+        "name": "do_steps",
+        "description": "Carry out a whole plan on the PC, step by step, without asking again.",
+        "parameters": { "type": "object", "properties": {
+            "steps": { "type": "array", "items": { "type": "string" }, "description": "Steps in order, e.g. [\"open msedge https://www.youtube.com/results?search_query=bella+ciao\", \"click \\\"Bella Ciao\\\"\"]" },
+            "say": { "type": "string", "description": "What to tell the user when every step is done" }
+        }, "required": ["steps"] }
+    } }])
 }
 
 pub fn request(messages: &[Value], model: &str) -> Value {
@@ -59,7 +45,7 @@ pub fn request(messages: &[Value], model: &str) -> Value {
         "tool_choice": "auto",
         "parallel_tool_calls": false,
         "temperature": 0.3,
-        "max_completion_tokens": 3000,
+        "max_completion_tokens": 2500,
         "reasoning_effort": "medium",
     })
 }
@@ -117,53 +103,47 @@ pub fn tool_result(call: &Call, content: &str) -> Value {
     json!({ "role": "tool", "tool_call_id": call.id, "content": content })
 }
 
-pub fn describe(call: &Call) -> String {
-    let a = &call.args;
-    let g = |k: &str| a.get(k).map(|v| v.as_str().map(String::from).unwrap_or_else(|| v.to_string())).unwrap_or_default();
-    match call.name.as_str() {
-        "click" => format!("click {}{}", g("target"), if a.get("double").and_then(Value::as_bool) == Some(true) { " (double)" } else { "" }),
-        "hover" => format!("hover over {}", g("target")),
-        "type" => format!("type \"{}\"{}", g("text").chars().take(60).collect::<String>(), if a.get("enter").and_then(Value::as_bool) == Some(true) { " + Enter" } else { "" }),
-        "key" => format!("press {}", g("keys")),
-        "scroll" => format!("scroll {}", g("direction")),
-        "drag" => format!("drag {} to {}", g("from"), g("to")),
-        "open" => format!("open {}", g("target")),
-        "focus" => format!("switch to {}", g("title")),
-        "clipboard" => "read the clipboard".into(),
-        "find" => format!("find \"{}\"", g("text")),
-        "wait" => "wait".into(),
-        "look" => "look at the screen".into(),
-        "run" => format!("run {}", g("command").chars().take(60).collect::<String>()),
-        "saathi" => format!("ask Saathi: {}", g("tool")),
-        other => other.to_string(),
+fn strip_screen(m: &mut Value) {
+    if let Some(c) = m.get("content").and_then(Value::as_str) {
+        if let Some((head, _)) = c.split_once(SCREEN) {
+            m["content"] = json!(format!("{}(old screen removed)", head.trim_end().to_string() + "\n"));
+        }
     }
 }
 
 pub fn compact(messages: &mut Vec<Value>) {
-    let last_tool = messages.iter().rposition(|m| m.get("role").and_then(Value::as_str) == Some("tool"));
-    for (i, m) in messages.iter_mut().enumerate() {
-        if Some(i) == last_tool || m.get("role").and_then(Value::as_str) != Some("tool") {
-            continue;
-        }
-        if let Some(c) = m.get("content").and_then(Value::as_str) {
-            if let Some((head, _)) = c.split_once("\nWindow in front:") {
-                let short = format!("{head}\n(older screen description removed)");
-                m["content"] = json!(short);
-            }
+    let latest = messages.iter().rposition(|m| m.get("content").and_then(Value::as_str).is_some_and(|c| c.contains(SCREEN)));
+    for (i, m) in messages.iter_mut().enumerate().skip(1) {
+        if Some(i) != latest {
+            strip_screen(m);
         }
     }
-    while messages.len() > 120 {
-        let cut = messages.iter().skip(2).position(|m| m.get("role").and_then(Value::as_str) == Some("user")).map(|p| p + 2);
-        match cut {
-            Some(c) if c > 1 => {
-                let next_user = messages.iter().skip(c + 1).position(|m| m.get("role").and_then(Value::as_str) == Some("user")).map(|p| p + c + 1).unwrap_or(messages.len());
-                messages.drain(1..next_user.min(messages.len() - 1).max(2));
-            }
-            _ => {
-                messages.remove(1);
-            }
+    while messages.len() > 60 {
+        messages.remove(1);
+        while messages.len() > 1 && messages[1].get("role").and_then(Value::as_str) == Some("tool") {
+            messages.remove(1);
         }
     }
+}
+
+pub fn new_task(messages: &mut Vec<Value>) {
+    let mut kept: Vec<Value> = Vec::new();
+    for m in messages.drain(1..) {
+        let role = m.get("role").and_then(Value::as_str).unwrap_or("");
+        let text = m.get("content").and_then(Value::as_str).unwrap_or("").trim().to_string();
+        match role {
+            "user" => {
+                let task = text.split(SCREEN).next().unwrap_or("").split("(old screen removed)").next().unwrap_or("").trim().to_string();
+                if !task.is_empty() && !task.starts_with('(') {
+                    kept.push(json!({ "role": "user", "content": task }));
+                }
+            }
+            "assistant" if !text.is_empty() => kept.push(json!({ "role": "assistant", "content": text })),
+            _ => {}
+        }
+    }
+    let start = kept.len().saturating_sub(10);
+    messages.extend(kept.into_iter().skip(start));
 }
 
 pub fn shrink(messages: &mut Vec<Value>) -> bool {
@@ -191,11 +171,9 @@ mod tests {
     fn the_request_targets_gpt_oss_120b_with_the_mover_tools() {
         let r = request(&[json!({"role":"user","content":"hi"})], MODEL);
         assert_eq!(r["model"], "openai/gpt-oss-120b");
-        let names: Vec<&str> = r["tools"].as_array().unwrap().iter().map(|t| t["function"]["name"].as_str().unwrap()).collect();
-        for n in ["look", "click", "type", "key", "scroll", "open", "find", "wait", "saathi"] {
-            assert!(names.contains(&n), "{n}");
-        }
+        assert_eq!(r["tools"][0]["function"]["name"], "do_steps");
         assert!(system_prompt("Akshat", "").contains("Mover"));
+        assert!(!system_prompt("you", "").contains("you's"));
     }
 
     #[test]
@@ -205,7 +183,6 @@ mod tests {
         assert_eq!(r.text, "Opening YouTube.");
         assert_eq!(r.calls, vec![Call { id: "c1".into(), name: "open".into(), args: json!({"target":"https://www.youtube.com"}) }]);
         assert_eq!(r.message["tool_calls"][0]["id"], "c1");
-        assert_eq!(describe(&r.calls[0]), "open https://www.youtube.com");
         assert_eq!(parse(r#"{"error":{"message":"Rate limit reached. Please try again in 2s."}}"#).unwrap_err(), "Rate limit reached. Please try again in 2s.");
         let plain = parse(r#"{"choices":[{"message":{"role":"assistant","content":"Done!"}}]}"#).unwrap();
         assert!(plain.calls.is_empty());
@@ -213,23 +190,35 @@ mod tests {
     }
 
     #[test]
-    fn old_screen_descriptions_are_trimmed_but_the_latest_is_kept() {
-        let mut m = vec![json!({"role":"system","content":"s"}), json!({"role":"user","content":"go"})];
+    fn only_the_newest_screen_is_sent_and_old_tasks_are_folded() {
+        let mut m = vec![json!({"role":"system","content":"s"}), json!({"role":"user","content":format!("go\n{SCREEN} Window: A\nE1 Button \"A\" 1,1")})];
         for i in 0..3 {
-            m.push(json!({"role":"assistant","content":"","tool_calls":[]}));
-            m.push(json!({"role":"tool","tool_call_id":format!("c{i}"),"content":format!("Clicked {i}\nWindow in front: X\nE1 Button \"A\" @1,1")}));
+            m.push(json!({"role":"assistant","content":null,"tool_calls":[{"id":format!("c{i}")}]}));
+            m.push(json!({"role":"tool","tool_call_id":format!("c{i}"),"content":format!("Clicked {i}\n{SCREEN} Window: X\nE1 Button \"A\" 1,1")}));
         }
         compact(&mut m);
-        let tools: Vec<&str> = m.iter().filter(|x| x["role"] == "tool").map(|x| x["content"].as_str().unwrap()).collect();
-        assert!(tools[0].contains("older screen description removed"));
-        assert!(tools[2].contains("Window in front: X"));
+        let screens = m.iter().filter(|x| x["content"].as_str().is_some_and(|c| c.contains(SCREEN))).count();
+        assert_eq!(screens, 1);
+        assert!(m.last().unwrap()["content"].as_str().unwrap().contains("Window: X"));
+        assert!(m[1]["content"].as_str().unwrap().starts_with("go\n(old screen removed)"));
+        m.push(json!({"role":"assistant","content":"Done."}));
+        new_task(&mut m);
+        assert_eq!(m.len(), 3);
+        assert_eq!(m[1]["content"], "go");
+        assert_eq!(m[2]["content"], "Done.");
         let mut long: Vec<Value> = vec![json!({"role":"system","content":"s"})];
         for i in 0..200 {
             long.push(json!({"role": if i % 2 == 0 { "user" } else { "assistant" }, "content": format!("m{i}")}));
         }
         compact(&mut long);
-        assert!(long.len() <= 120);
+        assert!(long.len() <= 60);
         assert_eq!(long[0]["role"], "system");
+    }
+
+    #[test]
+    fn the_fixed_part_of_every_request_stays_small() {
+        let fixed = tools().to_string().len() + system_prompt("Akshat", "").len();
+        assert!(fixed < 4800, "tools and rules take {fixed} characters");
     }
 
     #[test]

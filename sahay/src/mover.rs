@@ -1,4 +1,4 @@
-use crate::actions::{to_normalized, to_screen, Rect};
+use crate::actions::{to_normalized, Rect};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Target {
@@ -45,28 +45,11 @@ fn score(query: &str, label: &str) -> f64 {
     55.0 * common as f64 / qt.len() as f64 + 10.0 * common as f64 / lt.len() as f64
 }
 
-pub fn parse_point(query: &str) -> Option<(f64, f64)> {
-    let q = query.trim().strip_prefix('@')?;
-    let (x, y) = q.split_once(',')?;
-    let x: f64 = x.trim().parse().ok()?;
-    let y: f64 = y.trim().parse().ok()?;
-    (x.is_finite() && y.is_finite()).then_some((x.clamp(0.0, 1000.0), y.clamp(0.0, 1000.0)))
-}
-
-pub enum Resolved<'a> {
-    Target(&'a Target),
-    Point(i32, i32),
-}
-
-pub fn resolve<'a>(query: &str, targets: &'a [Target], screen: Rect) -> Option<Resolved<'a>> {
-    if let Some((x, y)) = parse_point(query) {
-        let (px, py) = to_screen(screen, x, y);
-        return Some(Resolved::Point(px, py));
-    }
+pub fn resolve<'a>(query: &str, targets: &'a [Target]) -> Option<&'a Target> {
     let q = query.trim();
     let id = q.trim_start_matches('#');
     if let Some(t) = targets.iter().find(|t| t.id.eq_ignore_ascii_case(id)) {
-        return Some(Resolved::Target(t));
+        return Some(t);
     }
     let unquoted = q.trim_matches(|c| c == '"' || c == '\'' || c == '“' || c == '”');
     targets
@@ -74,7 +57,7 @@ pub fn resolve<'a>(query: &str, targets: &'a [Target], screen: Rect) -> Option<R
         .map(|t| (t, score(unquoted, &t.label) + if t.interactive { 4.0 } else { 0.0 } + if t.id.starts_with('E') { 1.0 } else { 0.0 }))
         .filter(|(_, s)| *s >= 40.0)
         .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
-        .map(|(t, _)| Resolved::Target(t))
+        .map(|(t, _)| t)
 }
 
 pub fn matches<'a>(query: &str, targets: &'a [Target]) -> Vec<&'a Target> {
@@ -88,25 +71,18 @@ pub fn overlaps(a: Rect, b: Rect) -> bool {
 }
 
 pub fn summary(window: &str, targets: &[Target], screen: Rect) -> String {
-    let mut out = format!("Window in front: {}\n", window.chars().take(140).collect::<String>());
-    let controls: Vec<&Target> = targets.iter().filter(|t| t.id.starts_with('E')).collect();
-    let texts: Vec<&Target> = targets.iter().filter(|t| t.id.starts_with('T')).collect();
-    if !controls.is_empty() {
-        out.push_str("Controls (from the window):\n");
-        for t in controls {
-            let (x, y) = to_normalized(screen, t.rect.center().0, t.rect.center().1);
-            out.push_str(&format!("{} {} \"{}\" @{x},{y}\n", t.id, t.kind, t.label.chars().take(80).collect::<String>()));
-        }
-    }
-    if !texts.is_empty() {
-        out.push_str("Text read from the screen:\n");
-        for t in texts {
-            let (x, y) = to_normalized(screen, t.rect.center().0, t.rect.center().1);
-            out.push_str(&format!("{} \"{}\" @{x},{y}\n", t.id, t.label.chars().take(100).collect::<String>()));
+    let mut out = format!("{} Window: {}\n", crate::agent::SCREEN, window.chars().take(100).collect::<String>());
+    for t in targets {
+        let (x, y) = to_normalized(screen, t.rect.center().0, t.rect.center().1);
+        let label: String = t.label.chars().take(48).collect();
+        if t.id.starts_with('E') {
+            out.push_str(&format!("{} {} \"{label}\" {x},{y}\n", t.id, t.kind));
+        } else {
+            out.push_str(&format!("{} \"{label}\" {x},{y}\n", t.id));
         }
     }
     if targets.is_empty() {
-        out.push_str("(Nothing readable on screen yet. Try wait, then look.)\n");
+        out.push_str("(Nothing readable on screen yet. Try wait.)\n");
     }
     out
 }
@@ -138,10 +114,7 @@ mod tests {
     }
 
     fn pick<'a>(q: &str, ts: &'a [Target]) -> Option<&'a str> {
-        match resolve(q, ts, SCREEN)? {
-            Resolved::Target(t) => Some(&t.id),
-            Resolved::Point(..) => Some("point"),
-        }
+        resolve(q, ts).map(|t| t.id.as_str())
     }
 
     #[test]
@@ -159,12 +132,7 @@ mod tests {
         assert_eq!(pick("\"Proceed to checkout\"", &ts), Some("E3"));
         assert_eq!(pick("blue t-shirt", &ts), Some("T2"));
         assert_eq!(pick("checkout", &ts), Some("E3"));
-        assert_eq!(pick("@500,500", &ts), Some("point"));
         assert_eq!(pick("place order", &ts), None, "nothing like it on screen means no click");
-        match resolve("@500,500", &ts, SCREEN) {
-            Some(Resolved::Point(x, y)) => assert_eq!((x, y), (960, 540)),
-            _ => panic!("expected a point"),
-        }
     }
 
     #[test]
@@ -179,8 +147,8 @@ mod tests {
     fn the_summary_lists_controls_and_text_with_positions() {
         let ts = vec![t("E1", "Search", "Edit", true, 910, 525), t("T1", "Shorts", "Text", false, 0, 0)];
         let s = summary("YouTube - Google Chrome", &ts, SCREEN);
-        assert!(s.starts_with("Window in front: YouTube - Google Chrome\n"));
-        assert!(s.contains("E1 Edit \"Search\" @500,500"));
+        assert!(s.starts_with("[Screen] Window: YouTube - Google Chrome\n"));
+        assert!(s.contains("E1 Edit \"Search\" 500,500"));
         assert!(s.contains("T1 \"Shorts\""));
         assert!(summary("x", &[], SCREEN).contains("Nothing readable"));
     }
