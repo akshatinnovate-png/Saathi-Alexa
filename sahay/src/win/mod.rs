@@ -108,17 +108,14 @@ impl Shared {
 
 fn first_key() -> Option<Vec<String>> {
     let _ = system::shell_open("https://console.groq.com/keys", "open");
-    let text = ui::ask(
-        "Welcome to Sahay",
-        "Sahay thinks with Groq (free). Groq's key page is opening: sign in, click Create API Key, copy it, and paste it here. Several keys can be separated by commas.",
-        "",
-        true,
-    )?;
-    let keys = split_keys(&text);
-    if keys.is_empty() {
-        None
-    } else {
-        Some(keys)
+    let mut prompt = "Sahay thinks with Groq (free). Groq's key page is opening: sign in, click Create API Key, copy it, and paste it here. Several keys can be separated by commas.";
+    loop {
+        let text = ui::ask("Welcome to Sahay", prompt, "", false)?;
+        let keys = split_keys(&text);
+        if !keys.is_empty() {
+            return Some(keys);
+        }
+        prompt = "That doesn't look like a Groq key. A Groq key starts with gsk_ and is about 56 letters and numbers long. Copy it again from console.groq.com/keys and paste it here.";
     }
 }
 

@@ -5,7 +5,8 @@ pub const PATH: &str = "/openai/v1/chat/completions";
 pub const MODEL: &str = "openai/gpt-oss-120b";
 pub const MAX_STEPS: usize = 80;
 
-pub fn system_prompt(user_name: &str, extra: &str) -> String {
+pub fn system_prompt(name: &str, extra: &str) -> String {
+    let user_name = if name.trim().is_empty() || name.trim().eq_ignore_ascii_case("you") { "the user" } else { name.trim() };
     format!(
         "You are Sahay, {user_name}'s helper on their Windows computer. You talk with {user_name} and you direct the Mover, \
 a fast local engine that reads the screen and moves its own cursor to click and type. You cannot see the screen yourself: \
@@ -13,6 +14,7 @@ the Mover tells you what is on it. Every screen description lists controls (E nu
 each with its position as @x,y from 0 to 1000.\n\
 How to work:\n\
 - For anything to do on the computer, give the Mover one instruction at a time with the tools, read what happened, then decide the next step. Keep going until the job is done.\n\
+- Give exactly one tool call per answer. After each one the screen is read again and the numbers change, so always use numbers from the newest screen description.\n\
 - Click things by their E or T number, or by the exact words shown on them. Use @x,y only when nothing else fits.\n\
 - To search or fill a box: click it, then type (enter true to submit). Shortcuts go through key (ctrl+l focuses a browser's address bar, k pauses YouTube, shift+. makes it faster).\n\
 - Open apps and websites with open, for example open https://www.youtube.com/results?search_query=bella+ciao.\n\
@@ -55,8 +57,9 @@ pub fn request(messages: &[Value], model: &str) -> Value {
         "messages": messages,
         "tools": tools(),
         "tool_choice": "auto",
+        "parallel_tool_calls": false,
         "temperature": 0.3,
-        "max_completion_tokens": 4096,
+        "max_completion_tokens": 3000,
         "reasoning_effort": "medium",
     })
 }
@@ -73,6 +76,7 @@ pub struct Reply {
     pub text: String,
     pub calls: Vec<Call>,
     pub message: Value,
+    pub cut_off: bool,
 }
 
 pub fn parse(body: &str) -> Result<Reply, String> {
@@ -82,6 +86,7 @@ pub fn parse(body: &str) -> Result<Reply, String> {
     }
     let msg = v.pointer("/choices/0/message").cloned().ok_or("Groq sent no message")?;
     let text = msg.get("content").and_then(Value::as_str).unwrap_or("").trim().to_string();
+    let mut seen_ids = std::collections::HashSet::new();
     let calls = msg
         .get("tool_calls")
         .and_then(Value::as_array)
@@ -90,16 +95,22 @@ pub fn parse(body: &str) -> Result<Reply, String> {
                 .filter_map(|c| {
                     let f = c.get("function")?;
                     let args = f.get("arguments").and_then(Value::as_str).and_then(|s| serde_json::from_str(s).ok()).unwrap_or_else(|| json!({}));
-                    Some(Call { id: c.get("id")?.as_str()?.to_string(), name: f.get("name")?.as_str()?.to_string(), args })
+                    let id = c.get("id")?.as_str()?.to_string();
+                    seen_ids.insert(id.clone()).then_some(())?;
+                    Some(Call { id, name: f.get("name")?.as_str()?.trim().to_string(), args })
                 })
                 .collect()
         })
         .unwrap_or_default();
     let mut message = json!({ "role": "assistant", "content": text });
+    if text.is_empty() && msg.get("tool_calls").is_some() {
+        message["content"] = Value::Null;
+    }
     if let Some(tc) = msg.get("tool_calls") {
         message["tool_calls"] = tc.clone();
     }
-    Ok(Reply { text, calls, message })
+    let cut_off = v.pointer("/choices/0/finish_reason").and_then(Value::as_str) == Some("length");
+    Ok(Reply { text, calls, message, cut_off })
 }
 
 pub fn tool_result(call: &Call, content: &str) -> Value {

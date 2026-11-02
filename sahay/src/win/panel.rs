@@ -9,7 +9,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::SetFocus;
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, GetClientRect, GetSystemMetrics, GetWindowTextLengthW, GetWindowTextW, IsWindowVisible, LoadCursorW, MoveWindow, RegisterClassW, SendMessageW, SetForegroundWindow,
     SetWindowTextW, ShowWindow, BS_DEFPUSHBUTTON, BS_PUSHBUTTON, ES_AUTOHSCROLL, ES_AUTOVSCROLL, ES_MULTILINE, ES_READONLY, HMENU, IDC_ARROW, SM_CXSCREEN, SM_CYSCREEN, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE,
-    WINDOW_STYLE, WM_APP, WM_CLOSE, WM_COMMAND, WM_CTLCOLOREDIT, WM_CTLCOLORSTATIC, WM_SETFONT, WM_SIZE, WNDCLASSW, WS_CAPTION, WS_CHILD, WS_EX_TOPMOST, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_OVERLAPPED,
+    WINDOW_STYLE, SetLayeredWindowAttributes, LWA_ALPHA, WS_EX_LAYERED, WM_APP, WM_CLOSE, WM_COMMAND, WM_CTLCOLOREDIT, WM_CTLCOLORSTATIC, WM_SETFONT, WM_SIZE, WNDCLASSW, WS_CAPTION, WS_CHILD, WS_EX_TOPMOST, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_OVERLAPPED,
     WS_SYSMENU, WS_TABSTOP, WS_THICKFRAME, WS_VISIBLE, WS_VSCROLL,
 };
 
@@ -70,9 +70,7 @@ fn send_input() {
             return;
         }
         let _ = SetWindowTextW(input, &HSTRING::from(""));
-        if !shared.busy.load(Ordering::Relaxed) {
-            shared.say("You", &text);
-        }
+        shared.say("You", &text);
         let _ = shared.asks.send(text);
     }
 }
@@ -139,7 +137,7 @@ pub fn create(shared: Arc<Shared>) -> HWND {
         let (sw, sh) = (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
         let (w, h) = (460, 620);
         let hwnd = CreateWindowExW(
-            WS_EX_TOPMOST,
+            WS_EX_TOPMOST | WS_EX_LAYERED,
             w!("SahayPanel"),
             &HSTRING::from("Sahay"),
             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX,
@@ -153,6 +151,8 @@ pub fn create(shared: Arc<Shared>) -> HWND {
             None,
         )
         .unwrap_or_default();
+        let _ = SetLayeredWindowAttributes(hwnd, COLORREF(0), 248, LWA_ALPHA);
+        super::system::hide_from_capture(hwnd);
         let font = CreateFontW(-17, 0, 0, 0, FW_NORMAL.0 as i32, 0, 0, 0, DEFAULT_CHARSET.0 as u32, OUT_DEFAULT_PRECIS.0 as u32, CLIP_DEFAULT_PRECIS.0 as u32, CLEARTYPE_QUALITY.0 as u32, (DEFAULT_PITCH.0 | FF_SWISS.0) as u32, w!("Segoe UI"));
         let log = child(w!("EDIT"), "", (ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL) as u32 | WS_VSCROLL.0, WINDOW_EX_STYLE(0), hwnd, ID_LOG, font);
         let input = child(w!("EDIT"), "", ES_AUTOHSCROLL as u32 | WS_TABSTOP.0, WINDOW_EX_STYLE(0), hwnd, ID_INPUT, font);

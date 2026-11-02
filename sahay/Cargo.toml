@@ -20,11 +20,13 @@ native-tls = "0.2"
 windows = { version = "0.58", features = [
   "Foundation",
   "Foundation_Collections",
+  "Globalization",
   "Graphics_Imaging",
   "Media_Ocr",
   "Storage_Streams",
   "Win32_Foundation",
   "Win32_Networking_WinHttp",
+  "Win32_Graphics_Dwm",
   "Win32_Graphics_Gdi",
   "Win32_Security_Cryptography",
   "Win32_System_Com",

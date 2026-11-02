@@ -1,9 +1,13 @@
 **Sahay** (सहाय, "help") drives your Windows PC for you. You type what you want; it moves its own cursor, clicks and types until the job is done. A byproduct of [Saathi](https://github.com/akshatinnovate-png/Saathi-Alexa).
 
-### New in 2.0.1: fixes "Can't reach Groq"
-- Sahay now talks to Groq through Windows' own web stack (WinHTTP), so it follows your system proxy and network settings, and falls back to a direct IPv4 connection if that fails.
-- When Groq answers with an error, the chat shows Groq's real message instead of retrying silently.
-- If a request is too big for Groq's free limit, Sahay trims older history and the screen description and tries again.
+### New in 2.0.1: fixes
+- **Reaching Groq.** Sahay now talks to Groq through Windows' own web stack (WinHTTP), so it follows your system proxy and network settings, with a direct IPv4-first connection as a fallback. If it still can't connect, the chat says exactly why (no internet, DNS, firewall or antivirus, wrong PC clock, proxy).
+- **Works on your app, not on itself.** Sahay used to read and type into its own chat window. It now always works on the window you were using, brings that window forward before typing or pressing keys, and clicks pass through the sphere and the chat when they sit on top of the target. The chat, sphere and cursor are hidden from its screen reading.
+- **One step at a time.** Groq gives one instruction per answer, so numbers on screen never go stale between steps, and a missing number is never swapped for a different element.
+- **Groq's limits.** Wait times like "1m2.5s" or "250ms" are read correctly. When it waits, the chat says so. Requests too big for the free tier are trimmed and retried. An empty or cut-off answer is retried instead of silently stopping.
+- Pasted keys with quotes, "Bearer" or line breaks are cleaned up, and a wrong paste on first run asks again instead of closing.
+- Text recognition falls back to English if your Windows language has no OCR pack. "notepad.exe" and other file names are no longer opened as websites. "ctrl++" works.
+- New Windows tests in CI check that Groq answers through both connection paths and that Windows OCR reads and places text.
 
 ### New in 2.0.0: rebuilt from scratch
 - **Its own cursor.** A coloured Sahay pointer glides to each target, then the real mouse moves and clicks there, with a ripple on every click, so you see exactly what it does.

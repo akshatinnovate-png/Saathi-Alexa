@@ -419,6 +419,9 @@ pub fn run(state: Arc<Shared>, show_panel: bool) {
         let caption = CreateWindowExW(WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT, w!("SahayCaption"), &HSTRING::from("Sahay caption"), WS_POPUP, 0, 0, CAPTION_W, CAPTION_H, None, None, hinst, None).unwrap_or_default();
         let _ = SetLayeredWindowAttributes(caption, COLORREF(0), 225, LWA_ALPHA);
         let pointer = CreateWindowExW(WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT, w!("SahayCursor"), &HSTRING::from("Sahay cursor"), WS_POPUP, 0, 0, cursor::SIZE_PX, cursor::SIZE_PX, None, None, hinst, None).unwrap_or_default();
+        for h in [orb, caption, pointer] {
+            system::hide_from_capture(h);
+        }
         let chat = panel::create(state.clone());
         UI.with(|u| {
             let mut u = u.borrow_mut();

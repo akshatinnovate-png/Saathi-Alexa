@@ -31,7 +31,13 @@ fn shrink(bgra: &[u8], w: u32, h: u32, scale: f64) -> (Vec<u8>, u32, u32) {
 
 impl Reader {
     pub fn new() -> Result<Self, String> {
-        let engine = OcrEngine::TryCreateFromUserProfileLanguages().map_err(|e| format!("Windows text recognition is not available: {e}"))?;
+        let engine = match OcrEngine::TryCreateFromUserProfileLanguages() {
+            Ok(e) => e,
+            Err(first) => {
+                let english = windows::Globalization::Language::CreateLanguage(&windows::core::HSTRING::from("en-US")).map_err(|e| e.to_string())?;
+                OcrEngine::TryCreateFromLanguage(&english).map_err(|e| format!("Windows text recognition is not available ({first}; {e}). Add a language with Optical character recognition in Settings, Time and language."))?
+            }
+        };
         let max = OcrEngine::MaxImageDimension().unwrap_or(2600).max(800);
         Ok(Self { engine, max })
     }
@@ -73,5 +79,61 @@ impl Reader {
             lines.push(Line { text, rect: Rect { left: origin.0 + px(l), top: origin.1 + px(t), right: origin.0 + px(r), bottom: origin.1 + px(b) } });
         }
         Ok(lines)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use windows::core::w;
+    use windows::Win32::Foundation::RECT;
+    use windows::Win32::Graphics::Gdi::{CreateCompatibleDC, CreateDIBSection, CreateFontW, DeleteDC, DeleteObject, DrawTextW, FillRect, GetStockObject, SelectObject, SetBkMode, SetTextColor, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, DT_LEFT, DT_SINGLELINE, TRANSPARENT, WHITE_BRUSH};
+    use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
+
+    fn picture(text: &str, w: i32, h: i32) -> Vec<u8> {
+        unsafe {
+            let dc = CreateCompatibleDC(None);
+            let info = BITMAPINFO { bmiHeader: BITMAPINFOHEADER { biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32, biWidth: w, biHeight: -h, biPlanes: 1, biBitCount: 32, biCompression: BI_RGB.0, ..Default::default() }, ..Default::default() };
+            let mut bits: *mut core::ffi::c_void = std::ptr::null_mut();
+            let bmp = CreateDIBSection(dc, &info, DIB_RGB_COLORS, &mut bits, None, 0).expect("bitmap");
+            let old = SelectObject(dc, bmp);
+            let mut r = RECT { left: 0, top: 0, right: w, bottom: h };
+            FillRect(dc, &r, windows::Win32::Graphics::Gdi::HBRUSH(GetStockObject(WHITE_BRUSH).0));
+            let font = CreateFontW(-48, 0, 0, 0, 400, 0, 0, 0, 0, 0, 0, 0, 0, w!("Segoe UI"));
+            let old_font = SelectObject(dc, font);
+            SetBkMode(dc, TRANSPARENT);
+            SetTextColor(dc, windows::Win32::Foundation::COLORREF(0));
+            r.left = 40;
+            r.top = 60;
+            let mut wide: Vec<u16> = text.encode_utf16().collect();
+            DrawTextW(dc, &mut wide, &mut r, DT_LEFT | DT_SINGLELINE);
+            let pixels = std::slice::from_raw_parts(bits as *const u8, (w * h * 4) as usize).to_vec();
+            SelectObject(dc, old_font);
+            SelectObject(dc, old);
+            let _ = DeleteObject(font);
+            let _ = DeleteObject(bmp);
+            let _ = DeleteDC(dc);
+            pixels
+        }
+    }
+
+    #[test]
+    fn windows_ocr_reads_text_and_places_it() {
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        }
+        let reader = match Reader::new() {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("skipped: {e}");
+                return;
+            }
+        };
+        let (w, h) = (900, 200);
+        let lines = reader.read(&picture("Play Bella Ciao now", w, h), w as u32, h as u32, (100, 50)).expect("ocr runs");
+        let all: String = lines.iter().map(|l| l.text.clone()).collect::<Vec<_>>().join(" ");
+        assert!(all.to_lowercase().contains("bella"), "read: {all}");
+        let line = lines.iter().find(|l| l.text.to_lowercase().contains("bella")).unwrap();
+        assert!(line.rect.left >= 100 && line.rect.top >= 50 && line.rect.left < 300, "placed with the origin: {:?}", line.rect);
     }
 }

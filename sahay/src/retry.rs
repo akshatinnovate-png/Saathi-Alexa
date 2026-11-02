@@ -88,17 +88,56 @@ impl Rotation {
         }
         let base = 1000u64.saturating_mul(1 << (self.attempt.min(6) - 1).min(6));
         let wait = Duration::from_millis(base.min(60_000) + self.jitter());
-        Some(retry_after.map_or(wait, |r| r.max(Duration::from_millis(500)).min(Duration::from_secs(300))))
+        Some(retry_after.map_or(wait, |r| (r + Duration::from_millis(300)).min(Duration::from_secs(600))))
     }
+}
+
+fn go_duration(text: &str) -> Option<f64> {
+    let mut total = 0.0;
+    let mut num = String::new();
+    let mut any = false;
+    let mut chars = text.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c.is_ascii_digit() || c == '.' {
+            num.push(c);
+            continue;
+        }
+        let Ok(value) = num.parse::<f64>() else { break };
+        num.clear();
+        let unit = match c {
+            'h' => 3600.0,
+            'm' if chars.peek() == Some(&'s') => {
+                chars.next();
+                0.001
+            }
+            'm' => 60.0,
+            's' => 1.0,
+            _ => {
+                if !any {
+                    total = value;
+                    any = true;
+                }
+                break;
+            }
+        };
+        total += value * unit;
+        any = true;
+    }
+    if !any {
+        if let Ok(v) = num.parse::<f64>() {
+            total = v;
+            any = true;
+        }
+    }
+    any.then_some(total)
 }
 
 pub fn retry_after_from(reason: &str) -> Option<Duration> {
     let r = reason.to_ascii_lowercase();
-    let at = r.find("try again in").or_else(|| r.find("retry"))?;
-    let tail = &r[at..];
-    let digits: String = tail.chars().skip_while(|c| !c.is_ascii_digit()).take_while(|c| c.is_ascii_digit() || *c == '.').collect();
-    let secs: f64 = digits.parse().ok()?;
-    if secs.is_finite() && secs > 0.0 && secs < 3600.0 { Some(Duration::from_millis((secs * 1000.0) as u64)) } else { None }
+    let at = ["try again in", "retry after", "retry in"].iter().find_map(|k| r.find(k).map(|i| i + k.len()))?;
+    let tail = r[at..].trim_start();
+    let secs = go_duration(tail)?;
+    if secs.is_finite() && secs > 0.0 && secs < 86_400.0 { Some(Duration::from_millis((secs * 1000.0).round() as u64)) } else { None }
 }
 
 #[cfg(test)]
@@ -153,7 +192,7 @@ mod tests {
         assert!(waits[0] < Duration::from_secs(3));
         assert!(waits[4] > waits[0]);
         assert!(waits.iter().all(|w| *w <= Duration::from_secs(61)));
-        assert_eq!(r.failed(Failure::Network, Some(Duration::from_secs(7))).unwrap(), Duration::from_secs(7));
+        assert_eq!(r.failed(Failure::Network, Some(Duration::from_secs(7))).unwrap(), Duration::from_millis(7300));
         assert_eq!(retry_after_from("Quota exceeded. Please retry in 12.5s."), Some(Duration::from_millis(12500)));
         assert_eq!(retry_after_from("nothing here"), None);
         assert_eq!(retry_after_from("Rate limit reached for model openai/gpt-oss-120b. Please try again in 7.66s."), Some(Duration::from_millis(7660)));
@@ -161,5 +200,15 @@ mod tests {
         assert_eq!(classify(401, "Invalid API Key"), Failure::BadKey);
         assert_eq!(classify(400, "The model `x` does not exist"), Failure::BadModel);
         assert_eq!(classify(503, "upstream"), Failure::Network);
+    }
+
+    #[test]
+    fn groq_wait_times_are_read_in_every_form() {
+        assert_eq!(retry_after_from("Please try again in 7.66s. Need more tokens?"), Some(Duration::from_millis(7660)));
+        assert_eq!(retry_after_from("Please try again in 1m2.5s."), Some(Duration::from_millis(62_500)));
+        assert_eq!(retry_after_from("Please try again in 250ms."), Some(Duration::from_millis(250)));
+        assert_eq!(retry_after_from("Please try again in 2h3m."), Some(Duration::from_secs(7380)));
+        assert_eq!(retry_after_from("retry after 12"), Some(Duration::from_secs(12)));
+        assert_eq!(retry_after_from("no hint here"), None);
     }
 }

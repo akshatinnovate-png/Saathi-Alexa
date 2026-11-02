@@ -19,9 +19,24 @@ impl Drop for Handle {
     }
 }
 
+fn reason(e: &windows::core::Error) -> String {
+    let code = (e.code().0 as u32) & 0xFFFF;
+    let text = match code {
+        12002 => "it took too long to answer",
+        12007 => "the name api.groq.com could not be found (no internet, or DNS is blocked)",
+        12029 | 12030 => "the connection could not be made (no internet, or a firewall or antivirus is blocking Sahay)",
+        12038 | 12044 | 12045 | 12057 | 12169 | 12175 | 12157 => "the secure connection failed (the PC's date and time may be wrong, or security software is intercepting HTTPS)",
+        12152 => "the server sent a broken answer",
+        12180 | 12178 | 12166 | 12167 => "the proxy settings could not be used",
+        _ => "",
+    };
+    let msg = e.message();
+    if text.is_empty() { format!("{} (error {code})", if msg.trim().is_empty() { "network error" } else { msg.trim() }) } else { format!("{text} (error {code})") }
+}
+
 fn checked(h: *mut core::ffi::c_void, what: &str) -> Result<Handle, String> {
     if h.is_null() {
-        Err(format!("{what}: {}", windows::core::Error::from_win32().message()))
+        Err(format!("{what}: {}", reason(&windows::core::Error::from_win32())))
     } else {
         Ok(Handle(h))
     }
@@ -45,16 +60,16 @@ fn winhttp(host: &str, path: &str, headers: &[(&str, &str)], body: &str, timeout
         }
         let wide: Vec<u16> = head.encode_utf16().collect();
         let bytes = body.as_bytes();
-        WinHttpSendRequest(request.0, Some(&wide), Some(bytes.as_ptr().cast()), bytes.len() as u32, bytes.len() as u32, 0).map_err(|e| format!("cannot reach {host}: {}", e.message()))?;
-        WinHttpReceiveResponse(request.0, std::ptr::null_mut()).map_err(|e| format!("no answer from {host}: {}", e.message()))?;
+        WinHttpSendRequest(request.0, Some(&wide), Some(bytes.as_ptr().cast()), bytes.len() as u32, bytes.len() as u32, 0).map_err(|e| format!("cannot reach {host}: {}", reason(&e)))?;
+        WinHttpReceiveResponse(request.0, std::ptr::null_mut()).map_err(|e| format!("no answer from {host}: {}", reason(&e)))?;
         let mut status: u32 = 0;
         let mut size = std::mem::size_of::<u32>() as u32;
-        WinHttpQueryHeaders(request.0, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, PCWSTR::null(), Some((&mut status as *mut u32).cast()), &mut size, std::ptr::null_mut()).map_err(|e| e.message())?;
+        WinHttpQueryHeaders(request.0, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, PCWSTR::null(), Some((&mut status as *mut u32).cast()), &mut size, std::ptr::null_mut()).map_err(|e| reason(&e))?;
         let mut raw = Vec::new();
         let mut chunk = vec![0u8; 64 * 1024];
         loop {
             let mut read = 0u32;
-            WinHttpReadData(request.0, chunk.as_mut_ptr().cast(), chunk.len() as u32, &mut read).map_err(|e| format!("the answer from {host} was cut off: {}", e.message()))?;
+            WinHttpReadData(request.0, chunk.as_mut_ptr().cast(), chunk.len() as u32, &mut read).map_err(|e| format!("the answer from {host} was cut off: {}", reason(&e)))?;
             if read == 0 {
                 break;
             }
@@ -107,5 +122,27 @@ pub fn post_json(host: &str, path: &str, headers: &[(&str, &str)], body: &str, t
             super::system::log(&format!("winhttp: {first}"));
             direct(host, path, headers, body, timeout).map_err(|second| format!("{first}; {second}"))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn check(result: Result<(u16, String), String>) {
+        let (status, body) = result.expect("Groq is reachable");
+        assert_eq!(status, 401, "a made-up key is refused with 401: {body}");
+        assert!(body.to_ascii_lowercase().contains("api key") || body.contains("invalid_api_key"), "{body}");
+    }
+
+    #[test]
+    fn groq_answers_through_winhttp() {
+        let body = crate::agent::request(&[serde_json::json!({ "role": "user", "content": "hi" })], crate::agent::MODEL).to_string();
+        check(winhttp(crate::agent::HOST, crate::agent::PATH, &[("Authorization", "Bearer gsk_not_a_real_key_000000000000000000000000")], &body, Duration::from_secs(60)));
+    }
+
+    #[test]
+    fn groq_answers_through_the_direct_fallback() {
+        check(direct(crate::agent::HOST, crate::agent::PATH, &[("Authorization", "Bearer gsk_not_a_real_key_000000000000000000000000")], "{}", Duration::from_secs(60)));
     }
 }

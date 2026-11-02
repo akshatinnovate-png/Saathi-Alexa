@@ -14,8 +14,10 @@ use windows::Win32::System::Ole::CF_UNICODETEXT;
 use windows::Win32::UI::Input::KeyboardAndMouse::{keybd_event, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP};
 use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW, IsIconic, IsWindowVisible, SetForegroundWindow, ShowWindow, SW_RESTORE, SW_SHOWNORMAL,
+    EnumWindows, GetDesktopWindow, GetForegroundWindow, GetWindowLongPtrW, GetWindowRect, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindowVisible, SetForegroundWindow,
+    SetWindowDisplayAffinity, SetWindowLongPtrW, ShowWindow, GWL_EXSTYLE, SW_RESTORE, SW_SHOWNORMAL, WDA_EXCLUDEFROMCAPTURE, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
+use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
 
 const ENTROPY: &[u8] = b"saathi/sahay/v1";
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -149,7 +151,8 @@ fn looks_like_url(t: &str) -> bool {
     if l.contains("://") || l.starts_with("www.") || l.starts_with("mailto:") {
         return true;
     }
-    !l.contains(' ') && !l.contains('\\') && l.contains('.') && l.rsplit('.').next().map(|tld| (2..=6).contains(&tld.len()) && tld.chars().all(|c| c.is_ascii_alphabetic())).unwrap_or(false)
+    const FILES: &[&str] = &["exe", "msc", "cpl", "bat", "cmd", "lnk", "ps1", "txt", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "png", "jpg", "jpeg", "gif", "mp3", "mp4", "zip", "msi", "url", "html", "csv", "json"];
+    !l.contains(' ') && !l.contains('\\') && l.contains('.') && l.rsplit('.').next().map(|tld| (2..=6).contains(&tld.len()) && tld.chars().all(|c| c.is_ascii_alphabetic()) && !FILES.contains(&tld)).unwrap_or(false)
         && !std::path::Path::new(t).exists()
 }
 
@@ -174,7 +177,7 @@ pub fn open(target: &str) -> (bool, String) {
         if shell_open(t, "open") {
             return (true, format!("Opened {t}"));
         }
-        return (false, format!("No app or file called \"{t}\" was found. Try the website, or run_command."));
+        return (false, format!("No app or file called \"{t}\" was found. Try the website address, or the run tool with a PowerShell command."));
     }
     (true, out.lines().next().unwrap_or("Opened").to_string())
 }
@@ -271,10 +274,101 @@ pub fn focus(title_part: &str) -> Result<String, String> {
     Ok(found.1)
 }
 
-pub fn foreground_title() -> String {
-    window_title(unsafe { GetForegroundWindow() })
-}
 
 pub fn restart_as_admin() -> bool {
     std::env::current_exe().map(|exe| shell_open(&exe.to_string_lossy(), "runas")).unwrap_or(false)
+}
+
+pub fn own(hwnd: HWND) -> bool {
+    let mut pid = 0u32;
+    unsafe {
+        GetWindowThreadProcessId(hwnd, Some(&mut pid));
+    }
+    pid == std::process::id()
+}
+
+fn cloaked(hwnd: HWND) -> bool {
+    let mut value = 0u32;
+    unsafe { DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, (&mut value as *mut u32).cast(), 4).is_ok() && value != 0 }
+}
+
+unsafe extern "system" fn pick(hwnd: HWND, lparam: LPARAM) -> BOOL {
+    unsafe {
+        let found = &mut *(lparam.0 as *mut isize);
+        let ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
+        let mut r = windows::Win32::Foundation::RECT::default();
+        let _ = GetWindowRect(hwnd, &mut r);
+        let usable = IsWindowVisible(hwnd).as_bool()
+            && !IsIconic(hwnd).as_bool()
+            && ex & WS_EX_TOOLWINDOW.0 == 0
+            && r.right - r.left > 40
+            && r.bottom - r.top > 40
+            && !own(hwnd)
+            && !cloaked(hwnd)
+            && !window_title(hwnd).trim().is_empty();
+        if usable {
+            *found = hwnd.0 as isize;
+            return BOOL(0);
+        }
+        BOOL(1)
+    }
+}
+
+pub fn target_window() -> HWND {
+    unsafe {
+        let fg = GetForegroundWindow();
+        if !fg.0.is_null() && !own(fg) {
+            return fg;
+        }
+        let mut found: isize = 0;
+        let _ = EnumWindows(Some(pick), LPARAM(&mut found as *mut isize as isize));
+        if found != 0 {
+            HWND(found as *mut _)
+        } else {
+            GetDesktopWindow()
+        }
+    }
+}
+
+pub fn bring_forward() {
+    unsafe {
+        let fg = GetForegroundWindow();
+        if fg.0.is_null() || own(fg) {
+            let target = target_window();
+            if target != GetDesktopWindow() {
+                let _ = SetForegroundWindow(target);
+                std::thread::sleep(Duration::from_millis(150));
+            }
+        }
+    }
+}
+
+pub fn hide_from_capture(hwnd: HWND) {
+    unsafe {
+        let _ = SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
+    }
+}
+
+pub fn let_clicks_through(hwnds: &[isize], x: i32, y: i32, on: bool) -> Vec<isize> {
+    let mut changed = Vec::new();
+    for &h in hwnds {
+        if h == 0 {
+            continue;
+        }
+        let hwnd = HWND(h as *mut _);
+        unsafe {
+            let mut r = windows::Win32::Foundation::RECT::default();
+            let hit = IsWindowVisible(hwnd).as_bool() && GetWindowRect(hwnd, &mut r).is_ok() && x >= r.left && x < r.right && y >= r.top && y < r.bottom;
+            if !hit && on {
+                continue;
+            }
+            let ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
+            let want = if on { ex | WS_EX_TRANSPARENT.0 | WS_EX_LAYERED.0 } else { ex & !WS_EX_TRANSPARENT.0 };
+            if want != ex {
+                SetWindowLongPtrW(hwnd, GWL_EXSTYLE, want as isize);
+                changed.push(h);
+            }
+        }
+    }
+    changed
 }

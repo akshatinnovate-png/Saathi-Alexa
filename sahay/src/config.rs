@@ -17,7 +17,7 @@ impl Default for Config {
 }
 
 pub fn split_keys(text: &str) -> Vec<String> {
-    let mut keys: Vec<String> = text.split([',', ' ', '\n', ';', '\t']).map(str::trim).filter(|k| k.len() >= 20 && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')).map(String::from).collect();
+    let mut keys: Vec<String> = text.split([',', ' ', '\n', '\r', ';', '\t']).map(|k| k.trim().trim_matches(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == '-'))).filter(|k| k.len() >= 20 && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')).map(String::from).collect();
     keys.dedup();
     keys
 }
@@ -83,5 +83,14 @@ mod tests {
         assert_eq!(old.name, "Akshat");
         assert_eq!(Config::from_json("{", |_| None), Config::default());
         assert_eq!(split_keys("gsk_aaaaaaaaaaaaaaaaaaaaaaaa, gsk_bbbbbbbbbbbbbbbbbbbbbbbb\nshort"), vec!["gsk_aaaaaaaaaaaaaaaaaaaaaaaa", "gsk_bbbbbbbbbbbbbbbbbbbbbbbb"]);
+    }
+
+    #[test]
+    fn pasted_keys_are_cleaned_up() {
+        let k = "gsk_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcd";
+        assert_eq!(split_keys(&format!("\"{k}\"")), vec![k.to_string()]);
+        assert_eq!(split_keys(&format!("Bearer {k}\r\n")), vec![k.to_string()]);
+        assert_eq!(split_keys(&format!("{k}, {k}")), vec![k.to_string()]);
+        assert!(split_keys("hello").is_empty());
     }
 }

@@ -3,7 +3,6 @@ use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
 use windows::Win32::UI::Accessibility::{
     CUIAutomation, IUIAutomation, IUIAutomationCacheRequest, IUIAutomationElement, IUIAutomationTreeWalker, UIA_BoundingRectanglePropertyId, UIA_ControlTypePropertyId, UIA_IsEnabledPropertyId, UIA_IsOffscreenPropertyId, UIA_NamePropertyId,
 };
-use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
 
 pub struct Reader {
     automation: IUIAutomation,
@@ -66,9 +65,8 @@ impl Reader {
         Ok(Self { automation })
     }
 
-    pub fn snapshot_within(&self, screen: Rect, limit: usize, budget: std::time::Duration) -> Result<(String, Vec<Element>), String> {
+    pub fn snapshot_within(&self, hwnd: windows::Win32::Foundation::HWND, screen: Rect, limit: usize, budget: std::time::Duration) -> Result<(String, Vec<Element>), String> {
         unsafe {
-            let hwnd = GetForegroundWindow();
             let title = crate::win::system::window_title(hwnd);
             let cache = self.automation.CreateCacheRequest().map_err(|e| e.to_string())?;
             for p in [UIA_NamePropertyId, UIA_ControlTypePropertyId, UIA_BoundingRectanglePropertyId, UIA_IsEnabledPropertyId, UIA_IsOffscreenPropertyId] {

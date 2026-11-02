@@ -111,7 +111,10 @@ pub fn parse_combo(keys: &str) -> Result<Vec<u16>, String> {
     if text.is_empty() {
         return Err("No keys given".into());
     }
-    let parts: Vec<&str> = if text == "+" { vec!["+"] } else { text.split('+').map(str::trim).filter(|p| !p.is_empty()).collect() };
+    let mut parts: Vec<&str> = if text == "+" { vec!["+"] } else { text.split('+').map(str::trim).filter(|p| !p.is_empty()).collect() };
+    if text.len() > 1 && text.ends_with("++") {
+        parts.push("+");
+    }
     parts.iter().map(|p| vk(p).ok_or_else(|| format!("Unknown key \"{p}\""))).collect()
 }
 
@@ -151,6 +154,8 @@ mod tests {
         assert_eq!(parse_combo("enter").unwrap(), vec![0x0D]);
         assert_eq!(parse_combo("page_down").unwrap(), vec![0x22]);
         assert_eq!(parse_combo("+").unwrap(), vec![0xBB]);
+        assert_eq!(parse_combo("ctrl++").unwrap(), vec![0x11, 0xBB]);
+        assert_eq!(parse_combo("shift+.").unwrap(), vec![0x10, 0xBE]);
         assert!(parse_combo("ctrl+banana").is_err());
         assert!(parse_combo("").is_err());
     }

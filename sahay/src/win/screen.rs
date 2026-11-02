@@ -4,11 +4,9 @@ use windows::Win32::Graphics::Gdi::{
     BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDC, GetDIBits, GetMonitorInfoW, MonitorFromWindow, ReleaseDC, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB,
     CAPTUREBLT, DIB_RGB_COLORS, MONITORINFO, MONITOR_DEFAULTTOPRIMARY, ROP_CODE, SRCCOPY,
 };
-use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
 
-pub fn active_monitor() -> Rect {
+pub fn monitor_of(hwnd: HWND) -> Rect {
     unsafe {
-        let hwnd = GetForegroundWindow();
         let mon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
         let mut info = MONITORINFO { cbSize: std::mem::size_of::<MONITORINFO>() as u32, ..Default::default() };
         if GetMonitorInfoW(mon, &mut info).as_bool() {
