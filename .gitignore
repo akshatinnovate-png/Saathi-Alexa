@@ -19,3 +19,6 @@ android/.gradle/
 android/local.properties
 *.jks
 *.keystore
+sahay-android/app/build/
+sahay-android/build/
+sahay-android/.gradle/

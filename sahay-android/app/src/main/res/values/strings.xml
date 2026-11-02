@@ -1,0 +1,4 @@
+<resources>
+    <string name="accessibility_service_label">Sahay</string>
+    <string name="accessibility_service_description">Lets Sahay read the screen and operate other apps while an agent task is running.</string>
+</resources>
