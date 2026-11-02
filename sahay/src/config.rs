@@ -1,6 +1,31 @@
 use serde_json::{json, Value};
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct Routine {
+    pub hour: u8,
+    pub minute: u8,
+    pub task: String,
+    pub daily: bool,
+    pub last: u32,
+}
+
+impl Routine {
+    pub fn due(&self, day: u32, hour: u8, minute: u8) -> bool {
+        self.last != day && (hour, minute) >= (self.hour, self.minute) && u16::from(hour) * 60 + u16::from(minute) < u16::from(self.hour) * 60 + u16::from(self.minute) + 30
+    }
+
+    pub fn describe(&self) -> String {
+        let (h, ampm) = match self.hour {
+            0 => (12, "am"),
+            1..=11 => (self.hour, "am"),
+            12 => (12, "pm"),
+            _ => (self.hour - 12, "pm"),
+        };
+        format!("{} {h}:{:02} {ampm}: {}", if self.daily { "every day at" } else { "once at" }, self.minute, self.task)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Config {
     pub keys: Vec<String>,
     pub model: String,
@@ -10,11 +35,12 @@ pub struct Config {
     pub extra: String,
     pub speak: bool,
     pub memory: Vec<String>,
+    pub routines: Vec<Routine>,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { keys: Vec::new(), model: crate::agent::MODEL.into(), name: "you".into(), color: [99, 102, 241], position: None, extra: String::new(), speak: true, memory: Vec::new() }
+        Self { keys: Vec::new(), model: crate::agent::MODEL.into(), name: "you".into(), color: [99, 102, 241], position: None, extra: String::new(), speak: true, memory: Vec::new(), routines: Vec::new() }
     }
 }
 
@@ -60,6 +86,21 @@ impl Config {
         if let Some(a) = v.get("memory").and_then(Value::as_array) {
             c.memory = a.iter().filter_map(Value::as_str).map(|m| m.chars().take(300).collect()).take(60).collect();
         }
+        if let Some(a) = v.get("routines").and_then(Value::as_array) {
+            c.routines = a
+                .iter()
+                .filter_map(|r| {
+                    Some(Routine {
+                        hour: r.get("hour")?.as_u64()?.min(23) as u8,
+                        minute: r.get("minute")?.as_u64()?.min(59) as u8,
+                        task: r.get("task")?.as_str()?.chars().take(300).collect(),
+                        daily: r.get("daily").and_then(Value::as_bool).unwrap_or(true),
+                        last: r.get("last").and_then(Value::as_u64).unwrap_or(0) as u32,
+                    })
+                })
+                .take(40)
+                .collect();
+        }
         if let Some(b) = v.get("speak").and_then(Value::as_bool) {
             c.speak = b;
         }
@@ -80,6 +121,7 @@ impl Config {
             "instructions": self.extra,
             "speak": self.speak,
             "memory": self.memory,
+            "routines": self.routines.iter().map(|r| json!({ "hour": r.hour, "minute": r.minute, "task": r.task, "daily": r.daily, "last": r.last })).collect::<Vec<_>>(),
         }))
         .unwrap_or_default()
     }
@@ -97,6 +139,15 @@ mod tests {
         let back = Config::from_json(&text, |s| s.strip_prefix("sealed:").map(|r| r.chars().rev().collect()));
         assert_eq!(back, c);
         assert_eq!(back.model, "openai/gpt-oss-120b");
+        let r = Routine { hour: 9, minute: 0, task: "play bhajans".into(), daily: true, last: 0 };
+        assert!(r.due(20261103, 9, 0));
+        assert!(r.due(20261103, 9, 20), "a few minutes late still runs");
+        assert!(!r.due(20261103, 8, 59));
+        assert!(!r.due(20261103, 10, 0), "much later waits for tomorrow");
+        assert!(!Routine { last: 20261103, ..r.clone() }.due(20261103, 9, 0), "runs once a day");
+        assert_eq!(r.describe(), "every day at 9:00 am: play bhajans");
+        let c2 = Config { routines: vec![r.clone()], ..Config::default() };
+        assert_eq!(Config::from_json(&c2.to_json(|k| Some(k.to_string())), |k| Some(k.to_string())).routines, vec![r]);
         let mut mem = vec!["I use Edge".to_string()];
         remember(&mut mem, "my son is Ravi");
         remember(&mut mem, "i use edge");

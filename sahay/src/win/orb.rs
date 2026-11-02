@@ -10,11 +10,11 @@ use windows::Win32::Graphics::Gdi::{
     AC_SRC_ALPHA, AC_SRC_OVER, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, BLENDFUNCTION, DIB_RGB_COLORS, DT_CENTER, DT_END_ELLIPSIS, DT_NOPREFIX, DT_WORDBREAK, PAINTSTRUCT, TRANSPARENT,
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows::Win32::UI::Input::KeyboardAndMouse::{ReleaseCapture, SetCapture, TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT};
+use windows::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, ReleaseCapture, SetCapture, TrackMouseEvent, MOD_ALT, MOD_CONTROL, MOD_NOREPEAT, TME_LEAVE, TRACKMOUSEEVENT};
 use windows::Win32::UI::WindowsAndMessaging::{
     AppendMenuW, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyMenu, DispatchMessageW, GetCursorPos, GetMessageW, GetSystemMetrics, GetWindowRect, IsDialogMessageW, KillTimer, LoadCursorW,
     PostQuitMessage, RegisterClassW, SetForegroundWindow, SetLayeredWindowAttributes, SetTimer, SetWindowPos, ShowWindow, TrackPopupMenu, TranslateMessage, UpdateLayeredWindow, HWND_TOPMOST, IDC_HAND,
-    LWA_ALPHA, MF_CHECKED, MF_SEPARATOR, MF_STRING, MSG, SM_CXSCREEN, SM_CYSCREEN, SWP_NOACTIVATE, SWP_NOSIZE, SW_HIDE, SW_SHOWNOACTIVATE, TPM_RETURNCMD, TPM_RIGHTBUTTON, ULW_ALPHA, WM_APP, WM_DESTROY,
+    LWA_ALPHA, MF_CHECKED, MF_SEPARATOR, MF_STRING, MSG, SM_CXSCREEN, SM_CYSCREEN, SWP_NOACTIVATE, SWP_NOSIZE, SW_HIDE, SW_SHOWNOACTIVATE, TPM_RETURNCMD, TPM_RIGHTBUTTON, ULW_ALPHA, WM_APP, WM_DESTROY, WM_HOTKEY,
     WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE, WM_PAINT, WM_RBUTTONUP, WM_TIMER, WNDCLASSW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
 };
 
@@ -247,6 +247,7 @@ fn menu(hwnd: HWND) {
         let _ = AppendMenuW(m, MF_STRING, 5, w!("Your name…"));
         let _ = AppendMenuW(m, MF_STRING, 6, w!("Extra instructions…"));
         let _ = AppendMenuW(m, if s.config().speak { MF_STRING | MF_CHECKED } else { MF_STRING }, 10, w!("Speak replies aloud"));
+        let _ = AppendMenuW(m, if system::starts_with_windows() { MF_STRING | MF_CHECKED } else { MF_STRING }, 11, w!("Start with Windows"));
         let _ = AppendMenuW(m, MF_STRING, 7, w!("Restart as administrator"));
         let _ = AppendMenuW(m, MF_STRING, 8, w!("Open the log"));
         let _ = AppendMenuW(m, MF_SEPARATOR, 0, None);
@@ -283,6 +284,12 @@ fn menu(hwnd: HWND) {
             }
             9 => quit(),
             10 => s.update_config(|c| c.speak = !c.speak),
+            11 => {
+                let on = !system::starts_with_windows();
+                if system::set_start_with_windows(on) {
+                    s.set_status(Status::Idle, if on { "Sahay will start with Windows." } else { "Sahay won't start with Windows." });
+                }
+            }
             _ => {}
         }
     }
@@ -321,6 +328,10 @@ unsafe extern "system" fn orb_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                 if shared().quit.load(Ordering::Relaxed) {
                     PostQuitMessage(0);
                 }
+                LRESULT(0)
+            }
+            WM_HOTKEY => {
+                panel::summon(panel_hwnd(), wparam.0 == 2);
                 LRESULT(0)
             }
             WM_NEED_KEY => {
@@ -439,6 +450,8 @@ pub fn run(state: Arc<Shared>, show_panel: bool) {
             panel::toggle(chat);
         }
         SetTimer(orb, 1, 33, None);
+        let _ = RegisterHotKey(orb, 1, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, 0x53);
+        let _ = RegisterHotKey(orb, 2, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, 0x4D);
         let mut msg = MSG::default();
         while GetMessageW(&mut msg, None, 0, 0).as_bool() {
             if IsDialogMessageW(chat, &msg).as_bool() {

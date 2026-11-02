@@ -251,6 +251,59 @@ fn instant(shared: &Arc<Shared>, engine: &mut Engine, rx: &Receiver<String>, int
             Ok("Done, I've forgotten everything you told me to remember.".into())
         }
         Intent::ReadScreen(_) | Intent::Selection(_) => Err("needs Groq".into()),
+        Intent::Routine { hour, minute, task, daily } => {
+            let (day, h, m) = system::now();
+            let passed = (h, m) > (*hour, *minute);
+            let r = crate::config::Routine { hour: *hour, minute: *minute, task: task.clone(), daily: *daily, last: if passed { day } else { 0 } };
+            let said = r.describe();
+            shared.update_config(|c| {
+                c.routines.push(r);
+                while c.routines.len() > 40 {
+                    c.routines.remove(0);
+                }
+            });
+            Ok(format!("Done: {said}{}.", if passed && !*daily { " (tomorrow, since that time has passed today)" } else { "" }))
+        }
+        Intent::Routines => {
+            let list = shared.config().routines;
+            Ok(if list.is_empty() { "You have no routines yet. Try: every day at 9 am play bhajans.".into() } else { list.iter().enumerate().map(|(i, r)| format!("{}. {}", i + 1, r.describe())).collect::<Vec<_>>().join("\n") })
+        }
+        Intent::ClearRoutines => {
+            shared.update_config(|c| c.routines.clear());
+            Ok("All routines are cleared.".into())
+        }
+        Intent::News => {
+            shared.say("→", "read today's headlines");
+            let rss = fetch("news.google.com", "/rss?hl=en-IN&gl=IN&ceid=IN:en")?;
+            let titles: Vec<String> = rss
+                .split("<title>")
+                .skip(2)
+                .filter_map(|p| p.split("</title>").next())
+                .map(|t| t.replace("&amp;", "&").replace("&#39;", "'").replace("&quot;", "\"").replace("<![CDATA[", "").replace("]]>", ""))
+                .map(|t| t.rsplit_once(" - ").map(|(h, _)| h.to_string()).unwrap_or(t))
+                .take(5)
+                .collect();
+            if titles.is_empty() { Err("no headlines".into()) } else { Ok(format!("Top news: {}.", titles.join(". "))) }
+        }
+        Intent::Convert { amount, from, to } => {
+            shared.say("→", &format!("convert {amount} {from} to {to}"));
+            let body = fetch("open.er-api.com", &format!("/v6/latest/{from}"))?;
+            let v: Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
+            let rate = v.pointer(&format!("/rates/{to}")).and_then(Value::as_f64).ok_or("no rate")?;
+            let result = amount * rate;
+            Ok(format!("{amount} {from} is about {:.2} {to}.", result))
+        }
+        Intent::FindFile(name) => {
+            shared.say("→", &format!("search your folders for \"{name}\""));
+            let words: Vec<String> = name.split_whitespace().filter(|w| !["pdf", "photo", "picture", "excel", "spreadsheet", "word", "presentation", "ppt"].contains(w)).map(|w| w.replace('\'', "")).collect();
+            let ext = if name.contains("pdf") { "*.pdf" } else if name.contains("photo") || name.contains("picture") { "*.jpg" } else if name.contains("excel") || name.contains("spreadsheet") { "*.xls*" } else if name.contains("word") { "*.doc*" } else if name.contains("ppt") || name.contains("presentation") { "*.ppt*" } else { "*" };
+            let filter = words.iter().map(|w| format!("$_.Name -like '*{w}*'")).collect::<Vec<_>>().join(" -and ");
+            let filter = if filter.is_empty() { "$true".to_string() } else { filter };
+            let script = format!("$roots = @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('MyDocuments'), (Join-Path $env:USERPROFILE 'Downloads'), [Environment]::GetFolderPath('MyPictures'), (Join-Path $env:USERPROFILE 'OneDrive')) | Where-Object {{ $_ -and (Test-Path $_) }}; $f = Get-ChildItem -Path $roots -Recurse -File -Filter '{ext}' -ErrorAction SilentlyContinue -Depth 6 | Where-Object {{ {filter} }} | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if ($f) {{ Start-Process $f.FullName; $f.FullName }} else {{ 'NONE' }}");
+            let (ok, out) = system::run_powershell(&script, Duration::from_secs(45), &|| shared.stop.load(Ordering::Relaxed));
+            let path = out.lines().last().unwrap_or("").trim().to_string();
+            if !ok || path.is_empty() || path == "NONE" { Err(format!("no file matching {name}")) } else { Ok(format!("Opened {}.", path.rsplit('\\').next().unwrap_or(&path))) }
+        }
         Intent::Weather(place) => {
             shared.say("→", &format!("check the weather{}", if place.is_empty() { String::new() } else { format!(" in {place}") }));
             let path = format!("/{}?format=%25l:+%25C,+%25t,+feels+like+%25f,+humidity+%25h,+wind+%25w", intent::encode(place));
@@ -494,8 +547,45 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
         messages[0] = json!({ "role": "system", "content": agent::with_memory(agent::system_prompt(&cfg.name, &cfg.extra), &cfg.memory) });
         engine.keys = cfg.keys.clone();
         agent::new_task(&mut messages);
-        let routed = intent::route(&first);
+        let chain = intent::route_all(&first);
+        let routed = chain.as_ref().and_then(|c| (c.len() == 1).then(|| c[0].clone()));
         let mut prepared: Option<String> = None;
+        if let Some(parts) = chain.as_ref().filter(|c| c.len() > 1) {
+            shared.set_status(Status::Acting, "On it…");
+            let mut said = Vec::new();
+            let mut failed = None;
+            for (i, part) in parts.iter().enumerate() {
+                if shared.stop.load(Ordering::Relaxed) {
+                    break;
+                }
+                match instant(&shared, &mut engine, &rx, part) {
+                    Ok(s) => said.push(s),
+                    Err(e) => {
+                        failed = Some((i, e));
+                        break;
+                    }
+                }
+                if matches!(part, Intent::App(_) | Intent::Open { .. } | Intent::Play { .. } | Intent::Folder(_) | Intent::FindFile(_)) {
+                    std::thread::sleep(Duration::from_millis(1800));
+                }
+            }
+            match failed {
+                None => {
+                    let all = said.join(" ");
+                    shared.reply(&all);
+                    messages.push(json!({ "role": "user", "content": first }));
+                    messages.push(json!({ "role": "assistant", "content": all }));
+                    engine.cursor.hide();
+                    shared.busy.store(false, Ordering::Relaxed);
+                    shared.set_status(Status::Idle, "");
+                    continue;
+                }
+                Some((i, e)) => {
+                    system::log(&format!("chain step {i} failed: {e}; asking Groq"));
+                    prepared = Some(format!("{first}\n(Already done: {}. The next part could not be done directly: {e}. Finish the rest.)\n{}", if said.is_empty() { "nothing".to_string() } else { said.join(" ") }, engine.look_brief()));
+                }
+            }
+        }
         match &routed {
             Some(Intent::ReadScreen(_)) => {
                 shared.set_status(Status::Acting, "Reading the screen…");

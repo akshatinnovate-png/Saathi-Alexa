@@ -398,3 +398,27 @@ pub fn let_clicks_through(hwnds: &[isize], x: i32, y: i32, on: bool) -> Vec<isiz
     }
     changed
 }
+
+pub fn now() -> (u32, u8, u8) {
+    let t = unsafe { windows::Win32::System::SystemInformation::GetLocalTime() };
+    (u32::from(t.wYear) * 10000 + u32::from(t.wMonth) * 100 + u32::from(t.wDay), t.wHour as u8, t.wMinute as u8)
+}
+
+fn reg(args: &[&str]) -> bool {
+    Command::new("reg.exe").args(args).creation_flags(CREATE_NO_WINDOW).stdout(Stdio::null()).stderr(Stdio::null()).status().map(|s| s.success()).unwrap_or(false)
+}
+
+const RUN_KEY: &str = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+
+pub fn starts_with_windows() -> bool {
+    reg(&["query", RUN_KEY, "/v", "Sahay"])
+}
+
+pub fn set_start_with_windows(on: bool) -> bool {
+    if on {
+        let exe = std::env::current_exe().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
+        reg(&["add", RUN_KEY, "/v", "Sahay", "/t", "REG_SZ", "/d", &format!("\"{exe}\""), "/f"])
+    } else {
+        reg(&["delete", RUN_KEY, "/v", "Sahay", "/f"])
+    }
+}

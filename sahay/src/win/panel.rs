@@ -179,8 +179,21 @@ pub fn create(shared: Arc<Shared>) -> HWND {
         let _ = TALK.set(mic.0 as isize);
         let _ = CONTROLS.set((log.0 as isize, input.0 as isize, send.0 as isize, stop.0 as isize));
         layout(hwnd);
-        append("Sahay: Hi! Tell me what to do on this computer, and I'll do it. Every reply and every step shows here. Press 🎤 to talk instead of typing, and Stop (or the sphere) to stop me.");
+        append("Sahay: Hi! Tell me what to do on this computer, and I'll do it. Every reply and every step shows here. Press 🎤 to talk instead of typing, and Stop (or the sphere) to stop me. Ctrl+Alt+S opens me from anywhere; Ctrl+Alt+M opens me listening.");
         hwnd
+    }
+}
+
+pub fn summon(hwnd: HWND, voice: bool) {
+    unsafe {
+        let _ = ShowWindow(hwnd, SW_SHOW);
+        let _ = SetForegroundWindow(hwnd);
+        if let Some((_, input, ..)) = controls() {
+            let _ = SetFocus(input);
+        }
+    }
+    if voice {
+        talk();
     }
 }
 

@@ -23,6 +23,106 @@ pub enum Intent {
     Forget,
     ReadScreen(String),
     Selection(String),
+    Routine { hour: u8, minute: u8, task: String, daily: bool },
+    Routines,
+    ClearRoutines,
+    News,
+    Convert { amount: f64, from: String, to: String },
+    FindFile(String),
+}
+
+pub fn parse_clock(text: &str) -> Option<(u8, u8, usize)> {
+    let words: Vec<&str> = text.split_whitespace().collect();
+    let first = *words.first()?;
+    match first {
+        "noon" | "midday" => return Some((12, 0, 1)),
+        "midnight" => return Some((0, 0, 1)),
+        _ => {}
+    }
+    let lower = first.to_ascii_lowercase();
+    let (num, mut suffix) = if let Some(n) = lower.strip_suffix("am") { (n.to_string(), Some("am")) } else if let Some(n) = lower.strip_suffix("pm") { (n.to_string(), Some("pm")) } else { (lower.clone(), None) };
+    let (h, m) = match num.split_once([':', '.']) {
+        Some((h, m)) => (h.parse::<u8>().ok()?, m.parse::<u8>().ok()?),
+        None => (num.parse::<u8>().ok()?, 0),
+    };
+    let mut used = 1;
+    if suffix.is_none() {
+        match words.get(1).map(|w| w.trim_end_matches(',').to_ascii_lowercase()) {
+            Some(w) if w == "am" || w == "a.m." => {
+                suffix = Some("am");
+                used = 2;
+            }
+            Some(w) if w == "pm" || w == "p.m." => {
+                suffix = Some("pm");
+                used = 2;
+            }
+            _ => {}
+        }
+    }
+    if m > 59 {
+        return None;
+    }
+    let hour = match suffix {
+        Some("am") if (1..=12).contains(&h) => h % 12,
+        Some("pm") if (1..=12).contains(&h) => h % 12 + 12,
+        None if h <= 23 => h,
+        _ => return None,
+    };
+    Some((hour, m, used))
+}
+
+fn currency(word: &str) -> Option<&'static str> {
+    Some(match word.trim_matches(['.', ',', '?']) {
+        "usd" | "dollar" | "dollars" | "$" => "USD",
+        "inr" | "rupee" | "rupees" | "rs" | "₹" => "INR",
+        "eur" | "euro" | "euros" | "€" => "EUR",
+        "gbp" | "pound" | "pounds" | "£" => "GBP",
+        "aed" | "dirham" | "dirhams" => "AED",
+        "jpy" | "yen" => "JPY",
+        "cad" => "CAD",
+        "aud" => "AUD",
+        "sgd" => "SGD",
+        "cny" | "yuan" => "CNY",
+        "sar" | "riyal" | "riyals" => "SAR",
+        _ => return None,
+    })
+}
+
+fn convert(t: &str) -> Option<Intent> {
+    let t = t.trim_start_matches("convert ").trim_start_matches("how much is ").trim_start_matches("what is ").trim();
+    let words: Vec<&str> = t.split_whitespace().collect();
+    if words.len() != 4 || !["to", "in", "into"].contains(&words[2]) {
+        return None;
+    }
+    let amount: f64 = words[0].replace(',', "").parse().ok()?;
+    Some(Intent::Convert { amount, from: currency(words[1])?.into(), to: currency(words[3])?.into() })
+}
+
+pub fn route_all(text: &str) -> Option<Vec<Intent>> {
+    if let Some(i) = route(text) {
+        return Some(vec![i]);
+    }
+    let lower = text.to_lowercase();
+    for sep in [" and then ", ", then ", " then ", " and also ", " and ", ", "] {
+        if !lower.contains(sep) {
+            continue;
+        }
+        let mut parts = Vec::new();
+        let mut rest = text;
+        while let Some(i) = rest.to_lowercase().find(sep) {
+            parts.push(rest[..i].to_string());
+            rest = &rest[i + sep.len()..];
+        }
+        parts.push(rest.to_string());
+        if parts.len() < 2 || parts.len() > 5 {
+            continue;
+        }
+        let routed: Option<Vec<Intent>> = parts.iter().map(|p| route(p)).collect();
+        if let Some(r) = routed.filter(|r| !r.iter().any(|i| matches!(i, Intent::ReadScreen(_) | Intent::Selection(_) | Intent::Routine { .. }))) {
+            return Some(r);
+        }
+    }
+    None
 }
 
 struct Calc<'a> {
@@ -308,6 +408,58 @@ pub fn route(text: &str) -> Option<Intent> {
     if t.is_empty() || t.len() > 200 {
         return None;
     }
+    let (rt, daily, default) = if let Some(r) = t.strip_prefix("every day at ").or_else(|| t.strip_prefix("everyday at ")).or_else(|| t.strip_prefix("daily at ")).or_else(|| t.strip_prefix("each day at ")) {
+        (Some(r), true, None)
+    } else if let Some(r) = t.strip_prefix("every morning ") {
+        (Some(r), true, Some((8u8, 0u8)))
+    } else if let Some(r) = t.strip_prefix("every evening ") {
+        (Some(r), true, Some((18, 0)))
+    } else if let Some(r) = t.strip_prefix("every night ") {
+        (Some(r), true, Some((21, 0)))
+    } else if let Some(r) = t.strip_prefix("at ").or_else(|| t.strip_prefix("today at ")).or_else(|| t.strip_prefix("tonight at ")) {
+        (Some(r), false, None)
+    } else {
+        (None, false, None)
+    };
+    if let Some(r) = rt {
+        let (hour, minute, rest) = match default {
+            Some((h, m)) => (h, m, r.trim_start_matches("at ").to_string()),
+            None => match parse_clock(r) {
+                Some((h, m, used)) => (h, m, r.split_whitespace().skip(used).collect::<Vec<_>>().join(" ")),
+                None => (99, 0, String::new()),
+            },
+        };
+        let task_lower = rest.trim_start_matches(',').trim().to_string();
+        if hour < 24 && task_lower.split_whitespace().count() >= 2 {
+            let at = raw.to_lowercase().rfind(&task_lower).unwrap_or(0);
+            let task = if at > 0 { raw[at..].trim().to_string() } else { task_lower.clone() };
+            return Some(Intent::Routine { hour, minute, task, daily });
+        }
+    }
+    if ["show my routines", "list my routines", "my routines", "show routines", "list routines", "what are my routines", "show my schedule"].contains(&t.as_str()) {
+        return Some(Intent::Routines);
+    }
+    if ["clear routines", "clear my routines", "delete my routines", "delete routines", "stop all routines", "cancel all routines", "remove all routines"].contains(&t.as_str()) {
+        return Some(Intent::ClearRoutines);
+    }
+    if ["news", "the news", "today's news", "todays news", "headlines", "latest news", "what's the news", "whats the news", "tell me the news", "top news", "news headlines"].contains(&t.as_str()) {
+        return Some(Intent::News);
+    }
+    if let Some(c) = convert(&t) {
+        return Some(c);
+    }
+    for p in ["find my ", "find the file ", "find file ", "open my ", "where is my ", "search my pc for ", "search my computer for ", "find the "] {
+        if let Some(rest) = t.strip_prefix(p) {
+            let rest = rest.trim();
+            let filey = ["file", "document", "pdf", "photo", "picture", "excel", "spreadsheet", "word", "resume", "cv", "presentation", "ppt", "invoice", "bill", "receipt", "certificate", "folder"].iter().any(|w| rest.split_whitespace().any(|x| x == *w)) || p.contains("file") || p.starts_with("search");
+            if filey && !rest.is_empty() && rest.split_whitespace().count() <= 5 {
+                let name: Vec<&str> = rest.split_whitespace().filter(|w| !["file", "document", "the", "my"].contains(w)).collect();
+                if !name.is_empty() {
+                    return Some(Intent::FindFile(name.join(" ")));
+                }
+            }
+        }
+    }
     for p in ["remember that ", "remember ", "note that ", "don't forget that "] {
         if let Some(fact) = t.strip_prefix(p) {
             let start = raw.to_lowercase().find(fact).unwrap_or(0);
@@ -333,7 +485,7 @@ pub fn route(text: &str) -> Option<Intent> {
     if let Some(v) = calculate(math) {
         return Some(Intent::Answer(format!("{} = {v}", math.trim())));
     }
-    if t == "weather" || t == "what's the weather" || t == "how's the weather" || t == "weather today" {
+    if ["weather", "what's the weather", "whats the weather", "how's the weather", "weather today", "tell me the weather", "today's weather", "weather report", "what is the weather"].contains(&t.as_str()) {
         return Some(Intent::Weather(String::new()));
     }
     for p in ["weather in ", "what's the weather in ", "what is the weather in ", "how's the weather in ", "weather of ", "weather at ", "temperature in "] {
@@ -574,6 +726,24 @@ mod tests {
         assert_eq!(route("what do you remember"), Some(Intent::Recall));
         assert_eq!(route("read this page"), Some(Intent::ReadScreen("read this page".into())));
         assert_eq!(route("translate this to hindi"), Some(Intent::Selection("translate this to hindi".into())));
+        assert_eq!(route("every day at 9 am play bhajans"), Some(Intent::Routine { hour: 9, minute: 0, task: "play bhajans".into(), daily: true }));
+        assert_eq!(route("At 6:30 pm remind me to walk"), Some(Intent::Routine { hour: 18, minute: 30, task: "remind me to walk".into(), daily: false }));
+        assert_eq!(route("every morning tell me the weather"), Some(Intent::Routine { hour: 8, minute: 0, task: "tell me the weather".into(), daily: true }));
+        assert_eq!(route("show my routines"), Some(Intent::Routines));
+        assert_eq!(route("today's news"), Some(Intent::News));
+        assert_eq!(route("convert 100 dollars to rupees"), Some(Intent::Convert { amount: 100.0, from: "USD".into(), to: "INR".into() }));
+        assert_eq!(route("50 euro in inr"), Some(Intent::Convert { amount: 50.0, from: "EUR".into(), to: "INR".into() }));
+        assert_eq!(route("find my resume"), Some(Intent::FindFile("resume".into())));
+        assert_eq!(route("open my tax pdf"), Some(Intent::FindFile("tax pdf".into())));
+        assert_eq!(route("find my phone"), None);
+        assert_eq!(route_all("open notepad and type hello there"), Some(vec![Intent::App("notepad".into()), Intent::Type("hello there".into())]));
+        assert_eq!(route_all("volume to 30 and play kishore kumar songs").map(|v| v.len()), Some(2));
+        assert_eq!(route_all("buy salt and pepper"), None);
+        assert_eq!(parse_clock("9:30 pm"), Some((21, 30, 2)));
+        assert_eq!(parse_clock("7am"), Some((7, 0, 1)));
+        assert_eq!(parse_clock("21.15"), Some((21, 15, 1)));
+        assert_eq!(parse_clock("noon"), Some((12, 0, 1)));
+        assert_eq!(parse_clock("25"), None);
         assert!(is_question("why is the sky blue?"));
         assert!(!is_question("can you open notepad"));
         assert!(!is_question("what's on this page?"));

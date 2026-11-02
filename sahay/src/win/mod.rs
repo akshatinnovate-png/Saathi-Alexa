@@ -120,6 +120,48 @@ impl Shared {
     }
 }
 
+fn routines(shared: Arc<Shared>) {
+    while !shared.quit.load(Ordering::Relaxed) {
+        let (day, hour, minute) = system::now();
+        let mut due = Vec::new();
+        if shared.config().routines.iter().any(|r| r.due(day, hour, minute)) {
+            shared.update_config(|c| {
+                c.routines = c
+                    .routines
+                    .drain(..)
+                    .filter_map(|mut r| {
+                        if !r.due(day, hour, minute) {
+                            return Some(r);
+                        }
+                        due.push(r.task.clone());
+                        r.last = day;
+                        r.daily.then_some(r)
+                    })
+                    .collect();
+            });
+        }
+        for task in due {
+            system::log(&format!("routine: {task}"));
+            let lower = task.to_lowercase();
+            if let Some(what) = ["remind me to ", "remind me that ", "remind me about "].iter().find_map(|p| lower.strip_prefix(p).map(|_| task[p.len()..].to_string())) {
+                unsafe {
+                    let _ = windows::Win32::System::Diagnostics::Debug::MessageBeep(windows::Win32::UI::WindowsAndMessaging::MB_ICONEXCLAMATION);
+                }
+                shared.reply(&format!("Reminder: {what}"));
+                continue;
+            }
+            shared.say("Sahay", &format!("⏰ Routine: {task}"));
+            let _ = shared.asks.send(task);
+        }
+        for _ in 0..30 {
+            if shared.quit.load(Ordering::Relaxed) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(500));
+        }
+    }
+}
+
 fn first_key() -> Option<Vec<String>> {
     let _ = system::shell_open("https://console.groq.com/keys", "open");
     let mut prompt = "Sahay thinks with Groq (free). Groq's key page is opening: sign in, click Create API Key, copy it, and paste it here. Several keys can be separated by commas.";
@@ -169,6 +211,10 @@ pub fn run() {
     {
         let s = shared.clone();
         std::thread::spawn(move || brain::run(s, rx));
+    }
+    {
+        let s = shared.clone();
+        std::thread::spawn(move || routines(s));
     }
     orb::run(shared.clone(), true);
     shared.quit.store(true, Ordering::Relaxed);
