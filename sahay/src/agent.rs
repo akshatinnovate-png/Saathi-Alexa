@@ -22,6 +22,12 @@ How to plan:\n\
 - Close a tab with key ctrl+w and a window with key alt+f4. Never click a window's own close button.\n\
 - If a step fails you get a new [Screen] and can send a new plan. If you only need to talk, reply without a tool.\n\
 - Do only what {user_name} asks; when a choice is theirs (which item, size, payment) ask first. Reply briefly in {user_name}'s language.\n\
+Examples of good plans:\n\
+- \"send hi to Ravi on WhatsApp\": open https://web.whatsapp.com | click \"Search\" | type Ravi | wait for \"Ravi\" | click \"Ravi\" | click \"Type a message\" | type hi | key enter\n\
+- \"write an email to asha@x.com saying I reached\": open https://mail.google.com/mail/?view=cm&to=asha@x.com&su=Reached&body=I+reached+safely | wait for \"Send\" | click \"Send\"\n\
+- \"add a blue shirt size M to cart on ajio\": open https://www.ajio.com/search/?text=blue+shirt | click (first product's words) | wait for \"M\" | click \"M\" | click \"ADD TO BAG\"\n\
+- \"turn on dark mode\": open ms-settings:colors | wait for \"Choose your mode\" | click \"Choose your mode\" | click \"Dark\"\n\
+- Use direct URLs and ms-settings: pages whenever they skip clicks. Never invent E/T numbers.\n\
 - Saathi tools (family care app): what_day_is_it, get_medication_schedule, confirm_medication_taken, get_upcoming_appointments, get_family_messages, send_message_to_family, daily_check_in, ask_family_for_help, report_suspicious_call, where_is, list_memory_stories, family_summary. {extra}"
     )
 }
@@ -63,6 +69,7 @@ pub struct Reply {
     pub calls: Vec<Call>,
     pub message: Value,
     pub cut_off: bool,
+    pub tokens: Option<usize>,
 }
 
 pub fn parse(body: &str) -> Result<Reply, String> {
@@ -96,7 +103,8 @@ pub fn parse(body: &str) -> Result<Reply, String> {
         message["tool_calls"] = tc.clone();
     }
     let cut_off = v.pointer("/choices/0/finish_reason").and_then(Value::as_str) == Some("length");
-    Ok(Reply { text, calls, message, cut_off })
+    let tokens = v.pointer("/usage/total_tokens").and_then(Value::as_u64).map(|n| n as usize);
+    Ok(Reply { text, calls, message, cut_off, tokens })
 }
 
 pub fn tool_result(call: &Call, content: &str) -> Value {

@@ -120,6 +120,17 @@ impl Engine {
         s
     }
 
+    pub fn look_brief(&mut self) -> String {
+        self.look();
+        let window = system::window_title(system::target_window());
+        mover::brief(&window, &self.targets, self.screen, 25, 15)
+    }
+
+    pub fn press(&mut self, keys: &str) -> Result<(), String> {
+        system::bring_forward();
+        input::combo(&parse_combo(keys)?, 1)
+    }
+
     fn find_words(&mut self, words: &str, patience: Duration, stop: &dyn Fn() -> bool) -> Result<(i32, i32, String), String> {
         let end = Instant::now() + patience;
         loop {

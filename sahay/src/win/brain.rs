@@ -2,6 +2,7 @@ use super::cursor::Cursor;
 use super::engine::Engine;
 use super::{https, system, Shared, Status};
 use crate::agent::{self, Reply};
+use crate::intent::{self, Intent};
 use crate::plan;
 use crate::retry::{classify, estimate_tokens, retry_after_from, Failure, Pacer, Rotation};
 use serde_json::{json, Value};
@@ -86,7 +87,12 @@ fn ask_groq(shared: &Shared, groq: &mut Groq, messages: &mut Vec<Value>, told: &
             groq.rotation.connected();
             system::log(&format!("groq answered in {} ms", started.elapsed().as_millis()));
             return match agent::parse(&text) {
-                Ok(r) => Outcome::Reply(r),
+                Ok(r) => {
+                    if let Some(actual) = r.tokens {
+                        groq.pacers[index].correct_last(actual);
+                    }
+                    Outcome::Reply(r)
+                }
                 Err(e) => Outcome::Note(format!("(Your last answer could not be read: {e}. Answer again.)")),
             };
         }
@@ -154,6 +160,68 @@ fn groq_message(body: &str) -> String {
 fn first_line(s: &str) -> String {
     let line = s.lines().next().unwrap_or("").trim();
     line.chars().take(160).collect()
+}
+
+fn local_time() -> String {
+    let (_, out) = system::run_powershell("Get-Date -Format \"dddd, d MMMM yyyy, h:mm tt\"", Duration::from_secs(10), &|| false);
+    out.lines().next().unwrap_or("").trim().to_string()
+}
+
+fn with_browser(url: &str, browser: Option<&str>) -> String {
+    match browser {
+        Some(b) => format!("{b} {url}"),
+        None => url.to_string(),
+    }
+}
+
+fn instant(shared: &Shared, engine: &mut Engine, intent: &Intent) -> Result<String, String> {
+    match intent {
+        Intent::Time => {
+            let now = local_time();
+            if now.is_empty() { Err("no clock".into()) } else { Ok(format!("It's {now}.")) }
+        }
+        Intent::Keys { keys, say } => {
+            shared.say("→", &format!("key {keys}"));
+            engine.press(keys)?;
+            Ok(say.to_string())
+        }
+        Intent::App(name) => {
+            shared.say("→", &format!("open {name}"));
+            let (ok, msg) = system::open(name);
+            if ok { Ok(format!("{msg}.")) } else { Err(msg) }
+        }
+        Intent::Open { url, browser, label } => {
+            let target = with_browser(url, *browser);
+            shared.say("→", &format!("open {target}"));
+            let (ok, msg) = system::open(&target);
+            if ok { Ok(format!("Opened {label}.")) } else { Err(msg) }
+        }
+        Intent::Play { query, browser } => {
+            shared.say("→", &format!("find \"{query}\" on YouTube"));
+            let path = format!("/results?search_query={}", intent::encode(query));
+            let id = https::get("www.youtube.com", &path, &[("Accept-Language", "en-US,en;q=0.9")], Duration::from_secs(20)).ok().filter(|(s, _)| *s == 200).and_then(|(_, page)| intent::first_video_id(&page));
+            let (url, say) = match id {
+                Some(id) => (format!("https://www.youtube.com/watch?v={id}"), format!("Playing \"{query}\" on YouTube.")),
+                None => (format!("https://www.youtube.com{path}"), format!("Here are YouTube's results for \"{query}\".")),
+            };
+            let target = with_browser(&url, *browser);
+            shared.say("→", &format!("open {target}"));
+            let (ok, msg) = system::open(&target);
+            if ok { Ok(say) } else { Err(msg) }
+        }
+        Intent::Close(name) => {
+            let found = system::windows().into_iter().find(|(h, t)| !system::own(windows::Win32::Foundation::HWND(*h as *mut _)) && t.to_lowercase().contains(name.as_str())).ok_or_else(|| format!("no window called {name}"))?;
+            let title = found.1.clone();
+            shared.say("→", &format!("switch to {title}"));
+            system::focus(&title)?;
+            std::thread::sleep(Duration::from_millis(250));
+            let browser = ["edge", "chrome", "firefox", "brave", "opera"].iter().any(|b| title.to_lowercase().contains(b));
+            let keys = if browser { "ctrl+w" } else { "alt+f4" };
+            shared.say("→", &format!("key {keys}"));
+            engine.press(keys)?;
+            Ok(if browser { format!("Closed the {name} tab.") } else { format!("Closed {name}.") })
+        }
+    }
 }
 
 fn step_list(args: &Value) -> Vec<String> {
@@ -239,8 +307,24 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
         let cfg = shared.config();
         messages[0] = json!({ "role": "system", "content": agent::system_prompt(&cfg.name, &cfg.extra) });
         agent::new_task(&mut messages);
+        if let Some(intent) = intent::route(&first) {
+            shared.set_status(Status::Acting, "On it…");
+            match instant(&shared, &mut engine, &intent) {
+                Ok(said) => {
+                    system::log(&format!("instant {intent:?}: {said}"));
+                    shared.say("Sahay", &said);
+                    messages.push(json!({ "role": "user", "content": first }));
+                    messages.push(json!({ "role": "assistant", "content": said }));
+                    engine.cursor.hide();
+                    shared.busy.store(false, Ordering::Relaxed);
+                    shared.set_status(Status::Idle, "");
+                    continue;
+                }
+                Err(e) => system::log(&format!("instant {intent:?} failed: {e}; asking Groq")),
+            }
+        }
         shared.set_status(Status::Acting, "Reading the screen…");
-        let seen = engine.look();
+        let seen = engine.look_brief();
         messages.push(json!({ "role": "user", "content": format!("{first}\n{seen}") }));
         shared.set_status(Status::Thinking, "Thinking…");
         let mut told = false;

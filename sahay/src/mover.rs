@@ -87,6 +87,12 @@ pub fn summary(window: &str, targets: &[Target], screen: Rect) -> String {
     out
 }
 
+pub fn brief(window: &str, targets: &[Target], screen: Rect, controls: usize, texts: usize) -> String {
+    let mut picked: Vec<Target> = targets.iter().filter(|t| t.id.starts_with('E') && t.interactive).take(controls).cloned().collect();
+    picked.extend(targets.iter().filter(|t| t.id.starts_with('T')).take(texts).cloned());
+    summary(window, &picked, screen)
+}
+
 pub fn ease(t: f64) -> f64 {
     let t = t.clamp(0.0, 1.0);
     if t < 0.5 { 4.0 * t * t * t } else { 1.0 - (-2.0 * t + 2.0).powi(3) / 2.0 }

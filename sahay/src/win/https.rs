@@ -7,6 +7,8 @@ use windows::Win32::Networking::WinHttp::{
     WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_FLAG_SECURE, WINHTTP_QUERY_FLAG_NUMBER, WINHTTP_QUERY_STATUS_CODE,
 };
 
+const AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36 Sahay/2";
+
 struct Handle(*mut core::ffi::c_void);
 
 impl Drop for Handle {
@@ -42,9 +44,9 @@ fn checked(h: *mut core::ffi::c_void, what: &str) -> Result<Handle, String> {
     }
 }
 
-fn winhttp(host: &str, path: &str, headers: &[(&str, &str)], body: &str, timeout: Duration) -> Result<(u16, String), String> {
+fn winhttp(verb: &str, host: &str, path: &str, headers: &[(&str, &str)], body: &str, timeout: Duration) -> Result<(u16, String), String> {
     unsafe {
-        let agent = HSTRING::from("Sahay/2");
+        let agent = HSTRING::from(AGENT);
         let mut session = WinHttpOpen(&agent, WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, PCWSTR::null(), PCWSTR::null(), 0);
         if session.is_null() {
             session = WinHttpOpen(&agent, WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, PCWSTR::null(), PCWSTR::null(), 0);
@@ -53,14 +55,15 @@ fn winhttp(host: &str, path: &str, headers: &[(&str, &str)], body: &str, timeout
         let ms = timeout.as_millis().min(i32::MAX as u128) as i32;
         let _ = WinHttpSetTimeouts(session.0, 15_000, 15_000, 30_000, ms);
         let connect = checked(WinHttpConnect(session.0, &HSTRING::from(host), 443, 0), &format!("cannot reach {host}"))?;
-        let request = checked(WinHttpOpenRequest(connect.0, &HSTRING::from("POST"), &HSTRING::from(path), PCWSTR::null(), PCWSTR::null(), std::ptr::null(), WINHTTP_FLAG_SECURE), "cannot open the request")?;
-        let mut head = String::from("Content-Type: application/json\r\n");
+        let request = checked(WinHttpOpenRequest(connect.0, &HSTRING::from(verb), &HSTRING::from(path), PCWSTR::null(), PCWSTR::null(), std::ptr::null(), WINHTTP_FLAG_SECURE), "cannot open the request")?;
+        let mut head = if verb == "POST" { String::from("Content-Type: application/json\r\n") } else { String::new() };
         for (k, v) in headers {
             head.push_str(&format!("{k}: {v}\r\n"));
         }
         let wide: Vec<u16> = head.encode_utf16().collect();
         let bytes = body.as_bytes();
-        WinHttpSendRequest(request.0, Some(&wide), Some(bytes.as_ptr().cast()), bytes.len() as u32, bytes.len() as u32, 0).map_err(|e| format!("cannot reach {host}: {}", reason(&e)))?;
+        let optional = if bytes.is_empty() { None } else { Some(bytes.as_ptr().cast()) };
+        WinHttpSendRequest(request.0, if wide.is_empty() { None } else { Some(&wide) }, optional, bytes.len() as u32, bytes.len() as u32, 0).map_err(|e| format!("cannot reach {host}: {}", reason(&e)))?;
         WinHttpReceiveResponse(request.0, std::ptr::null_mut()).map_err(|e| format!("no answer from {host}: {}", reason(&e)))?;
         let mut status: u32 = 0;
         let mut size = std::mem::size_of::<u32>() as u32;
@@ -79,7 +82,7 @@ fn winhttp(host: &str, path: &str, headers: &[(&str, &str)], body: &str, timeout
     }
 }
 
-fn direct(host: &str, path: &str, headers: &[(&str, &str)], body: &str, timeout: Duration) -> Result<(u16, String), String> {
+fn direct(verb: &str, host: &str, path: &str, headers: &[(&str, &str)], body: &str, timeout: Duration) -> Result<(u16, String), String> {
     let mut addrs: Vec<SocketAddr> = (host, 443).to_socket_addrs().map_err(|e| format!("cannot find {host}: {e}"))?.collect();
     addrs.sort_by_key(|a| a.is_ipv6());
     let mut last = format!("cannot find {host}");
@@ -98,7 +101,7 @@ fn direct(host: &str, path: &str, headers: &[(&str, &str)], body: &str, timeout:
     let _ = tcp.set_write_timeout(Some(Duration::from_secs(30)));
     let connector = native_tls::TlsConnector::new().map_err(|e| e.to_string())?;
     let mut tls = connector.connect(host, tcp).map_err(|e| format!("secure connection to {host} failed: {e}"))?;
-    let mut req = format!("POST {path} HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\nUser-Agent: Sahay/2\r\n", body.len());
+    let mut req = format!("{verb} {path} HTTP/1.1\r\nHost: {host}\r\n{}Content-Length: {}\r\nConnection: close\r\nUser-Agent: {AGENT}\r\n", if verb == "POST" { "Content-Type: application/json\r\n" } else { "" }, body.len());
     for (k, v) in headers {
         req.push_str(&format!("{k}: {v}\r\n"));
     }
@@ -115,14 +118,22 @@ fn direct(host: &str, path: &str, headers: &[(&str, &str)], body: &str, timeout:
     Ok((reply.status, reply.body))
 }
 
-pub fn post_json(host: &str, path: &str, headers: &[(&str, &str)], body: &str, timeout: Duration) -> Result<(u16, String), String> {
-    match winhttp(host, path, headers, body, timeout) {
+fn send(verb: &str, host: &str, path: &str, headers: &[(&str, &str)], body: &str, timeout: Duration) -> Result<(u16, String), String> {
+    match winhttp(verb, host, path, headers, body, timeout) {
         Ok(r) => Ok(r),
         Err(first) => {
             super::system::log(&format!("winhttp: {first}"));
-            direct(host, path, headers, body, timeout).map_err(|second| format!("{first}; {second}"))
+            direct(verb, host, path, headers, body, timeout).map_err(|second| format!("{first}; {second}"))
         }
     }
+}
+
+pub fn post_json(host: &str, path: &str, headers: &[(&str, &str)], body: &str, timeout: Duration) -> Result<(u16, String), String> {
+    send("POST", host, path, headers, body, timeout)
+}
+
+pub fn get(host: &str, path: &str, headers: &[(&str, &str)], timeout: Duration) -> Result<(u16, String), String> {
+    send("GET", host, path, headers, "", timeout)
 }
 
 #[cfg(test)]
@@ -138,11 +149,18 @@ mod tests {
     #[test]
     fn groq_answers_through_winhttp() {
         let body = crate::agent::request(&[serde_json::json!({ "role": "user", "content": "hi" })], crate::agent::MODEL).to_string();
-        check(winhttp(crate::agent::HOST, crate::agent::PATH, &[("Authorization", "Bearer gsk_not_a_real_key_000000000000000000000000")], &body, Duration::from_secs(60)));
+        check(winhttp("POST", crate::agent::HOST, crate::agent::PATH, &[("Authorization", "Bearer gsk_not_a_real_key_000000000000000000000000")], &body, Duration::from_secs(60)));
     }
 
     #[test]
     fn groq_answers_through_the_direct_fallback() {
-        check(direct(crate::agent::HOST, crate::agent::PATH, &[("Authorization", "Bearer gsk_not_a_real_key_000000000000000000000000")], "{}", Duration::from_secs(60)));
+        check(direct("POST", crate::agent::HOST, crate::agent::PATH, &[("Authorization", "Bearer gsk_not_a_real_key_000000000000000000000000")], "{}", Duration::from_secs(60)));
+    }
+
+    #[test]
+    fn a_youtube_search_page_gives_a_playable_video() {
+        let (status, page) = get("www.youtube.com", "/results?search_query=bella+ciao", &[("Accept-Language", "en-US,en;q=0.9")], Duration::from_secs(60)).expect("YouTube is reachable");
+        assert_eq!(status, 200);
+        assert!(crate::intent::first_video_id(&page).is_some(), "a video id is on the page");
     }
 }

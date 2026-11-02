@@ -4,6 +4,7 @@
 mod actions;
 mod agent;
 mod config;
+mod intent;
 mod mover;
 mod plan;
 mod retry;
@@ -18,7 +19,7 @@ fn main() {
 
 #[cfg(not(windows))]
 fn main() {
-    let _ = (plan::parse("wait 1"), agent::tools(), mover::resolve("x", &[]), retry::Rotation::new(1, 1, 1), config::Config::default(), actions::vk("enter"), saathi::TOOLS);
+    let _ = (intent::route("open youtube"), intent::first_video_id(""), plan::parse("wait 1"), agent::tools(), mover::resolve("x", &[]), retry::Rotation::new(1, 1, 1), config::Config::default(), actions::vk("enter"), saathi::TOOLS);
     eprintln!("Sahay drives a Windows PC. Build it for Windows: cargo build --release -p sahay --target x86_64-pc-windows-msvc");
     std::process::exit(64);
 }

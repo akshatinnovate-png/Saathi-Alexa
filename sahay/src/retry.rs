@@ -141,7 +141,7 @@ pub fn retry_after_from(reason: &str) -> Option<Duration> {
 }
 
 pub fn estimate_tokens(body_chars: usize, answer_budget: usize) -> usize {
-    body_chars / 3 + answer_budget
+    body_chars / 4 + answer_budget
 }
 
 #[derive(Debug, Clone)]
@@ -173,6 +173,12 @@ impl Pacer {
 
     pub fn record(&mut self, now: std::time::Instant, tokens: usize) {
         self.sent.push((now, tokens));
+    }
+
+    pub fn correct_last(&mut self, actual: usize) {
+        if let Some(last) = self.sent.last_mut() {
+            last.1 = actual;
+        }
     }
 
     pub fn slow_down(&mut self) {
@@ -265,6 +271,9 @@ mod tests {
         assert_eq!(p.wait_for(start + Duration::from_secs(61), 3000), Duration::ZERO);
         p.slow_down();
         assert_eq!(p.per_minute, 6000);
-        assert_eq!(estimate_tokens(9000, 500), 3500);
+        assert_eq!(estimate_tokens(9000, 500), 2750);
+        p.record(start, 100);
+        p.correct_last(2500);
+        assert_eq!(p.sent.last().unwrap().1, 2500);
     }
 }

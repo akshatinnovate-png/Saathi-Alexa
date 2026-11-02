@@ -1,5 +1,11 @@
 **Sahay** (सहाय, "help") drives your Windows PC for you. You type what you want; it moves its own cursor, clicks and types until the job is done. A byproduct of [Saathi](https://github.com/akshatinnovate-png/Saathi-Alexa).
 
+### New in 2.1.0: instant commands, smarter plans
+- **Everyday requests need no Groq at all**, so they are instant and can never hit a limit: play a song or video ("play bella ciao", "open youtube in edge and play bella ciao"), open sites and apps ("open gmail in chrome", "open notepad", "go to irctc.co.in"), search ("search blue shirts on amazon", "google weather in pune"), close a tab or app ("close github", "close tab"), media and volume ("pause", "next song", "volume up", "mute"), and back, refresh, new tab, scroll, zoom, full screen, minimise, the time and date.
+- **Play goes straight to the video.** Sahay finds the first real result for your search itself and opens it, so there is nothing to click and no ad to land on.
+- **Smaller Groq calls.** Groq's first look at the screen lists only the clickable controls and a little text, and pacing uses Groq's real token counts instead of a cautious guess, so it waits far less.
+- **Smarter plans.** Groq gets worked examples (WhatsApp messages, Gmail drafts, shopping, Windows settings) and is told to use direct links and settings pages to skip clicks.
+
 ### New in 2.0.2: one Groq call per task
 - **Plans, not single steps.** Groq now sees your screen once and answers with the whole plan in one go, for example `open msedge https://www.youtube.com/results?search_query=bella+ciao` then `click "Bella Ciao"`. The Mover carries out every step on your PC by itself. When a step names words that only appear after a page loads, the Mover rereads the screen locally and waits for them, with no further Groq calls. Groq is asked again only if a step fails.
 - **No more rate-limit stalls.** Each request is much smaller: one tool, short rules, and only the newest screen; old screens and old steps are no longer re-sent. Sahay also counts what it sends and waits just before Groq's per-minute limit instead of running into it. If Groq's daily free allowance runs out, the chat says when it refills.
@@ -25,7 +31,7 @@
 - **Doesn't quit on limits.** If Groq's free limit is hit it waits exactly as long as Groq says and carries on; add several keys to switch between them.
 
 ### Get started
-1. Download **Sahay-2.0.2.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
+1. Download **Sahay-2.1.0.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
 2. Groq's free key page opens (console.groq.com/keys). Sign in, click **Create API Key**, copy it and paste it into Sahay. Older Gemini keys are no longer used.
 3. The chat opens. Type what you want done, for example "play Bella Ciao on YouTube".
 
