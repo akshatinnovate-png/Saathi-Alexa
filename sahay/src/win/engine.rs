@@ -40,7 +40,7 @@ impl Engine {
         let mut targets: Vec<Target> = Vec::new();
         let mut window = system::foreground_title();
         if let Some(r) = self.uia.as_ref() {
-            if let Ok((title, els)) = r.snapshot_within(rect, 110, Duration::from_millis(900)) {
+            if let Ok((title, els)) = r.snapshot_within(rect, 80, Duration::from_millis(900)) {
                 window = title;
                 for e in els.into_iter().filter(|e| !e.name.trim().is_empty() || e.kind == "Edit") {
                     let label = if e.name.trim().is_empty() { "(text box)".to_string() } else { e.name.split_whitespace().collect::<Vec<_>>().join(" ") };
@@ -53,7 +53,7 @@ impl Engine {
                 Ok(lines) => {
                     let mut n = 0;
                     for line in lines {
-                        if n >= 90 {
+                        if n >= 60 {
                             break;
                         }
                         let duplicate = targets.iter().any(|t| t.id.starts_with('E') && mover::overlaps(t.rect, line.rect) && mover::matches(&line.text, std::slice::from_ref(t)).len() == 1);

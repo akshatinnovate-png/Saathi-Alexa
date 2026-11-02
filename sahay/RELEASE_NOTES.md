@@ -1,5 +1,10 @@
 **Sahay** (सहाय, "help") drives your Windows PC for you. You type what you want; it moves its own cursor, clicks and types until the job is done. A byproduct of [Saathi](https://github.com/akshatinnovate-png/Saathi-Alexa).
 
+### New in 2.0.1: fixes "Can't reach Groq"
+- Sahay now talks to Groq through Windows' own web stack (WinHTTP), so it follows your system proxy and network settings, and falls back to a direct IPv4 connection if that fails.
+- When Groq answers with an error, the chat shows Groq's real message instead of retrying silently.
+- If a request is too big for Groq's free limit, Sahay trims older history and the screen description and tries again.
+
 ### New in 2.0.0: rebuilt from scratch
 - **Its own cursor.** A coloured Sahay pointer glides to each target, then the real mouse moves and clicks there, with a ripple on every click, so you see exactly what it does.
 - **A local screen reader, no cloud vision.** The *Mover* reads the screen on your PC: Windows UI Automation lists every button, link and box in the window, and Windows' built-in text recognition (OCR) reads all the text on screen. Each thing gets a number (E for controls, T for text) and its position. It runs offline, has no rate limit and answers in about a second.
@@ -9,7 +14,7 @@
 - **Doesn't quit on limits.** If Groq's free limit is hit it waits exactly as long as Groq says and carries on; add several keys to switch between them.
 
 ### Get started
-1. Download **Sahay-2.0.0.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
+1. Download **Sahay-2.0.1.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
 2. Groq's free key page opens (console.groq.com/keys). Sign in, click **Create API Key**, copy it and paste it into Sahay. Older Gemini keys are no longer used.
 3. The chat opens. Type what you want done, for example "play Bella Ciao on YouTube".
 

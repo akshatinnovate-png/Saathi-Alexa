@@ -16,7 +16,8 @@ enum Outcome {
     Fail(String),
 }
 
-fn ask_groq(shared: &Shared, rotation: &mut Rotation, keys: &mut usize, messages: &[Value]) -> Outcome {
+fn ask_groq(shared: &Shared, rotation: &mut Rotation, keys: &mut usize, messages: &mut Vec<Value>) -> Outcome {
+    let mut announced = false;
     loop {
         if shared.stop.load(Ordering::Relaxed) || shared.quit.load(Ordering::Relaxed) {
             return Outcome::Fail("Stopped.".into());
@@ -32,6 +33,7 @@ fn ask_groq(shared: &Shared, rotation: &mut Rotation, keys: &mut usize, messages
         }
         let key = cfg.keys[rotation.current().0.min(cfg.keys.len() - 1)].clone();
         let body = agent::request(messages, &cfg.model).to_string();
+        system::log(&format!("groq request: {} messages, {} bytes", messages.len(), body.len()));
         let started = Instant::now();
         let auth = format!("Bearer {key}");
         let (status, text) = match https::post_json(agent::HOST, agent::PATH, &[("Authorization", &auth)], &body, Duration::from_secs(120)) {
@@ -48,8 +50,19 @@ fn ask_groq(shared: &Shared, rotation: &mut Rotation, keys: &mut usize, messages
         }
         let short: String = text.chars().take(400).collect();
         system::log(&format!("groq {status}: {short}"));
-        if status == 400 && (short.contains("tool") || short.contains("function")) {
+        let lower = short.to_ascii_lowercase();
+        if status == 413 || lower.contains("request too large") || lower.contains("reduce your message") || lower.contains("context_length") || lower.contains("context length") {
+            if agent::shrink(messages) {
+                shared.set_status(Status::Thinking, "Trimming what I send to fit Groq's limit…");
+                continue;
+            }
+            return Outcome::Fail(format!("The request is too big for Groq: {}", groq_message(&text)));
+        }
+        if status == 400 && (lower.contains("tool") || lower.contains("function")) {
             return Outcome::Note(format!("Your last tool call was rejected: {short}. Call the tool again with valid JSON arguments."));
+        }
+        if (400..500).contains(&status) && !matches!(status, 401 | 403 | 404 | 408 | 409 | 429) && classify(status, &text) == Failure::Network {
+            return Outcome::Fail(format!("Groq refused the request ({status}): {}", groq_message(&text)));
         }
         let failure = if status == 0 { Failure::Network } else { classify(status, &text) };
         match rotation.failed(failure, retry_after_from(&text)) {
@@ -57,8 +70,12 @@ fn ask_groq(shared: &Shared, rotation: &mut Rotation, keys: &mut usize, messages
                 let msg = match failure {
                     Failure::Quota => format!("Groq's free limit is busy; trying again in {}s…", d.as_secs().max(1)),
                     Failure::BadKey => "That Groq key was refused; trying the next one…".to_string(),
-                    _ => format!("Can't reach Groq; trying again in {}s…", d.as_secs().max(1)),
+                    _ if status == 0 => format!("Can't reach Groq ({}); trying again in {}s…", short.chars().take(120).collect::<String>(), d.as_secs().max(1)),
+                    _ => format!("Groq had a problem ({status}); trying again in {}s…", d.as_secs().max(1)),
                 };
+                if matches!(failure, Failure::Network) && rotation_attempts_announce(&mut announced) {
+                    shared.say("Sahay", &msg);
+                }
                 shared.set_status(Status::Waiting, &msg);
                 let end = Instant::now() + d;
                 while Instant::now() < end {
@@ -75,10 +92,21 @@ fn ask_groq(shared: &Shared, rotation: &mut Rotation, keys: &mut usize, messages
                     shared.ask_for_key();
                     return Outcome::Fail("Groq refused every key. Add a working key from console.groq.com/keys.".into());
                 }
-                return Outcome::Fail(format!("Groq is not answering: {short}"));
+                return Outcome::Fail(if status == 0 { format!("Can't reach Groq: {short}. Check the internet connection, or whether a firewall or antivirus is blocking Sahay.") } else { format!("Groq is not answering ({status}): {}", groq_message(&text)) });
             }
         }
     }
+}
+
+fn rotation_attempts_announce(announced: &mut bool) -> bool {
+    !std::mem::replace(announced, true)
+}
+
+fn groq_message(body: &str) -> String {
+    serde_json::from_str::<Value>(body)
+        .ok()
+        .and_then(|v| v.pointer("/error/message").and_then(Value::as_str).map(String::from))
+        .unwrap_or_else(|| body.chars().take(300).collect())
 }
 
 fn first_line(s: &str) -> String {
@@ -133,7 +161,7 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
                 break;
             }
             agent::compact(&mut messages);
-            let reply = match ask_groq(&shared, &mut rotation, &mut keys, &messages) {
+            let reply = match ask_groq(&shared, &mut rotation, &mut keys, &mut messages) {
                 Outcome::Reply(r) => r,
                 Outcome::Note(n) => {
                     messages.push(json!({ "role": "user", "content": n }));

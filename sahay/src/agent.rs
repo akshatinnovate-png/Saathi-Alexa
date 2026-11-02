@@ -155,6 +155,23 @@ pub fn compact(messages: &mut Vec<Value>) {
     }
 }
 
+pub fn shrink(messages: &mut Vec<Value>) -> bool {
+    let role = |m: &Value| m.get("role").and_then(Value::as_str).unwrap_or("").to_string();
+    if let Some(next) = messages.iter().skip(2).position(|m| role(m) == "user").map(|p| p + 2) {
+        messages.drain(1..next);
+        return true;
+    }
+    let longest = messages.iter().enumerate().skip(1).filter_map(|(i, m)| m.get("content").and_then(Value::as_str).map(|c| (i, c.chars().count()))).max_by_key(|(_, n)| *n);
+    match longest {
+        Some((i, n)) if n > 600 => {
+            let keep: String = messages[i]["content"].as_str().unwrap_or("").chars().take(n / 2).collect();
+            messages[i]["content"] = json!(format!("{keep}\n(cut short to fit)"));
+            true
+        }
+        _ => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -202,5 +219,22 @@ mod tests {
         compact(&mut long);
         assert!(long.len() <= 120);
         assert_eq!(long[0]["role"], "system");
+    }
+
+    #[test]
+    fn shrink_drops_the_oldest_turn_then_cuts_long_text() {
+        let mut m = vec![
+            json!({"role":"system","content":"s"}),
+            json!({"role":"user","content":"first"}),
+            json!({"role":"assistant","content":"ok"}),
+            json!({"role":"user","content":"x".repeat(2000)}),
+        ];
+        assert!(shrink(&mut m));
+        assert_eq!(m.len(), 2);
+        assert_eq!(m[1]["role"], "user");
+        assert!(shrink(&mut m));
+        assert!(m[1]["content"].as_str().unwrap().chars().count() < 1100);
+        let mut tiny = vec![json!({"role":"system","content":"s"}), json!({"role":"user","content":"hi"})];
+        assert!(!shrink(&mut tiny));
     }
 }
