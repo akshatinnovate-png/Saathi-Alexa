@@ -21,77 +21,6 @@ pub fn classify(status: u16, body: &str) -> Failure {
 
 use std::time::Duration;
 
-#[derive(Debug, Clone)]
-pub struct Rotation {
-    keys: usize,
-    models: usize,
-    key: usize,
-    model: usize,
-    attempt: u32,
-    dead_keys: Vec<bool>,
-    dead_models: Vec<bool>,
-    seed: u64,
-}
-
-impl Rotation {
-    pub fn new(keys: usize, models: usize, seed: u64) -> Self {
-        Self { keys: keys.max(1), models: models.max(1), key: 0, model: 0, attempt: 0, dead_keys: vec![false; keys.max(1)], dead_models: vec![false; models.max(1)], seed: seed | 1 }
-    }
-
-    pub fn current(&self) -> (usize, usize) {
-        (self.key, self.model)
-    }
-
-    pub fn connected(&mut self) {
-        self.attempt = 0;
-    }
-
-    fn next_alive(dead: &[bool], from: usize) -> Option<usize> {
-        (1..=dead.len()).map(|i| (from + i) % dead.len()).find(|&i| !dead[i])
-    }
-
-    fn jitter(&mut self) -> u64 {
-        self.seed ^= self.seed << 13;
-        self.seed ^= self.seed >> 7;
-        self.seed ^= self.seed << 17;
-        self.seed % 1000
-    }
-
-    pub fn failed(&mut self, failure: Failure, retry_after: Option<Duration>) -> Option<Duration> {
-        self.attempt = self.attempt.saturating_add(1);
-        match failure {
-            Failure::BadKey => {
-                self.dead_keys[self.key] = true;
-                self.key = Self::next_alive(&self.dead_keys, self.key)?;
-                return Some(Duration::from_millis(200));
-            }
-            Failure::BadModel => {
-                self.dead_models[self.model] = true;
-                self.model = Self::next_alive(&self.dead_models, self.model)?;
-                return Some(Duration::from_millis(200));
-            }
-            Failure::Quota => {
-                let rotate_key = self.keys > 1 && (self.attempt as usize) % (self.models + 1) != 0;
-                if rotate_key {
-                    if let Some(k) = Self::next_alive(&self.dead_keys, self.key) {
-                        self.key = k;
-                    }
-                } else if let Some(m) = Self::next_alive(&self.dead_models, self.model) {
-                    self.model = m;
-                }
-                let tried_all = self.attempt as usize >= self.keys * self.models;
-                if !tried_all {
-                    return Some(Duration::from_millis(400));
-                }
-            }
-            Failure::Network => {}
-        }
-        let base = 1000u64.saturating_mul(1 << (self.attempt.min(6) - 1).min(6));
-        let wait = Duration::from_millis(base.min(60_000) + self.jitter());
-        Some(retry_after.map_or(wait, |r| (r + Duration::from_millis(300)).min(Duration::from_secs(600))))
-    }
-}
-
 fn go_duration(text: &str) -> Option<f64> {
     let mut total = 0.0;
     let mut num = String::new();
@@ -186,67 +115,87 @@ impl Pacer {
     }
 }
 
+#[derive(Debug)]
+pub struct Fleet {
+    pub models: Vec<(String, usize)>,
+    keys: usize,
+    pacers: std::collections::HashMap<(usize, usize), Pacer>,
+    cooling: std::collections::HashMap<(usize, usize), std::time::Instant>,
+    dead_models: Vec<bool>,
+    dead_keys: Vec<bool>,
+}
+
+pub enum Pick {
+    Go(usize, usize),
+    Wait(Duration),
+    Exhausted,
+}
+
+impl Fleet {
+    pub fn new(keys: usize, models: Vec<(String, usize)>) -> Self {
+        let n = models.len();
+        Self { models, keys: keys.max(1), pacers: Default::default(), cooling: Default::default(), dead_models: vec![false; n], dead_keys: vec![false; keys.max(1)] }
+    }
+
+    fn pacer(&mut self, k: usize, m: usize) -> &mut Pacer {
+        let tpm = self.models[m].1;
+        self.pacers.entry((k, m)).or_insert_with(|| Pacer::new(tpm))
+    }
+
+    pub fn pick(&mut self, now: std::time::Instant, tokens: usize) -> Pick {
+        let mut soonest: Option<Duration> = None;
+        for m in 0..self.models.len() {
+            if self.dead_models[m] {
+                continue;
+            }
+            for k in 0..self.keys {
+                if self.dead_keys[k] {
+                    continue;
+                }
+                let cool = self.cooling.get(&(k, m)).map(|t| t.saturating_duration_since(now)).unwrap_or(Duration::ZERO);
+                let wait = cool.max(self.pacer(k, m).wait_for(now, tokens));
+                if wait.is_zero() {
+                    return Pick::Go(k, m);
+                }
+                soonest = Some(soonest.map_or(wait, |s| s.min(wait)));
+            }
+        }
+        soonest.map_or(Pick::Exhausted, Pick::Wait)
+    }
+
+    pub fn sent(&mut self, k: usize, m: usize, now: std::time::Instant, tokens: usize) {
+        self.pacer(k, m).record(now, tokens);
+    }
+
+    pub fn used(&mut self, k: usize, m: usize, actual: usize) {
+        self.pacer(k, m).correct_last(actual);
+    }
+
+    pub fn limited(&mut self, k: usize, m: usize, now: std::time::Instant, retry: Option<Duration>) {
+        self.pacer(k, m).slow_down();
+        self.cooling.insert((k, m), now + retry.unwrap_or(Duration::from_secs(20)).max(Duration::from_secs(2)));
+    }
+
+    pub fn rest(&mut self, k: usize, m: usize, now: std::time::Instant, d: Duration) {
+        self.cooling.insert((k, m), now + d);
+    }
+
+    pub fn drop_model(&mut self, m: usize) {
+        self.dead_models[m] = true;
+    }
+
+    pub fn drop_key(&mut self, k: usize) {
+        self.dead_keys[k] = true;
+    }
+
+    pub fn keys_left(&self) -> bool {
+        self.dead_keys.iter().any(|d| !d)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn a_bad_key_moves_to_the_next_and_none_left_gives_up() {
-        let mut r = Rotation::new(2, 1, 7);
-        assert!(r.failed(Failure::BadKey, None).is_some());
-        assert_eq!(r.current().0, 1);
-        assert!(r.failed(Failure::BadKey, None).is_none());
-    }
-
-    #[test]
-    fn a_missing_model_falls_back_to_the_next_model() {
-        let mut r = Rotation::new(1, 3, 7);
-        r.failed(Failure::BadModel, None);
-        assert_eq!(r.current().1, 1);
-        r.failed(Failure::BadModel, None);
-        assert_eq!(r.current().1, 2);
-        assert!(r.failed(Failure::BadModel, None).is_none());
-    }
-
-    #[test]
-    fn quota_rotates_keys_and_models_quickly_then_backs_off_but_never_stops() {
-        let mut r = Rotation::new(2, 2, 7);
-        let mut seen = std::collections::HashSet::new();
-        seen.insert(r.current());
-        let mut quick = 0;
-        for _ in 0..3 {
-            let d = r.failed(Failure::Quota, None).unwrap();
-            if d < Duration::from_secs(1) {
-                quick += 1;
-            }
-            seen.insert(r.current());
-        }
-        assert!(quick >= 2, "the first retries switch key or model straight away");
-        assert!(seen.len() >= 3, "it tries other keys and models: {seen:?}");
-        for _ in 0..50 {
-            let d = r.failed(Failure::Quota, None).unwrap();
-            assert!(d <= Duration::from_secs(61));
-        }
-        r.connected();
-        assert!(r.failed(Failure::Network, None).unwrap() < Duration::from_secs(3));
-    }
-
-    #[test]
-    fn network_errors_back_off_exponentially_with_a_cap_and_honour_retry_after() {
-        let mut r = Rotation::new(1, 1, 3);
-        let waits: Vec<Duration> = (0..9).map(|_| r.failed(Failure::Network, None).unwrap()).collect();
-        assert!(waits[0] < Duration::from_secs(3));
-        assert!(waits[4] > waits[0]);
-        assert!(waits.iter().all(|w| *w <= Duration::from_secs(61)));
-        assert_eq!(r.failed(Failure::Network, Some(Duration::from_secs(7))).unwrap(), Duration::from_millis(7300));
-        assert_eq!(retry_after_from("Quota exceeded. Please retry in 12.5s."), Some(Duration::from_millis(12500)));
-        assert_eq!(retry_after_from("nothing here"), None);
-        assert_eq!(retry_after_from("Rate limit reached for model openai/gpt-oss-120b. Please try again in 7.66s."), Some(Duration::from_millis(7660)));
-        assert_eq!(classify(429, ""), Failure::Quota);
-        assert_eq!(classify(401, "Invalid API Key"), Failure::BadKey);
-        assert_eq!(classify(400, "The model `x` does not exist"), Failure::BadModel);
-        assert_eq!(classify(503, "upstream"), Failure::Network);
-    }
 
     #[test]
     fn groq_wait_times_are_read_in_every_form() {
@@ -275,5 +224,30 @@ mod tests {
         p.record(start, 100);
         p.correct_last(2500);
         assert_eq!(p.sent.last().unwrap().1, 2500);
+    }
+
+    #[test]
+    fn the_fleet_moves_to_the_next_model_instead_of_pausing() {
+        let now = std::time::Instant::now();
+        let mut f = Fleet::new(1, vec![("big".into(), 8000), ("small".into(), 8000), ("other".into(), 30000)]);
+        let go = |p: Pick| match p {
+            Pick::Go(k, m) => (k, m),
+            _ => panic!("expected a model"),
+        };
+        assert_eq!(go(f.pick(now, 3000)), (0, 0));
+        f.sent(0, 0, now, 3000);
+        f.sent(0, 0, now, 3000);
+        assert_eq!(go(f.pick(now, 3000)), (0, 1), "the first model is full this minute");
+        f.limited(0, 1, now, Some(Duration::from_secs(30)));
+        assert_eq!(go(f.pick(now, 3000)), (0, 2));
+        f.drop_model(2);
+        match f.pick(now, 3000) {
+            Pick::Wait(d) => assert!(d <= Duration::from_secs(61)),
+            _ => panic!("everything is busy, so it waits"),
+        }
+        assert_eq!(go(f.pick(now + Duration::from_secs(61), 3000)), (0, 0));
+        f.drop_key(0);
+        assert!(!f.keys_left());
+        assert!(matches!(f.pick(now, 10), Pick::Exhausted));
     }
 }

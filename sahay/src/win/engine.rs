@@ -147,6 +147,7 @@ impl Engine {
 
     fn find_words(&mut self, words: &str, patience: Duration, stop: &dyn Fn() -> bool) -> Result<(i32, i32, String), String> {
         let end = Instant::now() + patience;
+        let mut scrolls = 0;
         loop {
             self.look();
             if let Some(t) = mover::resolve(words, &self.targets) {
@@ -154,7 +155,19 @@ impl Engine {
                 return Ok((x, y, format!("\"{}\"", t.label.chars().take(60).collect::<String>())));
             }
             if Instant::now() >= end {
-                return Err(format!("\"{words}\" did not appear on the screen"));
+                if scrolls >= 3 {
+                    return Err(format!("\"{words}\" is not on the screen, even after scrolling"));
+                }
+                scrolls += 1;
+                if let Some((x, y)) = window_rect(system::target_window()).map(|r| r.center()) {
+                    self.cursor.glide_to(x, y, stop);
+                    let _ = self.through(&[(x, y)], || input::scroll("down", 6, Some((x, y))));
+                    system::log(&format!("\"{words}\" not visible; scrolled down ({scrolls})"));
+                }
+                if !sleep_unless(stop, Duration::from_millis(700)) {
+                    return Err("Stopped".into());
+                }
+                continue;
             }
             if !sleep_unless(stop, Duration::from_millis(600)) {
                 return Err("Stopped".into());

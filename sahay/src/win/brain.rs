@@ -4,7 +4,7 @@ use super::{https, system, Shared, Status};
 use crate::agent::{self, Reply};
 use crate::intent::{self, Intent};
 use crate::plan;
-use crate::retry::{classify, estimate_tokens, retry_after_from, Failure, Pacer, Rotation};
+use crate::retry::{classify, estimate_tokens, retry_after_from, Failure, Fleet, Pick};
 use serde_json::{json, Value};
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::Receiver;
@@ -12,10 +12,10 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
 
-const TOKENS_PER_MINUTE: usize = 7000;
 const ANSWER_BUDGET: usize = 700;
-const MAX_CALLS: usize = 10;
-const MAX_REPLANS: usize = 4;
+const MAX_CALLS: usize = 14;
+const MAX_REPLANS: usize = 5;
+const MAX_CHECKS: usize = 4;
 
 enum Outcome {
     Reply(Reply),
@@ -24,14 +24,29 @@ enum Outcome {
 }
 
 struct Groq {
-    rotation: Rotation,
-    keys: usize,
-    pacers: Vec<Pacer>,
+    fleet: Fleet,
+    keys: Vec<String>,
+    primary: String,
 }
 
 impl Groq {
-    fn new(keys: usize) -> Self {
-        Self { rotation: Rotation::new(keys.max(1), 1, 5), keys, pacers: (0..keys.max(1)).map(|_| Pacer::new(TOKENS_PER_MINUTE)).collect() }
+    fn new() -> Self {
+        Self { fleet: Fleet::new(1, Vec::new()), keys: Vec::new(), primary: String::new() }
+    }
+
+    fn refresh(&mut self, keys: &[String], primary: &str) {
+        if self.keys == keys && self.primary == primary && !self.fleet.models.is_empty() {
+            return;
+        }
+        let available = keys.first().and_then(|k| {
+            let auth = format!("Bearer {k}");
+            https::get(agent::HOST, agent::MODELS_PATH, &[("Authorization", &auth)], Duration::from_secs(15)).ok().filter(|(s, _)| *s == 200).and_then(|(_, b)| agent::model_ids(&b))
+        });
+        let models = agent::fleet(primary, available.as_deref());
+        system::log(&format!("groq models: {}", models.iter().map(|(m, _)| m.as_str()).collect::<Vec<_>>().join(", ")));
+        self.fleet = Fleet::new(keys.len(), models);
+        self.keys = keys.to_vec();
+        self.primary = primary.to_string();
     }
 }
 
@@ -52,6 +67,7 @@ fn pause(shared: &Shared, d: Duration, msg: &str, told: &mut bool) -> bool {
 }
 
 fn ask_groq(shared: &Shared, groq: &mut Groq, messages: &mut Vec<Value>, told: &mut bool) -> Outcome {
+    let mut network_tries = 0u32;
     loop {
         if shared.stop.load(Ordering::Relaxed) || shared.quit.load(Ordering::Relaxed) {
             return Outcome::Fail("Stopped.".into());
@@ -61,35 +77,40 @@ fn ask_groq(shared: &Shared, groq: &mut Groq, messages: &mut Vec<Value>, told: &
             shared.ask_for_key();
             return Outcome::Fail("Add a Groq key first: right-click the sphere, then Groq keys.".into());
         }
-        if groq.keys != cfg.keys.len() {
-            *groq = Groq::new(cfg.keys.len());
-        }
-        let index = groq.rotation.current().0.min(cfg.keys.len() - 1);
-        let key = cfg.keys[index].clone();
-        let body = agent::request(messages, &cfg.model).to_string();
-        let tokens = estimate_tokens(body.len(), ANSWER_BUDGET);
-        let wait = groq.pacers[index].wait_for(Instant::now(), tokens);
-        if !wait.is_zero() {
-            system::log(&format!("pacing {} ms before a {tokens}-token request", wait.as_millis()));
-            if !pause(shared, wait, &format!("Keeping inside Groq's free per-minute limit: continuing in {}s…", wait.as_secs().max(1)), told) {
-                return Outcome::Fail("Stopped.".into());
+        groq.refresh(&cfg.keys, &cfg.model);
+        let tokens = estimate_tokens(agent::request(messages, agent::MODEL).to_string().len(), ANSWER_BUDGET);
+        let (k, m) = match groq.fleet.pick(Instant::now(), tokens) {
+            Pick::Go(k, m) => (k, m),
+            Pick::Wait(d) => {
+                system::log(&format!("every model is busy; waiting {} ms", d.as_millis()));
+                let msg = if d > Duration::from_secs(120) { format!("Groq's free allowance is used up for now; it refills in {}. A key from another Groq account would keep me going.", human(d)) } else { format!("All of Groq's free models are busy this minute; continuing in {}s…", d.as_secs().max(1)) };
+                if !pause(shared, d, &msg, told) {
+                    return Outcome::Fail("Stopped.".into());
+                }
+                continue;
             }
-        }
-        groq.pacers[index].record(Instant::now(), tokens);
-        system::log(&format!("groq request: {} messages, {} bytes, ~{tokens} tokens", messages.len(), body.len()));
+            Pick::Exhausted => {
+                shared.ask_for_key();
+                *groq = Groq::new();
+                return Outcome::Fail("Groq refused every key. Add a working key from console.groq.com/keys.".into());
+            }
+        };
+        let model = groq.fleet.models[m].0.clone();
+        let body = agent::request(messages, &model).to_string();
+        groq.fleet.sent(k, m, Instant::now(), tokens);
+        system::log(&format!("groq request to {model} (key {}): {} messages, ~{tokens} tokens", k + 1, messages.len()));
         let started = Instant::now();
-        let auth = format!("Bearer {key}");
+        let auth = format!("Bearer {}", groq.keys[k]);
         let (status, text) = match https::post_json(agent::HOST, agent::PATH, &[("Authorization", &auth)], &body, Duration::from_secs(120)) {
             Ok(r) => r,
             Err(e) => (0, e),
         };
         if status == 200 {
-            groq.rotation.connected();
-            system::log(&format!("groq answered in {} ms", started.elapsed().as_millis()));
+            system::log(&format!("{model} answered in {} ms", started.elapsed().as_millis()));
             return match agent::parse(&text) {
                 Ok(r) => {
                     if let Some(actual) = r.tokens {
-                        groq.pacers[index].correct_last(actual);
+                        groq.fleet.used(k, m, actual);
                     }
                     Outcome::Reply(r)
                 }
@@ -97,50 +118,64 @@ fn ask_groq(shared: &Shared, groq: &mut Groq, messages: &mut Vec<Value>, told: &
             };
         }
         let short: String = text.chars().take(400).collect();
-        system::log(&format!("groq {status}: {short}"));
+        system::log(&format!("{model} {status}: {short}"));
         let lower = short.to_ascii_lowercase();
         if status == 413 || lower.contains("request too large") || lower.contains("reduce your message") || lower.contains("context_length") || lower.contains("context length") {
+            if lower.contains("tokens per minute") || lower.contains("(tpm)") {
+                groq.fleet.limited(k, m, Instant::now(), retry_after_from(&text).or(Some(Duration::from_secs(60))));
+                continue;
+            }
             if agent::shrink(messages) {
                 continue;
             }
             return Outcome::Fail(format!("The request is too big for Groq: {}", groq_message(&text)));
         }
+        let failure = if status == 0 { Failure::Network } else { classify(status, &text) };
+        match failure {
+            Failure::Quota => {
+                groq.fleet.limited(k, m, Instant::now(), retry_after_from(&text));
+                continue;
+            }
+            Failure::BadModel => {
+                groq.fleet.drop_model(m);
+                continue;
+            }
+            Failure::BadKey => {
+                groq.fleet.drop_key(k);
+                if !groq.fleet.keys_left() {
+                    shared.ask_for_key();
+                    *groq = Groq::new();
+                    return Outcome::Fail("Groq refused the key. Add a working key from console.groq.com/keys.".into());
+                }
+                continue;
+            }
+            Failure::Network => {}
+        }
         if status == 400 && (lower.contains("tool") || lower.contains("function")) {
+            if model != agent::MODEL {
+                groq.fleet.rest(k, m, Instant::now(), Duration::from_secs(120));
+                continue;
+            }
             return Outcome::Note(format!("(Your last tool call was rejected: {short}. Use do_steps with a list of step strings.)"));
         }
-        if (400..500).contains(&status) && !matches!(status, 401 | 403 | 404 | 408 | 409 | 429) && classify(status, &text) == Failure::Network {
-            return Outcome::Fail(format!("Groq refused the request ({status}): {}", groq_message(&text)));
-        }
-        let failure = if status == 0 { Failure::Network } else { classify(status, &text) };
-        if failure == Failure::Quota {
-            groq.pacers[index].slow_down();
-        }
-        if failure == Failure::BadModel && cfg.model != agent::MODEL {
-            system::log(&format!("model {} refused, going back to {}", cfg.model, agent::MODEL));
-            shared.update_config(|c| c.model = agent::MODEL.to_string());
+        if (400..500).contains(&status) && !matches!(status, 408 | 409) {
+            groq.fleet.rest(k, m, Instant::now(), Duration::from_secs(300));
+            system::log(&format!("{model} refused this request; trying another model"));
             continue;
         }
-        match groq.rotation.failed(failure, retry_after_from(&text)) {
-            Some(d) => {
-                let msg = match failure {
-                    Failure::Quota if lower.contains("per day") || lower.contains("(tpd)") || lower.contains("(rpd)") => format!("Groq's free daily allowance is used up; it refills in {}. Waiting…", human(d)),
-                    Failure::Quota => format!("Groq asked me to slow down; continuing in {}s…", d.as_secs().max(1)),
-                    Failure::BadKey => "That Groq key was refused; trying the next one…".to_string(),
-                    _ if status == 0 => format!("Can't reach Groq ({}); trying again in {}s…", short.chars().take(120).collect::<String>(), d.as_secs().max(1)),
-                    _ => format!("Groq had a problem ({status}); trying again in {}s…", d.as_secs().max(1)),
-                };
-                if !pause(shared, d, &msg, told) {
-                    return Outcome::Fail("Stopped.".into());
-                }
+        network_tries += 1;
+        if status != 0 {
+            groq.fleet.rest(k, m, Instant::now(), Duration::from_secs(10));
+            if network_tries < 6 {
+                continue;
             }
-            None => {
-                *groq = Groq::new(cfg.keys.len());
-                if failure == Failure::BadKey {
-                    shared.ask_for_key();
-                    return Outcome::Fail("Groq refused every key. Add a working key from console.groq.com/keys.".into());
-                }
-                return Outcome::Fail(if status == 0 { format!("Can't reach Groq: {short}. Check the internet connection, or whether a firewall or antivirus is blocking Sahay.") } else { format!("Groq is not answering ({status}): {}", groq_message(&text)) });
-            }
+        }
+        if network_tries >= 8 {
+            return Outcome::Fail(if status == 0 { format!("Can't reach Groq: {short}. Check the internet connection, or whether a firewall or antivirus is blocking Sahay.") } else { format!("Groq is not answering ({status}): {}", groq_message(&text)) });
+        }
+        let d = Duration::from_secs(u64::from(network_tries.min(5)) * 2);
+        if !pause(shared, d, &format!("Can't reach Groq ({}); trying again…", short.chars().take(100).collect::<String>()), told) {
+            return Outcome::Fail("Stopped.".into());
         }
     }
 }
@@ -429,7 +464,7 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
     let own = vec![shared.orb.load(Ordering::Relaxed), shared.panel.load(Ordering::Relaxed)];
     let mut engine = Engine::new(Cursor::new(shared.cursor.load(Ordering::Relaxed), cfg.color), own);
     let mut messages: Vec<Value> = vec![json!({ "role": "system", "content": agent::system_prompt(&cfg.name, &cfg.extra) })];
-    let mut groq = Groq::new(cfg.keys.len());
+    let mut groq = Groq::new();
     while let Ok(first) = rx.recv() {
         if shared.quit.load(Ordering::Relaxed) {
             return;
@@ -472,7 +507,7 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
         let mut calls = 0;
         let mut replans = 0;
         let mut empty = 0;
-        let mut checked = false;
+        let mut checks = 0;
         loop {
             if shared.stop.load(Ordering::Relaxed) {
                 shared.say("Sahay", "Stopped.");
@@ -522,8 +557,8 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
             }
             let say = call.args.get("say").and_then(Value::as_str).unwrap_or("").trim().to_string();
             match carry_out(&shared, &mut engine, &rx, &steps) {
-                Ran::Done(reports) if reports.is_empty() && !checked => {
-                    checked = true;
+                Ran::Done(reports) if reports.is_empty() && checks < MAX_CHECKS => {
+                    checks += 1;
                     shared.set_status(Status::Thinking, "Checking it worked…");
                     std::thread::sleep(Duration::from_millis(600));
                     let seen = engine.look_brief();

@@ -3,6 +3,42 @@ use serde_json::{json, Value};
 pub const HOST: &str = "api.groq.com";
 pub const PATH: &str = "/openai/v1/chat/completions";
 pub const MODEL: &str = "openai/gpt-oss-120b";
+pub const MODELS_PATH: &str = "/openai/v1/models";
+
+pub const FLEET: &[(&str, usize)] = &[
+    ("openai/gpt-oss-120b", 7600),
+    ("openai/gpt-oss-20b", 7600),
+    ("meta-llama/llama-4-scout-17b-16e-instruct", 28000),
+    ("llama-3.3-70b-versatile", 11000),
+    ("moonshotai/kimi-k2-instruct-0905", 9500),
+    ("moonshotai/kimi-k2-instruct", 9500),
+    ("qwen/qwen3-32b", 5800),
+    ("meta-llama/llama-4-maverick-17b-128e-instruct", 5800),
+];
+
+pub fn fleet(primary: &str, available: Option<&[String]>) -> Vec<(String, usize)> {
+    let mut out: Vec<(String, usize)> = Vec::new();
+    let mut push = |id: &str, tpm: usize| {
+        if !out.iter().any(|(m, _)| m == id) && available.is_none_or(|a| a.iter().any(|x| x == id)) {
+            out.push((id.to_string(), tpm));
+        }
+    };
+    let primary_tpm = FLEET.iter().find(|(m, _)| *m == primary).map(|(_, t)| *t).unwrap_or(7600);
+    push(primary, primary_tpm);
+    for (m, t) in FLEET {
+        push(m, *t);
+    }
+    if out.is_empty() {
+        out.push((MODEL.to_string(), 7600));
+    }
+    out
+}
+
+pub fn model_ids(body: &str) -> Option<Vec<String>> {
+    let v: Value = serde_json::from_str(body).ok()?;
+    let ids: Vec<String> = v.get("data")?.as_array()?.iter().filter_map(|m| m.get("id").and_then(Value::as_str).map(String::from)).collect();
+    (!ids.is_empty()).then_some(ids)
+}
 
 pub const SCREEN: &str = "[Screen]";
 
@@ -21,7 +57,10 @@ How to plan:\n\
 - Open sites straight at the result page. For a chosen browser write it first: open msedge <url>, open chrome <url>.\n\
 - Close a tab with key ctrl+w and a window with key alt+f4. Never click a window's own close button.\n\
 - If a step fails you get a new [Screen] and can send a new plan. If you only need to talk, reply without a tool.\n\
-- Do only what {user_name} asks; when a choice is theirs (which item, size, payment) ask first. Reply briefly in {user_name}'s language.\n\
+- Act, don't ask: pick sensible defaults (first good result, usual size, default app) and finish the whole job. Only ask before paying, deleting files, or messaging someone {user_name} did not name.\n\
+- System jobs are faster in PowerShell: run winget install --id <Id> -e --accept-source-agreements --accept-package-agreements to install apps; use run for files, folders, settings and info.\n\
+- After each plan you see the new screen. If the job is not finished, work out why (popup, sign-in, wrong page, not loaded) and send a fixing plan. Never claim it is done unless the screen shows it.\n\
+- Replies: one short sentence in {user_name}'s language.\n\
 Examples of good plans:\n\
 - \"send hi to Ravi on WhatsApp\": open https://web.whatsapp.com | click \"Search\" | type Ravi | wait for \"Ravi\" | click \"Ravi\" | click \"Type a message\" | type hi | key enter\n\
 - \"write an email to asha@x.com saying I reached\": open https://mail.google.com/mail/?view=cm&to=asha@x.com&su=Reached&body=I+reached+safely | wait for \"Send\" | click \"Send\"\n\
@@ -44,16 +83,23 @@ pub fn tools() -> Value {
 }
 
 pub fn request(messages: &[Value], model: &str) -> Value {
-    json!({
+    let mut r = json!({
         "model": model,
         "messages": messages,
         "tools": tools(),
         "tool_choice": "auto",
-        "parallel_tool_calls": false,
-        "temperature": 0.3,
+        "temperature": 0.2,
         "max_completion_tokens": 2500,
-        "reasoning_effort": "medium",
-    })
+    });
+    if model.starts_with("openai/gpt-oss") {
+        r["reasoning_effort"] = json!("medium");
+        r["parallel_tool_calls"] = json!(false);
+    } else if model.starts_with("qwen/") {
+        r["reasoning_effort"] = json!("none");
+    } else {
+        r["parallel_tool_calls"] = json!(false);
+    }
+    r
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -180,6 +226,12 @@ mod tests {
         let r = request(&[json!({"role":"user","content":"hi"})], MODEL);
         assert_eq!(r["model"], "openai/gpt-oss-120b");
         assert_eq!(r["tools"][0]["function"]["name"], "do_steps");
+        assert_eq!(r["reasoning_effort"], "medium");
+        assert!(request(&[], "llama-3.3-70b-versatile").get("reasoning_effort").is_none());
+        let f = fleet("openai/gpt-oss-120b", Some(&["llama-3.3-70b-versatile".to_string(), "openai/gpt-oss-120b".to_string(), "whisper-large-v3".to_string()]));
+        assert_eq!(f.iter().map(|(m, _)| m.as_str()).collect::<Vec<_>>(), vec!["openai/gpt-oss-120b", "llama-3.3-70b-versatile"]);
+        assert!(fleet("openai/gpt-oss-120b", None).len() >= 6);
+        assert_eq!(model_ids(r#"{"data":[{"id":"a"},{"id":"b"}]}"#), Some(vec!["a".to_string(), "b".to_string()]));
         assert!(system_prompt("Akshat", "").contains("Mover"));
         assert!(!system_prompt("you", "").contains("you's"));
     }
