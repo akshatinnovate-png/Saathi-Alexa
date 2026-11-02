@@ -287,7 +287,20 @@ pub fn windows() -> Vec<(isize, String)> {
 
 pub fn focus(title_part: &str) -> Result<String, String> {
     let needle = title_part.to_lowercase();
-    let found = windows().into_iter().find(|(_, t)| t.to_lowercase().contains(&needle)).ok_or_else(|| format!("No open window has \"{title_part}\" in its title"))?;
+    let all: Vec<(isize, String)> = windows().into_iter().filter(|(h, _)| !own(HWND(*h as *mut _))).collect();
+    let words: Vec<String> = needle.split(|c: char| !c.is_alphanumeric()).filter(|w| w.len() > 2 && !["personal", "microsoft", "google", "more", "pages", "and", "the"].contains(w)).map(String::from).collect();
+    let found = all
+        .iter()
+        .find(|(_, t)| t.to_lowercase().contains(&needle))
+        .or_else(|| {
+            all.iter()
+                .map(|w| (w, words.iter().filter(|x| w.1.to_lowercase().contains(x.as_str())).count()))
+                .filter(|(_, n)| *n > 0 && *n * 2 >= words.len().max(1))
+                .max_by_key(|(_, n)| *n)
+                .map(|(w, _)| w)
+        })
+        .cloned()
+        .ok_or_else(|| format!("No open window matches \"{title_part}\""))?;
     let hwnd = HWND(found.0 as *mut _);
     unsafe {
         if IsIconic(hwnd).as_bool() {

@@ -153,7 +153,8 @@ fn ask_groq(shared: &Shared, groq: &mut Groq, messages: &mut Vec<Value>, told: &
         }
         if status == 400 && (lower.contains("tool") || lower.contains("function")) {
             if model != agent::MODEL {
-                groq.fleet.rest(k, m, Instant::now(), Duration::from_secs(120));
+                system::log(&format!("{model} can't follow plans; not using it again"));
+                groq.fleet.drop_model(m);
                 continue;
             }
             return Outcome::Note(format!("(Your last tool call was rejected: {short}. Use do_steps with a list of step strings.)"));
@@ -367,6 +368,47 @@ fn instant(shared: &Arc<Shared>, engine: &mut Engine, rx: &Receiver<String>, int
             }
             Ok(format!("Volume is at {n}%."))
         }
+        Intent::FullScreen(on) => {
+            let title = system::window_title(system::target_window());
+            let youtube = title.to_lowercase().contains("youtube");
+            let keys = match (youtube, *on) {
+                (true, true) => "f",
+                (true, false) => "escape",
+                (false, true) => "f11",
+                (false, false) => "escape",
+            };
+            if youtube && *on {
+                let stop = || shared.stop.load(Ordering::Relaxed);
+                engine.focus_page(&stop);
+            }
+            shared.say("→", &format!("key {keys}"));
+            engine.press(keys)?;
+            Ok(if *on { "Full screen.".into() } else { "Back to normal size.".into() })
+        }
+        Intent::Images(topic) => {
+            let topic = match topic {
+                Some(t) => t.clone(),
+                None => {
+                    let title = system::window_title(system::target_window());
+                    let main = title.split([' ']).collect::<Vec<_>>().join(" ");
+                    let main = main.split(" - ").next().unwrap_or("").split(" | ").next().unwrap_or("").trim().to_string();
+                    if main.is_empty() || ["new tab", "google", "youtube", "home", "start"].contains(&main.to_lowercase().as_str()) {
+                        return Err("no topic".into());
+                    }
+                    main.trim_end_matches(" Google Search").trim().to_string()
+                }
+            };
+            let url = format!("https://www.google.com/search?tbm=isch&q={}", intent::encode(&topic));
+            shared.say("→", &format!("open Google Images for \"{topic}\""));
+            let (ok, msg) = system::open(&url);
+            if ok { Ok(format!("Here are pictures of {topic}.")) } else { Err(msg) }
+        }
+        Intent::CloseTabs(topic) => {
+            shared.say("→", &format!("close the tabs about {topic}"));
+            let stop = || shared.stop.load(Ordering::Relaxed);
+            let n = engine.close_tabs(topic, &stop)?;
+            Ok(format!("Closed {n} tab{} about {topic}.", if n == 1 { "" } else { "s" }))
+        }
         Intent::Media(what) => {
             shared.say("→", &format!("media {what}"));
             match *what {
@@ -492,6 +534,7 @@ fn instant(shared: &Arc<Shared>, engine: &mut Engine, rx: &Receiver<String>, int
             }
             Ok(if extra.is_empty() { say } else { format!("{say} {}", extra.join(" ")) })
         }
+        Intent::Close(name) if engine.close_tabs(name, &|| shared.stop.load(Ordering::Relaxed)).is_ok() => Ok(format!("Closed the {name} tab.")),
         Intent::Close(name) => {
             let found = system::windows().into_iter().find(|(h, t)| !system::own(windows::Win32::Foundation::HWND(*h as *mut _)) && t.to_lowercase().contains(name.as_str())).ok_or_else(|| format!("no window called {name}"))?;
             let title = found.1.clone();
@@ -828,7 +871,7 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
                         break;
                     }
                     shared.set_status(Status::Thinking, "Finding another way…");
-                    let seen = engine.look();
+                    let seen = engine.look_brief();
                     messages.push(agent::tool_result(call, &format!("Done: {}\nFailed: {failed} ({reason}). The rest was not done.\nThe screen now:\n{seen}Send a new plan from here.", if done.is_empty() { "nothing".to_string() } else { done.join(" | ") })));
                 }
                 Ran::Interrupted { done, message } => {

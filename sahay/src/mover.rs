@@ -7,6 +7,7 @@ pub struct Target {
     pub kind: String,
     pub rect: Rect,
     pub interactive: bool,
+    pub chrome: bool,
 }
 
 fn normalize(s: &str) -> String {
@@ -45,12 +46,18 @@ fn score(query: &str, label: &str) -> f64 {
     if qt.is_empty() {
         return 0.0;
     }
-    let matched = qt.iter().filter(|t| lt.iter().any(|w| w == *t || (t.len() >= 4 && w.starts_with(*t)) || (w.len() >= 4 && t.starts_with(w)))).count();
+    let stem = |w: &str| -> String { if w.len() > 3 && w.ends_with('s') && !w.ends_with("ss") { w[..w.len() - 1].to_string() } else { w.to_string() } };
+    let matched = qt.iter().filter(|t| lt.iter().any(|w| w == *t || stem(w) == stem(t) || (t.len() >= 4 && w.starts_with(*t)) || (w.len() >= 4 && t.starts_with(w)))).count();
     let frac = matched as f64 / qt.len() as f64;
     if frac < 0.6 {
         return 0.0;
     }
     40.0 + 25.0 * frac + 10.0 * matched as f64 / lt.len() as f64
+}
+
+fn about_browser(query: &str) -> bool {
+    let q = query.to_lowercase();
+    ["tab", "address", "browser", "toolbar", "bookmark", "favorites", "extension", "back button", "refresh", "new tab"].iter().any(|w| q.contains(w))
 }
 
 pub fn resolve<'a>(query: &str, targets: &'a [Target]) -> Option<&'a Target> {
@@ -62,7 +69,7 @@ pub fn resolve<'a>(query: &str, targets: &'a [Target]) -> Option<&'a Target> {
     let unquoted = q.trim_matches(|c| c == '"' || c == '\'' || c == '“' || c == '”');
     targets
         .iter()
-        .map(|t| (t, score(unquoted, &t.label) + if t.interactive { 4.0 } else { 0.0 } + if t.id.starts_with('E') { 1.0 } else { 0.0 }))
+        .map(|t| (t, score(unquoted, &t.label) + if t.interactive { 4.0 } else { 0.0 } + if t.id.starts_with('E') { 1.0 } else { 0.0 } - if t.chrome && !about_browser(unquoted) { 35.0 } else { 0.0 }))
         .filter(|(_, s)| *s >= 50.0)
         .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
         .map(|(t, _)| t)
@@ -72,7 +79,7 @@ pub fn ranked<'a>(query: &str, targets: &'a [Target]) -> Vec<(&'a Target, f64)> 
     let unquoted = query.trim().trim_matches(|c| c == '"' || c == '\'' || c == '“' || c == '”');
     let mut found: Vec<(&Target, f64)> = targets
         .iter()
-        .map(|t| (t, score(unquoted, &t.label) + if t.interactive { 4.0 } else { 0.0 } + if t.id.starts_with('E') { 1.0 } else { 0.0 }))
+        .map(|t| (t, score(unquoted, &t.label) + if t.interactive { 4.0 } else { 0.0 } + if t.id.starts_with('E') { 1.0 } else { 0.0 } - if t.chrome && !about_browser(unquoted) { 35.0 } else { 0.0 }))
         .filter(|(_, s)| *s >= 50.0)
         .collect();
     found.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -157,7 +164,7 @@ mod tests {
     const SCREEN: Rect = Rect { left: 0, top: 0, right: 1920, bottom: 1080 };
 
     fn t(id: &str, label: &str, kind: &str, interactive: bool, x: i32, y: i32) -> Target {
-        Target { id: id.into(), label: label.into(), kind: kind.into(), rect: Rect { left: x, top: y, right: x + 100, bottom: y + 30 }, interactive }
+        Target { id: id.into(), label: label.into(), kind: kind.into(), rect: Rect { left: x, top: y, right: x + 100, bottom: y + 30 }, interactive, chrome: kind == "TabItem" }
     }
 
     fn pick<'a>(q: &str, ts: &'a [Target]) -> Option<&'a str> {
@@ -203,6 +210,18 @@ mod tests {
         assert!(s.contains("E1 Edit \"Search\" 500,500"));
         assert!(s.contains("T1 \"Shorts\""));
         assert!(summary("x", &[], SCREEN).contains("Nothing readable"));
+    }
+
+    #[test]
+    fn page_content_beats_tab_titles_and_plurals_match() {
+        let mut tab = t("E1", "selina class 9 biology nutrition | KnowledgeBoat", "TabItem", true, 0, 0);
+        tab.chrome = true;
+        let ts = vec![tab.clone(), t("T1", "Selina Concise Biology Class 9 Solutions", "Text", false, 0, 300)];
+        assert_eq!(pick("Selina", &ts), Some("T1"), "the page wins over the tab");
+        assert_eq!(pick("selina tab", &[tab.clone()]), Some("E1"), "asking for a tab still finds it");
+        let tabs = vec![t("E1", "Sphynx cat - Wikipedia", "TabItem", true, 0, 0), t("E2", "Cat - Wikipedia", "TabItem", true, 100, 0), t("E3", "Dogs - Google Search", "TabItem", true, 200, 0)];
+        let found: Vec<&str> = ranked("cats tab", &tabs).iter().map(|(t, _)| t.id.as_str()).collect();
+        assert!(found.contains(&"E1") && found.contains(&"E2") && !found.contains(&"E3"), "{found:?}");
     }
 
     #[test]

@@ -68,6 +68,7 @@ impl Engine {
         let frame = window_rect(target);
         let mut window = system::window_title(target);
         let mut controls: Vec<Target> = Vec::new();
+        let mut page: Option<Rect> = None;
         if let Some(r) = self.uia.as_ref() {
             match r.snapshot_within(target, rect, 120, Duration::from_millis(900)) {
                 Err(e) => system::log(&format!("uia: {e}")),
@@ -75,13 +76,18 @@ impl Engine {
                     if !title.trim().is_empty() {
                         window = title;
                     }
-                    for e in els.into_iter().filter(|e| !e.name.trim().is_empty() || e.kind == "Edit") {
+                    page = els.iter().filter(|e| e.kind == "Document").map(|e| e.rect).max_by_key(|r| i64::from(r.width()) * i64::from(r.height()));
+                    for e in els.into_iter().filter(|e| (!e.name.trim().is_empty() || e.kind == "Edit") && !matches!(e.kind.as_str(), "Document" | "Pane")) {
                         let caption_button = e.kind == "Button" && CAPTION.contains(&e.name.trim().to_ascii_lowercase().as_str()) && frame.is_some_and(|f| e.rect.top < f.top + 60);
                         if caption_button {
                             continue;
                         }
                         let label = if e.name.trim().is_empty() { "(text box)".to_string() } else { e.name.split_whitespace().collect::<Vec<_>>().join(" ") };
-                        controls.push(Target { id: String::new(), interactive: INTERACTIVE.contains(&e.kind.as_str()), kind: e.kind, label, rect: e.rect });
+                        let chrome = page.is_some_and(|p| {
+                            let (cx, cy) = e.rect.center();
+                            e.kind == "TabItem" || cx < p.left || cx >= p.right || cy < p.top || cy >= p.bottom
+                        });
+                        controls.push(Target { id: String::new(), interactive: INTERACTIVE.contains(&e.kind.as_str()), kind: e.kind, label, rect: e.rect, chrome });
                     }
                 }
             }
@@ -111,7 +117,9 @@ impl Engine {
                             continue;
                         }
                         n += 1;
-                        targets.push(Target { id: format!("T{n}"), label: line.text, kind: "Text".into(), rect: line.rect, interactive: false });
+                        let (lx, ly) = line.rect.center();
+                        let chrome = page.is_some_and(|p| lx < p.left || lx >= p.right || ly < p.top || ly >= p.bottom);
+                        targets.push(Target { id: format!("T{n}"), label: line.text, kind: "Text".into(), rect: line.rect, interactive: false, chrome });
                     }
                 }
                 Err(e) => system::log(&format!("ocr: {e}")),
@@ -165,6 +173,37 @@ impl Engine {
         self.through(&[(x, y)], || input::click(x, y, "left", false))?;
         self.cursor.ripple(x, y);
         Ok(())
+    }
+
+    pub fn focus_page(&mut self, stop: &dyn Fn() -> bool) {
+        system::bring_forward();
+        self.look();
+        let video = self.targets.iter().filter(|t| !t.chrome && t.rect.width() > 300 && t.rect.height() > 160).min_by_key(|t| t.rect.top).map(|t| t.rect.center());
+        if let Some((x, y)) = video {
+            if self.cursor.glide_to(x, y, stop) {
+                let _ = self.through(&[(x, y)], || input::move_to(x, y));
+            }
+        }
+    }
+
+    pub fn close_tabs(&mut self, topic: &str, stop: &dyn Fn() -> bool) -> Result<usize, String> {
+        system::bring_forward();
+        let query = format!("{topic} tab");
+        let mut closed = 0;
+        for _ in 0..25 {
+            if stop() {
+                break;
+            }
+            self.look();
+            let tab = mover::ranked(&query, &self.targets).into_iter().find(|(t, _)| t.kind == "TabItem").map(|(t, _)| t.clone());
+            let Some(tab) = tab else { break };
+            self.click_target(&tab, stop)?;
+            sleep_unless(stop, Duration::from_millis(350));
+            input::combo(&parse_combo("ctrl+w")?, 1)?;
+            closed += 1;
+            sleep_unless(stop, Duration::from_millis(600));
+        }
+        if closed == 0 { Err(format!("no open tab is about {topic}")) } else { Ok(closed) }
     }
 
     pub fn watch_video(&mut self, budget: Duration, stop: &dyn Fn() -> bool) -> Vec<String> {

@@ -32,6 +32,9 @@ pub enum Intent {
     Mute(bool),
     Install(String),
     Media(&'static str),
+    FullScreen(bool),
+    Images(Option<String>),
+    CloseTabs(String),
 }
 
 pub fn parse_clock(text: &str) -> Option<(u8, u8, usize)> {
@@ -123,6 +126,14 @@ pub fn route_all(text: &str) -> Option<Vec<Intent>> {
         let routed: Option<Vec<Intent>> = parts.iter().map(|p| route(p)).collect();
         if let Some(r) = routed.filter(|r| !r.iter().any(|i| matches!(i, Intent::ReadScreen(_) | Intent::Selection(_) | Intent::Routine { .. }))) {
             return Some(r);
+        }
+    }
+    let last = text.rsplit([',', '.', '!', ';']).map(str::trim).find(|c| !c.is_empty())?;
+    if last.len() < text.trim().len() {
+        if let Some(i) = route(last) {
+            if matches!(i, Intent::Images(_) | Intent::Media(_) | Intent::FullScreen(_) | Intent::CloseTabs(_) | Intent::Keys { .. } | Intent::Play { .. } | Intent::Weather(_) | Intent::Time | Intent::News) {
+                return Some(vec![i]);
+            }
         }
     }
     None
@@ -316,7 +327,6 @@ const KEYS: &[(&[&str], &str, &str)] = &[
     (&["volume down", "quieter", "softer", "decrease volume", "turn it down", "turn down the volume"], "volumedown", "Quieter."),
     (&["scroll down", "page down"], "page_down", "Scrolled down."),
     (&["scroll up", "page up"], "page_up", "Scrolled up."),
-    (&["full screen", "fullscreen"], "f11", "Done."),
     (&["minimize", "minimise", "minimize this", "minimise this"], "win+down", "Minimised."),
     (&["show desktop", "go to desktop"], "win+d", "Here's the desktop."),
     (&["zoom in"], "ctrl+plus", "Zoomed in."),
@@ -610,6 +620,48 @@ pub fn route(text: &str) -> Option<Intent> {
     if let Some((_, what)) = media.iter().find(|(p, _)| p.contains(&t.as_str())) {
         return Some(Intent::Media(what));
     }
+    if ["full screen", "fullscreen", "full screen it", "fullscreen it", "make it full screen", "make it fullscreen", "make the video full screen", "make the video fullscreen", "full screen the video", "fullscreen the video", "video full screen", "bigger screen", "make it bigger"].contains(&t.as_str()) {
+        return Some(Intent::FullScreen(true));
+    }
+    if ["exit full screen", "exit fullscreen", "leave full screen", "leave fullscreen", "exit full screen mode", "come out of full screen", "small screen", "make it smaller", "normal screen"].contains(&t.as_str()) {
+        return Some(Intent::FullScreen(false));
+    }
+    for p in ["close all tabs related to ", "close all tabs about ", "close tabs related to ", "close tabs about ", "close all tabs with ", "close the tabs about ", "close all the tabs about ", "close all the tabs related to "] {
+        if let Some(topic) = t.strip_prefix(p) {
+            let topic = topic.split([',', '.']).next().unwrap_or("").trim().to_string();
+            if !topic.is_empty() {
+                return Some(Intent::CloseTabs(topic));
+            }
+        }
+    }
+    if let Some(mid) = t.strip_prefix("close all ").and_then(|r| r.strip_suffix(" tabs")) {
+        if !mid.trim().is_empty() && mid != "the" {
+            return Some(Intent::CloseTabs(mid.trim().trim_start_matches("the ").to_string()));
+        }
+    }
+    let image_words = ["images", "image", "pictures", "picture", "photos", "photo", "pics", "pic"];
+    for p in ["show me ", "get me ", "find me ", "find ", "search for ", "search ", "give me ", "i want ", ""] {
+        if let Some(rest) = t.strip_prefix(p) {
+            let rest = rest.trim().trim_start_matches("some ").trim_start_matches("a few ").trim_start_matches("more ").trim();
+            for w in image_words {
+                if rest == w || rest == format!("{w} of it") || rest == format!("{w} of them") || rest == format!("{w} of that") || rest == format!("an {w}") || rest == format!("{w} too") {
+                    return Some(Intent::Images(None));
+                }
+                for joiner in [" of ", " for "] {
+                    if let Some(topic) = rest.strip_prefix(&format!("{w}{joiner}")) {
+                        if !topic.trim().is_empty() && !p.is_empty() || rest.starts_with(w) && !topic.trim().is_empty() && p.is_empty() {
+                            return Some(Intent::Images(Some(topic.trim().to_string())));
+                        }
+                    }
+                }
+                if let Some(topic) = rest.strip_suffix(&format!(" {w}")) {
+                    if !p.is_empty() && !topic.trim().is_empty() && topic.split_whitespace().count() <= 5 {
+                        return Some(Intent::Images(Some(topic.trim().to_string())));
+                    }
+                }
+            }
+        }
+    }
     if let Some((_, keys, say)) = KEYS.iter().find(|(phrases, _, _)| phrases.contains(&t.as_str())) {
         return Some(Intent::Keys { keys, say });
     }
@@ -758,6 +810,16 @@ mod tests {
         assert_eq!(route("unmute"), Some(Intent::Mute(false)));
         assert_eq!(route("install vlc"), Some(Intent::Install("vlc".into())));
         assert_eq!(route("start the video"), Some(Intent::Media("play")));
+        assert_eq!(route("full screen it please"), Some(Intent::FullScreen(true)));
+        assert_eq!(route("exit full screen"), Some(Intent::FullScreen(false)));
+        assert_eq!(route("wow they are so cute, get me some image"), None);
+        assert_eq!(route_all("wow they are so cute, get me some image"), Some(vec![Intent::Images(None)]));
+        assert_eq!(route("get me some images"), Some(Intent::Images(None)));
+        assert_eq!(route("show me pictures of sphynx cats"), Some(Intent::Images(Some("sphynx cats".into()))));
+        assert_eq!(route("get me sphynx cat images"), Some(Intent::Images(Some("sphynx cat".into()))));
+        assert_eq!(route("images of the taj mahal"), Some(Intent::Images(Some("the taj mahal".into()))));
+        assert_eq!(route("close all tabs related to cats, its done"), Some(Intent::CloseTabs("cats".into())));
+        assert_eq!(route("close all cat tabs"), Some(Intent::CloseTabs("cat".into())));
         assert_eq!(route("Pause it"), Some(Intent::Media("pause")));
         assert_eq!(route("play it"), Some(Intent::Media("play")));
         assert_eq!(route("full volume"), Some(Intent::Volume(100)));

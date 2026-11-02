@@ -28,6 +28,14 @@ pub fn fleet(primary: &str, available: Option<&[String]>) -> Vec<(String, usize)
     for (m, t) in FLEET {
         push(m, *t);
     }
+    if let Some(all) = available {
+        let skip = ["whisper", "tts", "guard", "embed", "playai", "compound", "orpheus", "safeguard", "allam"];
+        for id in all {
+            if !skip.iter().any(|s| id.to_lowercase().contains(s)) {
+                push(id, 5500);
+            }
+        }
+    }
     if out.is_empty() {
         out.push((MODEL.to_string(), 7600));
     }
@@ -58,7 +66,7 @@ open <app|url|browser url> | click/double/right/hover <\"words\"|E#|x,y> | type 
 wait <s> | wait for \"words\" | expect \"words\" | focus <title> | run <PowerShell> | clipboard | remember <fact> | saathi <tool> <json>\n\
 media play|pause|next|previous | volume <0-100> | sound on | skip ads | research <web search> | fetch <url> | read\n\
 Rules:\n\
-- Name targets by their words; use E#/T# only for the current screen. Icons: describe them, e.g. click \"cart icon\".\n\
+- Name targets by their words; use E#/T# only for the current screen. Never guess x,y: use one only if it is listed. To play/pause video use media play/pause, never clicks. Icons: describe them, e.g. click \"cart icon\".\n\
 - Open sites straight at the page needed (search URLs, ms-settings:). Browser: open msedge <url>.\n\
 - End with expect \"words that only appear if it worked\".\n\
 - Play/pause/resume: always media play / media pause, never keys. Videos/music: add sound on and skip ads.\n\
@@ -230,6 +238,8 @@ mod tests {
         assert!(request(&[], "llama-3.3-70b-versatile").get("reasoning_effort").is_none());
         let f = fleet("openai/gpt-oss-120b", Some(&["llama-3.3-70b-versatile".to_string(), "openai/gpt-oss-120b".to_string(), "whisper-large-v3".to_string()]));
         assert_eq!(f.iter().map(|(m, _)| m.as_str()).collect::<Vec<_>>(), vec!["openai/gpt-oss-120b", "llama-3.3-70b-versatile"]);
+        let more = fleet("openai/gpt-oss-120b", Some(&["openai/gpt-oss-120b".to_string(), "some/new-chat-model".to_string(), "whisper-large-v3".to_string()]));
+        assert_eq!(more.iter().map(|(m, _)| m.as_str()).collect::<Vec<_>>(), vec!["openai/gpt-oss-120b", "some/new-chat-model"]);
         assert!(fleet("openai/gpt-oss-120b", None).len() >= 6);
         assert_eq!(model_ids(r#"{"data":[{"id":"a"},{"id":"b"}]}"#), Some(vec!["a".to_string(), "b".to_string()]));
         assert!(system_prompt("Akshat", "").contains("Mover"));

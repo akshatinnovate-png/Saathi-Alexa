@@ -1,5 +1,14 @@
 **Sahay** (सहाय, "help") drives your Windows PC for you. You type what you want; it moves its own cursor, clicks and types until the job is done. A byproduct of [Saathi](https://github.com/akshatinnovate-png/Saathi-Alexa).
 
+### New in 2.7.1: fixes from real use
+- **Clicks the page, not the browser.** Words are matched inside the web page first; tab titles, the address bar and the toolbar only count when you mention them. This stops "click Selina" hitting the tab title and "wait for Sphinx cat" being fooled by the search box.
+- **No blind clicking.** Groq may no longer guess screen positions, and plays or pauses video only through the media controls.
+- **Full screen done right.** "Full screen it" on YouTube makes the video full screen (not the whole browser); "exit full screen" brings it back.
+- **Pictures in one go.** "Get me some images" opens Google Images for whatever you're looking at (it reads the current page's topic); "show me pictures of sphynx cats" works too, even at the end of a chatty sentence ("wow they're so cute, get me some images").
+- **Close tabs by topic.** "Close all tabs related to cats" finds every matching tab (cat, cats, Sphynx cat…) and closes them one by one; "close github" closes that tab.
+- **Fewer "models busy" pauses.** Sahay now uses every chat model your Groq account offers, drops models that can't follow plans for good, and sends a shorter screen after a failed step.
+- Switching windows works with partial titles, even when the browser adds "and 3 more pages".
+
 ### New in 2.7.0: research, learned skills, far fewer tokens
 - **Far fewer Groq tokens.** Instant commands, media control and learned skills use none. When Groq is needed, the rules are less than half their old size, less history is sent, Groq thinks briefly, and plans end with expect "…" so the Mover confirms success itself instead of a second Groq call. A typical Groq task now costs roughly 1,000–2,000 tokens instead of 5,000–8,000.
 - **Learned skills.** When Groq solves a task cleanly, Sahay keeps the plan. Ask the same thing again and it repeats it locally, with zero tokens. If the page has changed and the old way fails, it forgets that plan and asks Groq afresh.
@@ -86,7 +95,7 @@
 - **Doesn't quit on limits.** If Groq's free limit is hit it waits exactly as long as Groq says and carries on; add several keys to switch between them.
 
 ### Get started
-1. Download **Sahay-2.7.0.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
+1. Download **Sahay-2.7.1.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
 2. Groq's free key page opens (console.groq.com/keys). Sign in, click **Create API Key**, copy it and paste it into Sahay. Older Gemini keys are no longer used.
 3. The chat opens. Type what you want done, for example "play Bella Ciao on YouTube".
 
