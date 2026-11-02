@@ -42,6 +42,13 @@ pub fn model_ids(body: &str) -> Option<Vec<String>> {
 
 pub const SCREEN: &str = "[Screen]";
 
+pub fn with_memory(prompt: String, memory: &[String]) -> String {
+    if memory.is_empty() {
+        return prompt;
+    }
+    format!("{prompt}\nThings you know about the user (use them):\n- {}", memory.join("\n- "))
+}
+
 pub fn system_prompt(name: &str, extra: &str) -> String {
     let user_name = if name.trim().is_empty() || name.trim().eq_ignore_ascii_case("you") { "the user" } else { name.trim() };
     format!(
@@ -51,7 +58,9 @@ Answer a task with ONE do_steps call holding every step to finish it, plus what 
 open <app | url | browser url>   e.g. open msedge https://www.youtube.com/results?search_query=bella+ciao\n\
 click <E# | T# | x,y | \"words on screen\">   also double <..>, right <..>, hover <..>\n\
 type <text>   key <keys> (e.g. enter, ctrl+l, alt+f4, tab x3)   scroll down|up <n> [at <target>]   drag <a> to <b>\n\
-wait <seconds>   wait for \"words\"   focus <window title words>   run <PowerShell>   clipboard   saathi <tool> <json>\n\
+wait <seconds>   wait for \"words\"   focus <window title words>   run <PowerShell>   clipboard   saathi <tool> <json>   remember <fact>\n\
+- Icons and pictures without text: describe them in quotes, e.g. click \"bell icon at the top right\"; the Mover then looks at a picture of the screen.\n\
+- Use remember <fact> for lasting facts about {user_name} you learn (names, numbers, preferences).\n\
 How to plan:\n\
 - After the screen changes (a page opens or loads), name later targets by the words you expect on it, e.g. click \"Bella Ciao\". The Mover waits for those words to appear and finds them itself. Use E/T numbers only for what is on the current [Screen].\n\
 - Open sites straight at the result page. For a chosen browser write it first: open msedge <url>, open chrome <url>.\n\
@@ -278,7 +287,8 @@ mod tests {
     #[test]
     fn the_fixed_part_of_every_request_stays_small() {
         let fixed = tools().to_string().len() + system_prompt("Akshat", "").len();
-        assert!(fixed < 4800, "tools and rules take {fixed} characters");
+        assert!(with_memory("p".into(), &["likes Edge".into()]).ends_with("- likes Edge"));
+        assert!(fixed < 5600, "tools and rules take {fixed} characters");
     }
 
     #[test]

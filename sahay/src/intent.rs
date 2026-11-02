@@ -18,6 +18,11 @@ pub enum Intent {
     Volume(u32),
     WhatsApp { to: String, text: String },
     Email { to: String, subject: String, body: String },
+    Remember(String),
+    Recall,
+    Forget,
+    ReadScreen(String),
+    Selection(String),
 }
 
 struct Calc<'a> {
@@ -303,6 +308,27 @@ pub fn route(text: &str) -> Option<Intent> {
     if t.is_empty() || t.len() > 200 {
         return None;
     }
+    for p in ["remember that ", "remember ", "note that ", "don't forget that "] {
+        if let Some(fact) = t.strip_prefix(p) {
+            let start = raw.to_lowercase().find(fact).unwrap_or(0);
+            let fact_raw = raw[start..].trim().trim_end_matches(['.', '!']).to_string();
+            if fact.split_whitespace().count() >= 2 && !fact.starts_with("to ") {
+                return Some(Intent::Remember(fact_raw));
+            }
+        }
+    }
+    if ["what do you remember", "what do you know about me", "what have you remembered", "show your memory", "show memory"].contains(&t.as_str()) {
+        return Some(Intent::Recall);
+    }
+    if ["forget everything", "clear your memory", "forget all", "erase your memory"].contains(&t.as_str()) {
+        return Some(Intent::Forget);
+    }
+    if ["read this page", "read the page", "read the screen", "read this", "read it", "read it to me", "read this to me", "what's on my screen", "what is on my screen", "what's on the screen", "what is on the screen", "summarize this page", "summarise this page", "summarize the page", "summarise the page", "summarize the screen", "summarise the screen", "what am i looking at", "describe the screen"].contains(&t.as_str()) {
+        return Some(Intent::ReadScreen(t.clone()));
+    }
+    if ["explain this", "translate this", "summarize this", "summarise this", "what does this mean", "explain the selected text", "explain the selection", "summarize the selection", "summarise the selection", "simplify this", "reply to this", "proofread this", "correct this"].contains(&t.as_str()) || t.starts_with("translate this to ") || t.starts_with("translate this into ") {
+        return Some(Intent::Selection(t.clone()));
+    }
     let math = t.trim_start_matches("what is ").trim_start_matches("what's ").trim_start_matches("whats ").trim_start_matches("calculate ").trim_start_matches("how much is ").trim();
     if let Some(v) = calculate(math) {
         return Some(Intent::Answer(format!("{} = {v}", math.trim())));
@@ -543,6 +569,11 @@ mod tests {
         assert_eq!(route("write a letter to my son"), None);
         assert_eq!(route("what is a good laptop under 50000"), None);
         assert_eq!(route("who is the best doctor near me"), None);
+        assert_eq!(route("Remember that my son Ravi lives in Pune."), Some(Intent::Remember("my son Ravi lives in Pune".into())));
+        assert_eq!(route("remember to call mom"), None);
+        assert_eq!(route("what do you remember"), Some(Intent::Recall));
+        assert_eq!(route("read this page"), Some(Intent::ReadScreen("read this page".into())));
+        assert_eq!(route("translate this to hindi"), Some(Intent::Selection("translate this to hindi".into())));
         assert!(is_question("why is the sky blue?"));
         assert!(!is_question("can you open notepad"));
         assert!(!is_question("what's on this page?"));

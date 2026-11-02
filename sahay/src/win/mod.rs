@@ -10,6 +10,7 @@ pub mod screen;
 pub mod system;
 pub mod uia;
 pub mod ui;
+pub mod vision;
 pub mod voice;
 
 use crate::config::{split_keys, Config};

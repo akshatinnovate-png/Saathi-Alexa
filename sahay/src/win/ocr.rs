@@ -13,7 +13,7 @@ pub struct Line {
     pub rect: Rect,
 }
 
-fn shrink(bgra: &[u8], w: u32, h: u32, scale: f64) -> (Vec<u8>, u32, u32) {
+pub fn shrink(bgra: &[u8], w: u32, h: u32, scale: f64) -> (Vec<u8>, u32, u32) {
     let nw = ((f64::from(w) * scale) as u32).max(1);
     let nh = ((f64::from(h) * scale) as u32).max(1);
     let mut out = vec![0u8; (nw * nh * 4) as usize];

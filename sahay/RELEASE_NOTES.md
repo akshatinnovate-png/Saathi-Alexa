@@ -1,5 +1,12 @@
 **Sahay** (सहाय, "help") drives your Windows PC for you. You type what you want; it moves its own cursor, clicks and types until the job is done. A byproduct of [Saathi](https://github.com/akshatinnovate-png/Saathi-Alexa).
 
+### New in 2.4.0: it sees, remembers and understands
+- **Sees pictures, not just text.** Icons, logos and images without words ("the bell icon at the top right", "the cart icon", a profile picture) are found by Groq's free vision model (Llama 4 Scout) from a picture of the screen, then clicked. Whenever text matching fails, the picture is checked too.
+- **Memory.** "Remember that my son Ravi lives in Pune", "remember I use Edge". Facts are kept on this PC and used in every task, and Sahay saves useful facts it learns on its own. "What do you remember" lists them; "forget everything" clears them.
+- **Reads the screen for you.** "Read this page", "what's on my screen", "summarise the page" answer from everything readable, out loud.
+- **Works on selected text.** Select text anywhere, then "explain this", "translate this to Hindi", "summarise this", "proofread this" or "reply to this".
+- **Knows your open windows**, so it can switch straight to the right one.
+
 ### New in 2.3.0: more power, almost no pauses
 - **Keeps going instead of pausing.** Groq limits each free model separately, so Sahay now uses gpt-oss-120b first and, when its minute budget is spent, carries on with Groq's other free tool-using models (gpt-oss-20b, Llama 4 Scout, Llama 3.3 70B, Kimi K2, Qwen3, Llama 4 Maverick). It checks which ones your account has, skips retired ones, and only waits if every model is busy at once. Together that is roughly ten times the per-minute budget, so a pause should only come after a long burst of work.
 - **Finishes the job.** After every plan it reads the screen and checks the task is really done; if not, it works out why (popup, sign-in, wrong page, still loading) and sends a fix, for up to four rounds.
@@ -55,7 +62,7 @@
 - **Doesn't quit on limits.** If Groq's free limit is hit it waits exactly as long as Groq says and carries on; add several keys to switch between them.
 
 ### Get started
-1. Download **Sahay-2.3.0.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
+1. Download **Sahay-2.4.0.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
 2. Groq's free key page opens (console.groq.com/keys). Sign in, click **Create API Key**, copy it and paste it into Sahay. Older Gemini keys are no longer used.
 3. The chat opens. Type what you want done, for example "play Bella Ciao on YouTube".
 

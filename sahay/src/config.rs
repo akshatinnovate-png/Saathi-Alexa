@@ -9,11 +9,25 @@ pub struct Config {
     pub position: Option<(i32, i32)>,
     pub extra: String,
     pub speak: bool,
+    pub memory: Vec<String>,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { keys: Vec::new(), model: crate::agent::MODEL.into(), name: "you".into(), color: [99, 102, 241], position: None, extra: String::new(), speak: true }
+        Self { keys: Vec::new(), model: crate::agent::MODEL.into(), name: "you".into(), color: [99, 102, 241], position: None, extra: String::new(), speak: true, memory: Vec::new() }
+    }
+}
+
+pub fn remember(memory: &mut Vec<String>, fact: &str) {
+    let fact = fact.trim();
+    if fact.is_empty() {
+        return;
+    }
+    let lower = fact.to_lowercase();
+    memory.retain(|m| m.to_lowercase() != lower);
+    memory.push(fact.chars().take(300).collect());
+    while memory.len() > 60 {
+        memory.remove(0);
     }
 }
 
@@ -43,6 +57,9 @@ impl Config {
         if let (Some(x), Some(y)) = (v.pointer("/position/0").and_then(Value::as_i64), v.pointer("/position/1").and_then(Value::as_i64)) {
             c.position = Some((x as i32, y as i32));
         }
+        if let Some(a) = v.get("memory").and_then(Value::as_array) {
+            c.memory = a.iter().filter_map(Value::as_str).map(|m| m.chars().take(300).collect()).take(60).collect();
+        }
         if let Some(b) = v.get("speak").and_then(Value::as_bool) {
             c.speak = b;
         }
@@ -62,6 +79,7 @@ impl Config {
             "position": self.position.map(|(x, y)| vec![x, y]),
             "instructions": self.extra,
             "speak": self.speak,
+            "memory": self.memory,
         }))
         .unwrap_or_default()
     }
@@ -79,6 +97,10 @@ mod tests {
         let back = Config::from_json(&text, |s| s.strip_prefix("sealed:").map(|r| r.chars().rev().collect()));
         assert_eq!(back, c);
         assert_eq!(back.model, "openai/gpt-oss-120b");
+        let mut mem = vec!["I use Edge".to_string()];
+        remember(&mut mem, "my son is Ravi");
+        remember(&mut mem, "i use edge");
+        assert_eq!(mem, vec!["my son is Ravi".to_string(), "i use edge".to_string()]);
     }
 
     #[test]

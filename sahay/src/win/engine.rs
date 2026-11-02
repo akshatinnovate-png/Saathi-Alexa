@@ -26,7 +26,10 @@ pub struct Engine {
     targets: Vec<Target>,
     screen: Rect,
     own: Vec<isize>,
+    pub keys: Vec<String>,
 }
+
+const PICTURE_WORDS: &[&str] = &["icon", "logo", "image", "picture", "photo", "avatar", "thumbnail", "symbol", "arrow", "button with", "the red", "the blue", "the green", "profile"];
 
 fn window_rect(hwnd: HWND) -> Option<Rect> {
     let mut r = RECT::default();
@@ -50,7 +53,7 @@ impl Engine {
         let uia = uia::Reader::new().map_err(|e| system::log(&e)).ok();
         let ocr = ocr::Reader::new().map_err(|e| system::log(&e)).ok();
         let port = std::fs::read_to_string(system::home().join("saathi.env")).map(|t| crate::saathi::port_from_env_file(&t)).unwrap_or(8787);
-        Self { uia, ocr, saathi: crate::saathi::Saathi::new(port), cursor, targets: Vec::new(), screen: screen::monitor_of(system::target_window()), own }
+        Self { uia, ocr, saathi: crate::saathi::Saathi::new(port), cursor, targets: Vec::new(), screen: screen::monitor_of(system::target_window()), own, keys: Vec::new() }
     }
 
     pub fn snapshot(&self) -> Snapshot {
@@ -123,7 +126,16 @@ impl Engine {
     pub fn look_brief(&mut self) -> String {
         self.look();
         let window = system::window_title(system::target_window());
-        mover::brief(&window, &self.targets, self.screen, 25, 15)
+        let mut s = mover::brief(&window, &self.targets, self.screen, 25, 15);
+        let others: Vec<String> = system::windows().into_iter().filter(|(h, t)| !system::own(HWND(*h as *mut _)) && *t != window).map(|(_, t)| t.chars().take(60).collect()).take(8).collect();
+        if !others.is_empty() {
+            s.push_str(&format!("Other open windows: {}\n", others.join(" | ")));
+        }
+        s
+    }
+
+    pub fn look_full(&mut self) -> String {
+        self.look()
     }
 
     pub fn press(&mut self, keys: &str) -> Result<(), String> {
@@ -148,17 +160,33 @@ impl Engine {
     fn find_words(&mut self, words: &str, patience: Duration, stop: &dyn Fn() -> bool) -> Result<(i32, i32, String), String> {
         let end = Instant::now() + patience;
         let mut scrolls = 0;
+        let pictorial = PICTURE_WORDS.iter().any(|p| words.to_lowercase().contains(p));
+        let mut tried_picture = false;
         loop {
             self.look();
             if let Some(t) = mover::resolve(words, &self.targets) {
                 let (x, y) = t.rect.center();
                 return Ok((x, y, format!("\"{}\"", t.label.chars().take(60).collect::<String>())));
             }
-            if Instant::now() >= end {
+            let time_up = Instant::now() >= end;
+            if !self.keys.is_empty() && !tried_picture && (pictorial || time_up) {
+                tried_picture = true;
+                match super::vision::locate(&self.keys, self.screen, words) {
+                    Ok((x, y)) => return Ok((x, y, format!("{words} (seen in the picture)"))),
+                    Err(e) => system::log(&format!("vision: {e}")),
+                }
+            }
+            if time_up {
                 if scrolls >= 3 {
+                    if !self.keys.is_empty() {
+                        if let Ok((x, y)) = super::vision::locate(&self.keys, self.screen, words) {
+                            return Ok((x, y, format!("{words} (seen in the picture)")));
+                        }
+                    }
                     return Err(format!("\"{words}\" is not on the screen, even after scrolling"));
                 }
                 scrolls += 1;
+                tried_picture = false;
                 if let Some((x, y)) = window_rect(system::target_window()).map(|r| r.center()) {
                     self.cursor.glide_to(x, y, stop);
                     let _ = self.through(&[(x, y)], || input::scroll("down", 6, Some((x, y))));
@@ -288,6 +316,7 @@ impl Engine {
                 (format!("{}\n{}", if ok { "The command finished." } else { "The command failed or timed out." }, out), 0)
             }
             Step::Clipboard => (format!("Clipboard: {}", system::clipboard_get()?.chars().take(4000).collect::<String>()), 0),
+            Step::Remember(fact) => (format!("Remembered: {fact}"), 0),
             Step::Saathi { tool, args } => {
                 let args = serde_json::from_str::<Value>(args).unwrap_or_else(|_| json!({}));
                 (self.saathi.call(tool, args).to_string(), 0)

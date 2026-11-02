@@ -101,6 +101,17 @@ pub fn brief(window: &str, targets: &[Target], screen: Rect, controls: usize, te
     summary(window, &picked, screen)
 }
 
+pub fn parse_xy(text: &str) -> Option<(f64, f64)> {
+    if text.to_ascii_uppercase().contains("NONE") {
+        return None;
+    }
+    let nums: Vec<f64> = text.split(|c: char| !(c.is_ascii_digit() || c == '.')).filter(|p| !p.is_empty() && *p != ".").filter_map(|p| p.parse().ok()).collect();
+    match nums.as_slice() {
+        [x, y, ..] if x.is_finite() && y.is_finite() => Some((*x, *y)),
+        _ => None,
+    }
+}
+
 pub fn ease(t: f64) -> f64 {
     let t = t.clamp(0.0, 1.0);
     if t < 0.5 { 4.0 * t * t * t } else { 1.0 - (-2.0 * t + 2.0).powi(3) / 2.0 }
@@ -170,6 +181,14 @@ mod tests {
         assert!(s.contains("E1 Edit \"Search\" 500,500"));
         assert!(s.contains("T1 \"Shorts\""));
         assert!(summary("x", &[], SCREEN).contains("Nothing readable"));
+    }
+
+    #[test]
+    fn vision_answers_are_read_as_points() {
+        assert_eq!(parse_xy("612,88"), Some((612.0, 88.0)));
+        assert_eq!(parse_xy("The bell is at (1204, 45)."), Some((1204.0, 45.0)));
+        assert_eq!(parse_xy("NONE"), None);
+        assert_eq!(parse_xy("not sure"), None);
     }
 
     #[test]

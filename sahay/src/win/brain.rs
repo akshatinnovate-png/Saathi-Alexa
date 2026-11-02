@@ -238,6 +238,19 @@ fn wiki(topic: &str) -> Result<String, String> {
 fn instant(shared: &Arc<Shared>, engine: &mut Engine, rx: &Receiver<String>, intent: &Intent) -> Result<String, String> {
     match intent {
         Intent::Answer(a) => Ok(a.clone()),
+        Intent::Remember(fact) => {
+            shared.update_config(|c| crate::config::remember(&mut c.memory, fact));
+            Ok("Got it, I'll remember that.".into())
+        }
+        Intent::Recall => {
+            let memory = shared.config().memory;
+            Ok(if memory.is_empty() { "I haven't been asked to remember anything yet.".into() } else { format!("I remember: {}.", memory.join("; ")) })
+        }
+        Intent::Forget => {
+            shared.update_config(|c| c.memory.clear());
+            Ok("Done, I've forgotten everything you told me to remember.".into())
+        }
+        Intent::ReadScreen(_) | Intent::Selection(_) => Err("needs Groq".into()),
         Intent::Weather(place) => {
             shared.say("→", &format!("check the weather{}", if place.is_empty() { String::new() } else { format!(" in {place}") }));
             let path = format!("/{}?format=%25l:+%25C,+%25t,+feels+like+%25f,+humidity+%25h,+wind+%25w", intent::encode(place));
@@ -422,6 +435,12 @@ fn carry_out(shared: &Shared, engine: &mut Engine, rx: &Receiver<String>, steps:
             Ok(s) => s,
             Err(e) => return Ran::Failed { done, failed: line.clone(), reason: e },
         };
+        if let plan::Step::Remember(fact) = &step {
+            shared.update_config(|c| crate::config::remember(&mut c.memory, fact));
+            shared.say("→", &format!("remember {fact}"));
+            done.push(line.clone());
+            continue;
+        }
         shared.say("→", line.trim());
         shared.set_status(Status::Acting, line.trim());
         let stop = || shared.stop.load(Ordering::Relaxed) || shared.quit.load(Ordering::Relaxed);
@@ -472,9 +491,32 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
         shared.stop.store(false, Ordering::Relaxed);
         shared.busy.store(true, Ordering::Relaxed);
         let cfg = shared.config();
-        messages[0] = json!({ "role": "system", "content": agent::system_prompt(&cfg.name, &cfg.extra) });
+        messages[0] = json!({ "role": "system", "content": agent::with_memory(agent::system_prompt(&cfg.name, &cfg.extra), &cfg.memory) });
+        engine.keys = cfg.keys.clone();
         agent::new_task(&mut messages);
-        if let Some(intent) = intent::route(&first) {
+        let routed = intent::route(&first);
+        let mut prepared: Option<String> = None;
+        match &routed {
+            Some(Intent::ReadScreen(_)) => {
+                shared.set_status(Status::Acting, "Reading the screen…");
+                let seen = engine.look_full();
+                prepared = Some(format!("{first}\n(Here is everything readable on the screen. Answer from it in plain sentences without a tool.)\n{seen}"));
+            }
+            Some(Intent::Selection(_)) => {
+                shared.set_status(Status::Acting, "Reading what you selected…");
+                let _ = engine.press("ctrl+c");
+                std::thread::sleep(Duration::from_millis(350));
+                let picked = system::clipboard_get().unwrap_or_default();
+                prepared = Some(if picked.trim().is_empty() {
+                    let seen = engine.look_full();
+                    format!("{first}\n(Nothing was selected, so here is the screen text. Answer from it without a tool.)\n{seen}")
+                } else {
+                    format!("{first}\n(The selected text, to work on without a tool:)\n{}", picked.chars().take(6000).collect::<String>())
+                });
+            }
+            _ => {}
+        }
+        if let Some(intent) = routed.filter(|_| prepared.is_none()) {
             shared.set_status(Status::Acting, "On it…");
             match instant(&shared, &mut engine, &rx, &intent) {
                 Ok(said) => {
@@ -495,7 +537,9 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
                 }
             }
         }
-        if intent::is_question(&first) {
+        if let Some(content) = prepared {
+            messages.push(json!({ "role": "user", "content": content }));
+        } else if intent::is_question(&first) {
             messages.push(json!({ "role": "user", "content": format!("{first}\n(No screen attached. Answer directly; if it needs the PC, call do_steps.)") }));
         } else {
             shared.set_status(Status::Acting, "Reading the screen…");
