@@ -20,6 +20,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 
 pub const WM_STATUS: u32 = WM_APP + 1;
+pub const WM_NEED_KEY: u32 = WM_APP + 2;
 const WM_MOUSELEAVE: u32 = 0x02A3;
 const SIZE_PX: i32 = 112;
 const CX: f32 = 56.0;
@@ -241,13 +242,7 @@ fn menu(hwnd: HWND) {
                 }
             }
             2 => toggle_pause(),
-            3 => {
-                let current = s.config().keys.join(", ");
-                if let Some(t) = ui::ask("Gemini keys", "Paste one or more free Gemini API keys, separated by commas. More keys mean fewer pauses when one hits its limit.", &current, false) {
-                    s.update_config(|c| c.keys = t.split([',', ' ', '\n', ';']).map(str::trim).filter(|k| k.len() > 10).map(String::from).collect());
-                    s.reconnect.store(true, Ordering::Relaxed);
-                }
-            }
+            3 => ask_keys(false),
             4 => {
                 let _ = system::shell_open("https://aistudio.google.com/apikey", "open");
             }
@@ -275,6 +270,28 @@ fn menu(hwnd: HWND) {
             _ => {}
         }
     }
+}
+
+pub fn ask_keys(rejected: bool) {
+    let s = shared();
+    if rejected {
+        let _ = system::shell_open("https://aistudio.google.com/apikey", "open");
+    }
+    let prompt = if rejected {
+        "Google refused your saved Gemini key. Google's key page is opening: create a key, copy it, and paste it here (several keys can be separated by commas)."
+    } else {
+        "Paste one or more free Gemini API keys, separated by commas. More keys mean fewer pauses when one hits its limit."
+    };
+    let current = s.config().keys.join(", ");
+    if let Some(t) = ui::ask("Gemini keys", prompt, &current, false) {
+        let keys: Vec<String> = t.split([',', ' ', '\n', ';']).map(str::trim).filter(|k| k.len() > 10).map(String::from).collect();
+        if !keys.is_empty() {
+            s.update_config(|c| c.keys = keys);
+            s.reconnect.store(true, Ordering::Relaxed);
+            s.set_status(Status::Connecting, "Trying the new key…");
+        }
+    }
+    s.asking_key.store(false, Ordering::Relaxed);
 }
 
 fn quit() {
@@ -378,7 +395,11 @@ unsafe extern "system" fn orb_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                 }
                 LRESULT(0)
             }
-            WM_RBUTTONUP => {
+            WM_NEED_KEY => {
+                ask_keys(true);
+                LRESULT(0)
+            }
+        WM_RBUTTONUP => {
                 menu(hwnd);
                 LRESULT(0)
             }

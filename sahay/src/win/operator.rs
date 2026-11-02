@@ -125,6 +125,9 @@ fn think(shared: &Shared, rx: &Receiver<Cmd>, task: &mut Option<Memory>, rotatio
             }
             None => {
                 speak(shared, "Every Gemini key was refused. Please add a working key from the sphere's menu.");
+                if f == Failure::BadKey {
+                    shared.ask_for_key();
+                }
                 *rotation = Rotation::new(cfg.keys.len(), DEFAULT_MODELS.len(), 11);
                 return None;
             }

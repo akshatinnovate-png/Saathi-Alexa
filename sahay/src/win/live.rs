@@ -157,6 +157,9 @@ fn backoff(shared: &Shared, rotation: &mut Rotation, failure: Failure, reason: &
         }
         None => {
             shared.set_status(Status::Error, "Every Gemini key or model was refused. Right-click the sphere to add a key.");
+            if failure == Failure::BadKey {
+                shared.ask_for_key();
+            }
             *rotation = Rotation::new(1, 1, 1);
             sleep_unless(shared, Duration::from_secs(20));
         }
@@ -258,7 +261,8 @@ fn handle_event(shared: &Arc<Shared>, ev: Event, handle: &mut Option<String>, re
             *ready = true;
             shared.connected.store(true, Ordering::Relaxed);
             shared.force_frame.store(true, Ordering::Relaxed);
-            shared.set_status(Status::Listening, "Listening");
+            let greeting = shared.greeting.lock().ok().and_then(|mut g| g.take());
+            shared.set_status(Status::Listening, greeting.as_deref().unwrap_or("Listening"));
         }
         Event::Audio(b64) => {
             if let Ok(pcm) = base64::engine::general_purpose::STANDARD.decode(b64) {

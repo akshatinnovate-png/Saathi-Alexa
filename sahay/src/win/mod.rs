@@ -58,6 +58,8 @@ pub struct Shared {
     pub calls: Sender<Call>,
     pub operator: Sender<operator::Cmd>,
     pub awaiting: AtomicBool,
+    pub asking_key: AtomicBool,
+    pub greeting: Mutex<Option<String>>,
     pub heard: Mutex<String>,
     state: Mutex<(Status, String)>,
     frame: Mutex<Rect>,
@@ -79,6 +81,15 @@ impl Shared {
         if h != 0 {
             unsafe {
                 let _ = PostMessageW(HWND(h as *mut _), orb::WM_STATUS, WPARAM(0), LPARAM(0));
+            }
+        }
+    }
+
+    pub fn ask_for_key(&self) {
+        let h = self.orb.load(Ordering::Relaxed);
+        if h != 0 && !self.asking_key.swap(true, Ordering::Relaxed) {
+            unsafe {
+                let _ = PostMessageW(HWND(h as *mut _), orb::WM_NEED_KEY, WPARAM(0), LPARAM(0));
             }
         }
     }
@@ -180,6 +191,7 @@ pub fn run() {
     }
     let path = system::home().join("sahay.json");
     let mut config = std::fs::read_to_string(&path).map(|t| Config::from_json(&t, system::unseal)).unwrap_or_default();
+    let had_key = !config.keys.is_empty();
     if config.keys.is_empty() {
         match first_key() {
             Some(keys) => config.keys = keys,
@@ -210,8 +222,10 @@ pub fn run() {
         calls: call_tx,
         operator: op_tx,
         awaiting: AtomicBool::new(false),
+        asking_key: AtomicBool::new(false),
         heard: Mutex::new(String::new()),
         state: Mutex::new((Status::Connecting, "Starting…".into())),
+        greeting: Mutex::new(had_key.then(|| "Ready. Using your saved Gemini key (right-click the sphere to change it).".to_string())),
         frame: Mutex::new(screen::active_monitor()),
         config: Mutex::new(config),
         log: Mutex::new(VecDeque::new()),
