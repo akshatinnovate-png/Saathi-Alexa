@@ -157,6 +157,66 @@ impl Engine {
         }
     }
 
+    fn click_target(&mut self, t: &Target, stop: &dyn Fn() -> bool) -> Result<(), String> {
+        let (x, y) = t.rect.center();
+        if !self.cursor.glide_to(x, y, stop) {
+            return Err("Stopped".into());
+        }
+        self.through(&[(x, y)], || input::click(x, y, "left", false))?;
+        self.cursor.ripple(x, y);
+        Ok(())
+    }
+
+    pub fn watch_video(&mut self, budget: Duration, stop: &dyn Fn() -> bool) -> Vec<String> {
+        let start = Instant::now();
+        let mut notes: Vec<String> = Vec::new();
+        let mut skipped = 0;
+        let mut pressed_play = false;
+        let mut saw_ad = false;
+        while start.elapsed() < budget && !stop() {
+            self.look();
+            let norm = |s: &str| s.to_lowercase().chars().map(|c| if c.is_alphanumeric() { c } else { ' ' }).collect::<String>().split_whitespace().collect::<Vec<_>>().join(" ");
+            if let Some(t) = self.targets.iter().find(|t| matches!(norm(&t.label).as_str(), "skip" | "skip ad" | "skip ads" | "skip ad s" | "skip survey")).cloned() {
+                if self.click_target(&t, stop).is_ok() {
+                    skipped += 1;
+                    system::log("video: skipped an ad");
+                    sleep_unless(stop, Duration::from_millis(1500));
+                    continue;
+                }
+            }
+            let ad = self.targets.iter().any(|t| {
+                let l = norm(&t.label);
+                l == "ad" || l == "sponsored" || l.starts_with("ad 1 of") || l.starts_with("ad 2 of") || l.contains("video will play after ad") || l.contains("visit advertiser") || l.contains("ad will end") || l.starts_with("ad ")
+            });
+            if ad {
+                saw_ad = true;
+                sleep_unless(stop, Duration::from_millis(900));
+                continue;
+            }
+            let playing = self.targets.iter().any(|t| norm(&t.label).starts_with("pause k") || norm(&t.label) == "pause");
+            if !playing && !pressed_play && start.elapsed() > Duration::from_secs(4) {
+                if let Some(t) = self.targets.iter().find(|t| matches!(norm(&t.label).as_str(), "play k" | "play")).cloned() {
+                    if self.click_target(&t, stop).is_ok() {
+                        pressed_play = true;
+                        notes.push("pressed play".into());
+                        sleep_unless(stop, Duration::from_millis(1200));
+                        continue;
+                    }
+                }
+            }
+            if playing && start.elapsed() > Duration::from_secs(if saw_ad { 4 } else { 9 }) {
+                break;
+            }
+            sleep_unless(stop, Duration::from_millis(1000));
+        }
+        if skipped > 0 {
+            notes.insert(0, format!("skipped {skipped} ad{}", if skipped == 1 { "" } else { "s" }));
+        } else if saw_ad {
+            notes.insert(0, "waited out an ad that couldn't be skipped".into());
+        }
+        notes
+    }
+
     fn find_words(&mut self, words: &str, patience: Duration, stop: &dyn Fn() -> bool) -> Result<(i32, i32, String), String> {
         let end = Instant::now() + patience;
         let mut scrolls = 0;
@@ -317,6 +377,19 @@ impl Engine {
             }
             Step::Clipboard => (format!("Clipboard: {}", system::clipboard_get()?.chars().take(4000).collect::<String>()), 0),
             Step::Remember(fact) => (format!("Remembered: {fact}"), 0),
+            Step::Volume(n) => {
+                super::sound::set(*n)?;
+                (format!("Volume is {n}%"), 0)
+            }
+            Step::Mute(on) => {
+                super::sound::mute(*on)?;
+                (if *on { "Muted".into() } else { "Unmuted".into() }, 0)
+            }
+            Step::SoundOn => (super::sound::make_audible(30, 100)?.unwrap_or_else(|| "Sound is already on".into()), 0),
+            Step::WatchVideo => {
+                let notes = self.watch_video(Duration::from_secs(45), stop);
+                (if notes.is_empty() { "The video is playing".into() } else { format!("Video: {}", notes.join(", ")) }, 0)
+            }
             Step::Saathi { tool, args } => {
                 let args = serde_json::from_str::<Value>(args).unwrap_or_else(|_| json!({}));
                 (self.saathi.call(tool, args).to_string(), 0)

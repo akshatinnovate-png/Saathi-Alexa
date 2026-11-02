@@ -21,6 +21,10 @@ pub enum Step {
     Clipboard,
     Saathi { tool: String, args: String },
     Remember(String),
+    Volume(u32),
+    Mute(bool),
+    SoundOn,
+    WatchVideo,
 }
 
 impl Step {
@@ -128,6 +132,11 @@ pub fn parse(line: &str) -> Result<Step, String> {
             Step::Run(rest)
         }
         "clipboard" => Step::Clipboard,
+        "volume" => Step::Volume(rest.trim().trim_end_matches('%').trim().parse::<u32>().map_err(|_| format!("\"{}\" needs a number from 0 to 100", line.trim()))?.min(100)),
+        "mute" => Step::Mute(true),
+        "unmute" => Step::Mute(false),
+        "sound" | "ensure_sound" => Step::SoundOn,
+        "skip" | "skipads" | "skip_ads" | "watch" | "watch_video" | "play_video" => Step::WatchVideo,
         "remember" | "note" => {
             need("a fact")?;
             Step::Remember(unquote(&rest))
@@ -169,6 +178,10 @@ mod tests {
         assert_eq!(parse("drag T1 to 500,500").unwrap(), Step::Drag(Aim::Id("T1".into()), Aim::Point(500.0, 500.0)));
         assert_eq!(parse("saathi get_family_messages {}").unwrap(), Step::Saathi { tool: "get_family_messages".into(), args: "{}".into() });
         assert_eq!(parse("remember Ravi's number is 98200 00000").unwrap(), Step::Remember("Ravi's number is 98200 00000".into()));
+        assert_eq!(parse("volume 80%").unwrap(), Step::Volume(80));
+        assert_eq!(parse("unmute").unwrap(), Step::Mute(false));
+        assert_eq!(parse("sound on").unwrap(), Step::SoundOn);
+        assert_eq!(parse("skip ads").unwrap(), Step::WatchVideo);
         assert!(parse("dance wildly").is_err());
         assert!(parse("click").is_err());
         assert!(parse("run Get-Date").unwrap().reports());

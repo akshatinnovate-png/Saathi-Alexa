@@ -7,6 +7,7 @@ pub mod ocr;
 pub mod orb;
 pub mod panel;
 pub mod screen;
+pub mod sound;
 pub mod system;
 pub mod uia;
 pub mod ui;

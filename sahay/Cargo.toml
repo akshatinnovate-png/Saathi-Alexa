@@ -1,6 +1,6 @@
 [package]
 name = "sahay"
-version = "2.5.0"
+version = "2.6.0"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -29,6 +29,8 @@ windows = { version = "0.58", features = [
   "Win32_Graphics_Dwm",
   "Win32_Graphics_Gdi",
   "Win32_Media",
+  "Win32_Media_Audio",
+  "Win32_Media_Audio_Endpoints",
   "Win32_Media_Speech",
   "Win32_Security_Cryptography",
   "Win32_System_Com",

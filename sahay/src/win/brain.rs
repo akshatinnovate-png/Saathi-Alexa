@@ -1,6 +1,6 @@
 use super::cursor::Cursor;
 use super::engine::Engine;
-use super::{https, system, Shared, Status};
+use super::{https, sound, system, Shared, Status};
 use crate::agent::{self, Reply};
 use crate::intent::{self, Intent};
 use crate::plan;
@@ -359,11 +359,17 @@ fn instant(shared: &Arc<Shared>, engine: &mut Engine, rx: &Receiver<String>, int
         }
         Intent::Volume(n) => {
             shared.say("→", &format!("set the volume to {n}%"));
-            engine.press_times("volumedown", 50)?;
-            if *n >= 2 {
-                engine.press_times("volumeup", n / 2)?;
+            if sound::set(*n).is_err() {
+                engine.press_times("volumedown", 50)?;
+                if *n >= 2 {
+                    engine.press_times("volumeup", n / 2)?;
+                }
             }
-            Ok(format!("Volume set to about {n}%."))
+            Ok(format!("Volume is at {n}%."))
+        }
+        Intent::Mute(on) => {
+            sound::mute(*on)?;
+            Ok(if *on { "Muted.".into() } else { "Sound is on.".into() })
         }
         Intent::Folder(name) => {
             let shell = match *name {
@@ -440,7 +446,29 @@ fn instant(shared: &Arc<Shared>, engine: &mut Engine, rx: &Receiver<String>, int
             let target = with_browser(&url, *browser);
             shared.say("→", &format!("open {target}"));
             let (ok, msg) = system::open(&target);
-            if ok { Ok(say) } else { Err(msg) }
+            if !ok {
+                return Err(msg);
+            }
+            let mut extra = Vec::new();
+            match sound::make_audible(30, 100) {
+                Ok(Some(note)) => {
+                    shared.say("→", "turn the sound up");
+                    extra.push(note);
+                }
+                Ok(None) => {}
+                Err(e) => system::log(&format!("sound: {e}")),
+            }
+            if url.contains("/watch?") {
+                std::thread::sleep(Duration::from_millis(2500));
+                shared.say("→", "watch for ads and make sure it plays");
+                shared.set_status(Status::Acting, "Skipping ads…");
+                let stop = || shared.stop.load(Ordering::Relaxed) || shared.quit.load(Ordering::Relaxed);
+                let notes = engine.watch_video(Duration::from_secs(45), &stop);
+                if !notes.is_empty() {
+                    extra.push(format!("I {}.", notes.join(" and ")));
+                }
+            }
+            Ok(if extra.is_empty() { say } else { format!("{say} {}", extra.join(" ")) })
         }
         Intent::Close(name) => {
             let found = system::windows().into_iter().find(|(h, t)| !system::own(windows::Win32::Foundation::HWND(*h as *mut _)) && t.to_lowercase().contains(name.as_str())).ok_or_else(|| format!("no window called {name}"))?;

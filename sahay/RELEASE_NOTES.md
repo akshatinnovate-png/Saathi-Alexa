@@ -1,5 +1,14 @@
 **Sahay** (सहाय, "help") drives your Windows PC for you. You type what you want; it moves its own cursor, clicks and types until the job is done. A byproduct of [Saathi](https://github.com/akshatinnovate-png/Saathi-Alexa).
 
+### New in 2.6.0: common sense
+- **"Play bella ciao on YouTube" now does what you meant, not just what you said.** Sahay opens the video, then:
+  - unmutes the PC and turns the volume up to full if it was off or low;
+  - watches the player, clicks "Skip" the moment an ad allows it and waits out ads that can't be skipped;
+  - presses play if the video didn't start by itself;
+  - tells you what it did ("I skipped 1 ad and turned the volume up to 100%").
+- **Groq plans with common sense.** Groq is told to do what any sensible person would on the way: turn the sound on and skip ads for videos and music, close cookie banners, "not now" sign-in prompts and blocking pop-ups, pick the official result rather than an ad, and check that a message or file really went through. It still never pays, deletes or shares personal data without asking.
+- **Exact volume control.** "Set volume to 30", "full volume", "mute" and "unmute" now set Windows' volume directly instead of pressing keys. Plans can use volume, mute, unmute, sound on and skip ads as steps.
+
 ### New in 2.5.0: routines, chains, hotkeys and more instant skills
 - **Routines.** "Every day at 9 am play bhajans", "every morning tell me the weather", "at 6:30 pm remind me to walk". Sahay runs them by itself at that time, every day or once. "Show my routines" lists them; "clear routines" removes them. Reminders beep and are spoken.
 - **Several things in one sentence.** "Open notepad and type hello", "volume to 30 and play Kishore Kumar songs": each part runs instantly, in order, with no Groq call. If one part needs thinking, Groq finishes the rest.
@@ -69,7 +78,7 @@
 - **Doesn't quit on limits.** If Groq's free limit is hit it waits exactly as long as Groq says and carries on; add several keys to switch between them.
 
 ### Get started
-1. Download **Sahay-2.5.0.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
+1. Download **Sahay-2.6.0.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
 2. Groq's free key page opens (console.groq.com/keys). Sign in, click **Create API Key**, copy it and paste it into Sahay. Older Gemini keys are no longer used.
 3. The chat opens. Type what you want done, for example "play Bella Ciao on YouTube".
 

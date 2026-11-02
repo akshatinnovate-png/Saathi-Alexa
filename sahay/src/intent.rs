@@ -29,6 +29,7 @@ pub enum Intent {
     News,
     Convert { amount: f64, from: String, to: String },
     FindFile(String),
+    Mute(bool),
 }
 
 pub fn parse_clock(text: &str) -> Option<(u8, u8, usize)> {
@@ -314,7 +315,6 @@ const KEYS: &[(&[&str], &str, &str)] = &[
     (&["previous song", "previous track", "previous video", "last song"], "prevtrack", "Went to the previous one."),
     (&["volume up", "louder", "increase volume", "turn it up", "turn up the volume"], "volumeup", "Louder."),
     (&["volume down", "quieter", "softer", "decrease volume", "turn it down", "turn down the volume"], "volumedown", "Quieter."),
-    (&["mute", "unmute", "mute it", "unmute it"], "volumemute", "Done."),
     (&["scroll down", "page down"], "page_down", "Scrolled down."),
     (&["scroll up", "page up"], "page_up", "Scrolled up."),
     (&["full screen", "fullscreen"], "f11", "Done."),
@@ -521,6 +521,15 @@ pub fn route(text: &str) -> Option<Intent> {
     }
     if ["lock", "lock the computer", "lock the pc", "lock my pc", "lock the screen", "lock screen", "lock my computer"].contains(&t.as_str()) {
         return Some(Intent::Lock);
+    }
+    if ["mute", "mute it", "mute the sound", "mute sound", "silence", "be quiet"].contains(&t.as_str()) {
+        return Some(Intent::Mute(true));
+    }
+    if ["unmute", "unmute it", "unmute the sound", "sound on", "turn on the sound", "turn the sound on"].contains(&t.as_str()) {
+        return Some(Intent::Mute(false));
+    }
+    if ["max volume", "full volume", "volume max", "volume full", "maximum volume", "full sound"].contains(&t.as_str()) {
+        return Some(Intent::Volume(100));
     }
     if ["battery", "battery level", "how much battery", "how much battery is left", "what's the battery", "battery percentage"].contains(&t.as_str()) {
         return Some(Intent::Battery);
@@ -731,6 +740,8 @@ mod tests {
         assert_eq!(route("every morning tell me the weather"), Some(Intent::Routine { hour: 8, minute: 0, task: "tell me the weather".into(), daily: true }));
         assert_eq!(route("show my routines"), Some(Intent::Routines));
         assert_eq!(route("today's news"), Some(Intent::News));
+        assert_eq!(route("unmute"), Some(Intent::Mute(false)));
+        assert_eq!(route("full volume"), Some(Intent::Volume(100)));
         assert_eq!(route("convert 100 dollars to rupees"), Some(Intent::Convert { amount: 100.0, from: "USD".into(), to: "INR".into() }));
         assert_eq!(route("50 euro in inr"), Some(Intent::Convert { amount: 50.0, from: "EUR".into(), to: "INR".into() }));
         assert_eq!(route("find my resume"), Some(Intent::FindFile("resume".into())));
