@@ -1,11 +1,11 @@
 [package]
 name = "sahay"
-version = "1.2.1"
+version = "2.0.0"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 publish = false
-description = "Sahay: a live voice partner that can see and drive a Windows PC"
+description = "Sahay: a helper that reads the screen locally and drives a Windows PC, guided by Groq"
 
 [[bin]]
 name = "sahay"
@@ -16,14 +16,15 @@ serde_json = "1"
 base64 = "0.22"
 
 [target.'cfg(windows)'.dependencies]
-tungstenite = { version = "0.24", default-features = false, features = ["handshake", "native-tls"] }
-jpeg-encoder = "0.6"
 native-tls = "0.2"
 windows = { version = "0.58", features = [
+  "Foundation",
+  "Foundation_Collections",
+  "Graphics_Imaging",
+  "Media_Ocr",
+  "Storage_Streams",
   "Win32_Foundation",
   "Win32_Graphics_Gdi",
-  "Win32_Media",
-  "Win32_Media_Audio",
   "Win32_Security_Cryptography",
   "Win32_System_Com",
   "Win32_System_DataExchange",

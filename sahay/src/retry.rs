@@ -1,4 +1,24 @@
-use crate::protocol::Failure;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Failure {
+    Quota,
+    BadModel,
+    BadKey,
+    Network,
+}
+
+pub fn classify(status: u16, body: &str) -> Failure {
+    let r = body.to_ascii_lowercase();
+    match status {
+        429 => Failure::Quota,
+        401 | 403 => Failure::BadKey,
+        404 => Failure::BadModel,
+        400 if r.contains("api key") || r.contains("api_key") => Failure::BadKey,
+        400 if r.contains("model") && (r.contains("not found") || r.contains("does not exist") || r.contains("decommissioned")) => Failure::BadModel,
+        _ if r.contains("rate limit") || r.contains("rate_limit") || r.contains("quota") => Failure::Quota,
+        _ => Failure::Network,
+    }
+}
+
 use std::time::Duration;
 
 #[derive(Debug, Clone)]
@@ -74,7 +94,7 @@ impl Rotation {
 
 pub fn retry_after_from(reason: &str) -> Option<Duration> {
     let r = reason.to_ascii_lowercase();
-    let at = r.find("retry")?;
+    let at = r.find("try again in").or_else(|| r.find("retry"))?;
     let tail = &r[at..];
     let digits: String = tail.chars().skip_while(|c| !c.is_ascii_digit()).take_while(|c| c.is_ascii_digit() || *c == '.').collect();
     let secs: f64 = digits.parse().ok()?;
@@ -136,5 +156,10 @@ mod tests {
         assert_eq!(r.failed(Failure::Network, Some(Duration::from_secs(7))).unwrap(), Duration::from_secs(7));
         assert_eq!(retry_after_from("Quota exceeded. Please retry in 12.5s."), Some(Duration::from_millis(12500)));
         assert_eq!(retry_after_from("nothing here"), None);
+        assert_eq!(retry_after_from("Rate limit reached for model openai/gpt-oss-120b. Please try again in 7.66s."), Some(Duration::from_millis(7660)));
+        assert_eq!(classify(429, ""), Failure::Quota);
+        assert_eq!(classify(401, "Invalid API Key"), Failure::BadKey);
+        assert_eq!(classify(400, "The model `x` does not exist"), Failure::BadModel);
+        assert_eq!(classify(503, "upstream"), Failure::Network);
     }
 }

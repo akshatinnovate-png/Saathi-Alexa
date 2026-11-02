@@ -37,7 +37,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "Put a Saathi icon on the desktop"; GroupDescription: "Shortcuts:"
-Name: "sahaydesktop"; Description: "Put a Sahay icon on the desktop (the voice helper that can use this computer for you)"; GroupDescription: "Shortcuts:"; Flags: unchecked
+Name: "sahaydesktop"; Description: "Put a Sahay icon on the desktop (the helper that can use this computer for you)"; GroupDescription: "Shortcuts:"; Flags: unchecked
 Name: "autostart"; Description: "Start Saathi when I sign in to Windows (recommended, so reminders and help calls always work)"; GroupDescription: "Start-up:"
 
 [Files]
@@ -45,7 +45,7 @@ Source: "..\build\windows\*"; DestDir: "{app}"; Flags: ignoreversion recursesubd
 
 [Icons]
 Name: "{group}\Saathi"; Filename: "{app}\saathi.exe"; IconFilename: "{app}\saathi.ico"; Comment: "Open Saathi"
-Name: "{group}\Sahay"; Filename: "{app}\Sahay.exe"; Comment: "A voice helper that sees and uses this computer"
+Name: "{group}\Sahay"; Filename: "{app}\Sahay.exe"; Comment: "A helper that sees and uses this computer"
 Name: "{group}\Stop Saathi"; Filename: "{app}\saathi.exe"; Parameters: "--stop"; IconFilename: "{app}\saathi.ico"
 Name: "{group}\Lock the key into this computer"; Filename: "{app}\saathi.exe"; Parameters: "--protect-key"; IconFilename: "{app}\saathi.ico"
 Name: "{group}\Restore the key from a recovery key"; Filename: "{app}\saathi.exe"; Parameters: "--restore-key"; IconFilename: "{app}\saathi.ico"

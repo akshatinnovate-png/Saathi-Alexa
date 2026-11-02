@@ -2,9 +2,9 @@
 #![cfg_attr(not(windows), allow(dead_code))]
 
 mod actions;
+mod agent;
 mod config;
-mod operator;
-mod protocol;
+mod mover;
 mod retry;
 mod saathi;
 #[cfg(windows)]
@@ -17,7 +17,7 @@ fn main() {
 
 #[cfg(not(windows))]
 fn main() {
-    let _ = (protocol::instructions("you", ""), retry::Rotation::new(1, 1, 1), config::Config::default(), actions::vk("enter"), saathi::TOOLS, operator::declarations());
+    let _ = (agent::tools(), mover::parse_point("@1,1"), retry::Rotation::new(1, 1, 1), config::Config::default(), actions::vk("enter"), saathi::TOOLS);
     eprintln!("Sahay drives a Windows PC. Build it for Windows: cargo build --release -p sahay --target x86_64-pc-windows-msvc");
     std::process::exit(64);
 }

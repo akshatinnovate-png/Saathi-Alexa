@@ -125,35 +125,6 @@ pub struct Element {
     pub enabled: bool,
 }
 
-pub fn describe_elements(window: &str, elements: &[Element], screen: Rect) -> String {
-    let mut out = format!("Window: {}\n", window.chars().take(120).collect::<String>());
-    for e in elements {
-        let (x, y) = to_normalized(screen, e.rect.center().0, e.rect.center().1);
-        let name: String = e.name.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(90).collect();
-        let value: String = e.value.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(60).collect();
-        out.push_str(&format!("#{} {}", e.id, e.kind));
-        if !name.is_empty() {
-            out.push_str(&format!(" \"{name}\""));
-        }
-        if !value.is_empty() {
-            out.push_str(&format!(" = \"{value}\""));
-        }
-        if !e.enabled {
-            out.push_str(" (disabled)");
-        }
-        out.push_str(&format!(" @{x},{y}\n"));
-    }
-    out
-}
-
-pub fn wav_rms(samples: &[i16]) -> f64 {
-    if samples.is_empty() {
-        return 0.0;
-    }
-    let sum: f64 = samples.iter().map(|&s| f64::from(s) * f64::from(s)).sum();
-    (sum / samples.len() as f64).sqrt()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -182,23 +153,5 @@ mod tests {
         assert_eq!(parse_combo("+").unwrap(), vec![0xBB]);
         assert!(parse_combo("ctrl+banana").is_err());
         assert!(parse_combo("").is_err());
-    }
-
-    #[test]
-    fn elements_are_described_with_numbers_and_positions() {
-        let els = vec![
-            Element { id: 1, kind: "Button".into(), name: "Add to   Bag".into(), value: String::new(), rect: Rect { left: 900, top: 500, right: 1020, bottom: 580 }, enabled: true },
-            Element { id: 2, kind: "Edit".into(), name: "Search".into(), value: "blue t shirt".into(), rect: Rect { left: 0, top: 0, right: 200, bottom: 40 }, enabled: false },
-        ];
-        let text = describe_elements("AJIO - Google Chrome", &els, SCREEN);
-        assert!(text.starts_with("Window: AJIO - Google Chrome\n"));
-        assert!(text.contains("#1 Button \"Add to Bag\" @500,500"));
-        assert!(text.contains("#2 Edit \"Search\" = \"blue t shirt\" (disabled) @52,19"));
-    }
-
-    #[test]
-    fn loudness_is_measured() {
-        assert_eq!(wav_rms(&[]), 0.0);
-        assert!((wav_rms(&[1000, -1000]) - 1000.0).abs() < 1e-9);
     }
 }

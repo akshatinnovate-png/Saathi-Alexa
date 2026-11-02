@@ -1,4 +1,22 @@
-**Sahay** (सहाय, "help") is a live voice partner that sees and drives your Windows PC. A byproduct of [Saathi](https://github.com/akshatinnovate-png/Saathi-Alexa).
+**Sahay** (सहाय, "help") drives your Windows PC for you. You type what you want; it moves its own cursor, clicks and types until the job is done. A byproduct of [Saathi](https://github.com/akshatinnovate-png/Saathi-Alexa).
+
+### New in 2.0.0: rebuilt from scratch
+- **Its own cursor.** A coloured Sahay pointer glides to each target, then the real mouse moves and clicks there, with a ripple on every click, so you see exactly what it does.
+- **A local screen reader, no cloud vision.** The *Mover* reads the screen on your PC: Windows UI Automation lists every button, link and box in the window, and Windows' built-in text recognition (OCR) reads all the text on screen. Each thing gets a number (E for controls, T for text) and its position. It runs offline, has no rate limit and answers in about a second.
+- **One brain: Groq `gpt-oss-120b`.** Groq only writes replies and gives the Mover its instructions ("click E4", "type …", "scroll down"). The Mover does all the seeing, moving and clicking, then reports back what changed.
+- **Every reply on screen.** The chat panel shows every reply from Groq, every step the Mover takes (→) and what happened. Type more while it works and it takes your change into account at once.
+- **New sphere.** Smoother glow and swirl, colour by state (thinking, acting, waiting, stopped), pause bars when stopped.
+- **Doesn't quit on limits.** If Groq's free limit is hit it waits exactly as long as Groq says and carries on; add several keys to switch between them.
+
+### Get started
+1. Download **Sahay-2.0.0.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
+2. Groq's free key page opens (console.groq.com/keys). Sign in, click **Create API Key**, copy it and paste it into Sahay. Older Gemini keys are no longer used.
+3. The chat opens. Type what you want done, for example "play Bella Ciao on YouTube".
+
+### The sphere
+- **Click** it to open the chat, or to stop while it is working. **Drag** it anywhere. **×** (on hover) to close.
+- **Right-click** for: open the chat, stop, Groq keys, get a free Groq key, your name, extra instructions, restart as administrator (to control admin windows), the log.
+- Log of every step: `%LOCALAPPDATA%\Saathi\logs\sahay.log`.
 
 ### New in 1.2.1
 - Sahay remembers your Gemini key, so it opens straight to the sphere. It now says so under the sphere when it starts, and if Google ever refuses the saved key, the key window opens by itself. Change keys any time: right-click the sphere, then Gemini keys.
@@ -14,7 +32,7 @@
 - **Talk over it.** Changes and answers you give mid-task go straight to the operator ("blue one", "size M", "don't place the order").
 - **Detailed log** of every step in `%LOCALAPPDATA%\Saathi\logs\sahay.log`, so any problem can be traced.
 
-### Get started
+### Older: Get started (1.x)
 1. Download **Sahay-1.2.1.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
 2. Google's free key page opens. Sign in, click **Create API key**, copy it and paste it into Sahay.
 3. Allow the microphone if Windows asks. Talk.

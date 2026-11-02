@@ -66,10 +66,6 @@ impl Reader {
         Ok(Self { automation })
     }
 
-    pub fn snapshot(&self, screen: Rect, limit: usize) -> Result<(String, Vec<Element>), String> {
-        self.snapshot_within(screen, limit, std::time::Duration::from_millis(1200))
-    }
-
     pub fn snapshot_within(&self, screen: Rect, limit: usize, budget: std::time::Duration) -> Result<(String, Vec<Element>), String> {
         unsafe {
             let hwnd = GetForegroundWindow();
