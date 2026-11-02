@@ -166,7 +166,7 @@ pub fn fill(step: &str, slots: &[(String, String)]) -> String {
 }
 
 pub fn template_plan(examples: &[Example], request: &str) -> Option<(Vec<String>, String)> {
-    for e in examples.iter().rev() {
+    for e in examples.iter().rev().filter(|e| e.task.contains('{')) {
         if let Some(slots) = match_template(&e.task, request) {
             let steps: Vec<String> = e.steps.iter().map(|s| fill(s, &slots)).collect();
             if steps.iter().all(|s| crate::plan::parse(s).is_ok()) {
@@ -213,6 +213,20 @@ mod tests {
 
     const STARTER: &str = include_str!("../training/sahay-starter.jsonl");
     const MASSIVE: &str = include_str!("../training/sahay-massive.jsonl");
+
+    #[test]
+    fn the_50k_dataset_loads_completely() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("training/sahay-50k.jsonl");
+        let text = std::fs::read_to_string(path).expect("the 50k dataset is in the repo");
+        let d = parse_dataset(&text);
+        assert_eq!(d.skipped, 0, "every line of the 50k dataset loads");
+        assert!(d.examples.len() + d.lessons.len() >= 50_000, "{} examples", d.examples.len());
+        let start = std::time::Instant::now();
+        let hints = similar(&d.examples, "add a purple umbrella to my myntra cart", 3);
+        assert!(!hints.is_empty());
+        assert!(template_plan(&d.examples, "send Happy Holi to Gopal on WhatsApp").is_some());
+        assert!(start.elapsed() < std::time::Duration::from_secs(5), "{:?}", start.elapsed());
+    }
 
     #[test]
     fn the_massive_dataset_loads_completely_and_routes_sensibly() {

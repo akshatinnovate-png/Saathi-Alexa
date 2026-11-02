@@ -1,6 +1,6 @@
 [package]
 name = "sahay"
-version = "2.8.1"
+version = "2.8.2"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true

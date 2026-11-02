@@ -674,3 +674,224 @@ if __name__ == "__main__":
     tasks = sum(1 for i in out if "task" in i)
     templates = sum(1 for i in out if "task" in i and "{" in i["task"])
     print(f"{len(out)} lines: {tasks} tasks ({templates} templates), {len(out) - tasks} lessons")
+
+
+def mega():
+    def fill(item, values):
+        task = item["task"]
+        steps = item["steps"]
+        say = item["say"]
+        for k, v in values.items():
+            enc = "+".join(v.split())
+            task = task.replace("{" + k + "}", v)
+            steps = [s.replace("{" + k + ":url}", enc).replace("{" + k + "}", v) for s in steps]
+            say = say.replace("{" + k + "}", v)
+        return task, steps, say
+
+    templates = {i["task"]: i for i in out if "task" in i and "{" in i["task"]}
+
+    def use(template, values):
+        t = templates.get(template)
+        if t:
+            task, steps, say = fill(t, values)
+            ex(task, steps, say)
+
+    colors = ["black", "white", "blue", "red", "green", "grey", "pink", "brown", "navy", "beige", "yellow", "maroon", "purple", "orange", "olive", "silver"]
+    things = ["umbrella", "water bottle", "backpack", "t-shirt", "kurta", "saree", "jeans", "sneakers", "sandals", "wallet", "watch", "phone cover", "lunch box", "bedsheet", "pillow cover",
+              "towel", "jacket", "sweater", "cap", "socks", "school bag", "laptop sleeve", "yoga mat", "hoodie", "shirt", "salwar suit", "dupatta", "slippers", "raincoat", "handbag"]
+    products = [f"{c} {t}" for c in colors for t in things]
+    products += ["wireless mouse", "keyboard", "usb c cable", "phone charger", "power bank", "bluetooth speaker", "earbuds", "headphones", "smartwatch", "fitness band", "laptop stand", "webcam",
+                 "pen drive", "hard disk", "memory card", "router", "extension board", "led bulb", "table lamp", "ceiling fan", "room heater", "air cooler", "electric kettle", "mixer grinder", "pressure cooker",
+                 "non stick pan", "dinner set", "steel tiffin", "water purifier", "iron", "hair dryer", "trimmer", "toothbrush", "face wash", "shampoo", "sunscreen", "moisturiser", "notebook", "pen set", "geometry box",
+                 "calculator", "school shoes", "football", "cricket bat", "badminton racket", "cycle", "helmet", "car charger", "phone holder", "tv remote", "batteries", "torch", "mosquito racket", "first aid kit",
+                 "blood pressure monitor", "thermometer", "pulse oximeter", "walking stick", "reading glasses", "hearing aid batteries", "diabetic socks", "pill organiser", "knee support", "hot water bag",
+                 "almonds", "green tea", "honey", "atta", "basmati rice", "toor dal", "ghee", "olive oil", "coffee", "biscuits", "dry fruits", "jaggery", "masala box", "detergent", "dishwash liquid"]
+    stores = ["amazon", "flipkart", "myntra", "ajio", "nykaa", "croma", "jiomart", "bigbasket", "1mg", "meesho"]
+    add_phr = ["add {item} to my {s} cart", "put {item} in my {s} cart", "buy {item} on {s}", "order {item} from {s}"]
+    find_phr = ["find {q} on {s}", "search {q} on {s}"]
+    for p in products:
+        for s in stores:
+            for ph in add_phr:
+                use(ph.replace("{s}", s), {"item": p})
+            for ph in find_phr:
+                use(ph.replace("{s}", s), {"q": p})
+    gadgets = ["phone", "laptop", "tablet", "smart tv", "earbuds", "smartwatch", "refrigerator", "washing machine", "air conditioner", "microwave", "camera", "printer", "monitor", "speaker", "air purifier"]
+    ranges = [(5000, 10000), (10000, 15000), (15000, 20000), (20000, 30000), (30000, 40000), (40000, 50000), (50000, 70000), (70000, 100000)]
+    for g in gadgets:
+        for lo, hi in ranges:
+            use("find {item} between {min} and {max} on amazon", {"item": g, "min": str(lo), "max": str(hi)})
+            use("find {item} between {min} and {max} on flipkart", {"item": g, "min": str(lo), "max": str(hi)})
+            use("best {item} under {price}", {"item": g, "price": str(hi)})
+            use("find {item} on amazon under {price}", {"item": g, "price": str(hi)})
+        for sort in ["best rated", "cheapest", "newest"]:
+            use(f"find the {sort} {{item}} on amazon", {"item": g})
+        use("reviews of {item}", {"item": g})
+    names = ["Ravi", "Asha", "Sunita", "Rahul", "Priya", "Amit", "Neha", "Vikram", "Pooja", "Arjun", "Kavya", "Rohan", "Sneha", "Anil", "Meena", "Suresh", "Geeta", "Raju", "Lakshmi", "Deepak",
+             "Anjali", "Manoj", "Rekha", "Sanjay", "Nisha", "Vijay", "Shalini", "Ajay", "Divya", "Karan", "Mom", "Dad", "Papa", "Mummy", "Didi", "Bhaiya", "Nani", "Dadi", "Chachu", "Mama",
+             "Beta", "Akshat", "Riya", "Aarav", "Ishaan", "Tanvi", "Harish", "Usha", "Kamla", "Gopal", "Savitri", "Ramesh", "Shanti", "Mohan", "Radha", "Krishna", "Sita", "Hari", "Parvati", "Ganesh"]
+    msgs = ["Good morning", "Good night", "Happy birthday", "Happy anniversary", "Happy Diwali", "Happy Holi", "Eid Mubarak", "Merry Christmas", "Happy New Year", "I reached home safely",
+            "I will call you later", "Call me when you are free", "I am on the way", "Running late, sorry", "Have you eaten", "Take care", "Get well soon", "Congratulations", "Thank you so much",
+            "Miss you", "Love you", "See you tomorrow", "Where are you", "What time is the function", "Please send the photos", "Did you take your medicine", "The doctor appointment is at 5",
+            "I am at the hospital", "I am fine, don't worry", "Bring milk on the way", "The electricity is gone", "Please call the plumber", "Pay the electricity bill", "I sent the money",
+            "Check your email", "Meeting at 4 pm", "Happy Raksha Bandhan", "Jai Shri Krishna", "Ram Ram", "Sat Sri Akal",
+            "Happy Navratri", "Happy Pongal", "Happy Onam", "Happy Teachers Day", "Happy Mothers Day", "Happy Fathers Day", "Best of luck for your exam", "Well done", "Proud of you",
+            "Please come home early", "Dinner is ready", "I am waiting outside", "Send me the address", "Share your location", "The parcel has arrived", "Please recharge my phone",
+            "Can you help me", "I need to talk to you", "Are you coming today", "Let's meet this weekend"]
+    for n in names:
+        for m in msgs:
+            use("send {message} to {name} on whatsapp", {"message": m, "name": n})
+    for n in names:
+        for t in ["open whatsapp chat with {name}", "tell my family {message}"][:1]:
+            use(t, {"name": n})
+    mails = ["meena@example.com", "rahul.s@example.com", "accounts@example.com", "school@example.com", "clinic@example.com", "landlord@example.com", "travel@example.com", "insurance@example.com",
+             "editor@example.com", "team@example.com", "asha@example.com", "ravi.kumar@example.com", "office@example.com", "hr@example.com", "principal@example.com", "doctor@example.com", "bank.support@example.com", "teacher@example.com",
+             "sales@example.com", "support@example.com"]
+    bodies = ["I reached safely", "Please find the documents attached", "I will be on leave tomorrow", "Thank you for your help", "Can we meet on Monday", "Please call me back",
+              "The payment is done", "I need an appointment", "Happy birthday", "Here is my report"]
+    for a in mails:
+        for b in bodies:
+            use("send an email to {email} saying {body}", {"email": a, "body": b})
+            use("draft an email to {email} about {subject}", {"email": a, "subject": b})
+    cities = ["Mumbai", "Delhi", "Bengaluru", "Hyderabad", "Chennai", "Kolkata", "Pune", "Ahmedabad", "Jaipur", "Lucknow", "Kanpur", "Nagpur", "Indore", "Bhopal", "Patna", "Vadodara", "Surat",
+              "Ludhiana", "Agra", "Nashik", "Varanasi", "Amritsar", "Chandigarh", "Coimbatore", "Kochi", "Thiruvananthapuram", "Mysuru", "Mangaluru", "Visakhapatnam", "Vijayawada", "Madurai", "Guwahati",
+              "Bhubaneswar", "Ranchi", "Raipur", "Dehradun", "Shimla", "Manali", "Rishikesh", "Haridwar", "Udaipur", "Jodhpur", "Goa", "Puducherry", "Ooty", "Darjeeling", "Gangtok", "Srinagar", "Leh",
+              "Aurangabad", "Kolhapur", "Nanded", "Jabalpur", "Gwalior", "Allahabad", "Meerut", "Noida", "Gurugram", "Faridabad", "Thane", "Navi Mumbai", "Rajkot", "Jamnagar", "Ajmer", "Bikaner",
+              "Tirupati", "Shirdi", "Mathura", "Vrindavan", "Ayodhya", "Dubai", "London", "New York", "Singapore", "Toronto", "Sydney", "Bangkok", "Kathmandu", "Paris", "Tokyo"]
+    for c in cities:
+        for t in ["directions to {place}", "show {place} on the map", "where is {place}", "how far is {place}", "route to {place}", "navigate to {place}"]:
+            use(t, {"place": c})
+        for t in ["hotels in {w}", "things to do in {w}", "time in {w}", "movies in {w}", "news about {w}"]:
+            use(t, {"w": c})
+    for i, a in enumerate(cities[:75]):
+        for b in cities[i + 1:i + 14]:
+            use("directions from {a} to {b}", {"a": a, "b": b})
+            use("trains from {a} to {b}", {"a": a, "b": b})
+            use("flights from {a} to {b}", {"a": a, "b": b})
+            use("buses from {a} to {b}", {"a": a, "b": b})
+    words = ["serendipity", "nostalgia", "resilience", "gratitude", "empathy", "integrity", "ambiguous", "meticulous", "ephemeral", "eloquent", "pragmatic", "benevolent", "candid", "diligent", "frugal",
+             "humble", "lucid", "notorious", "obsolete", "pristine", "quaint", "robust", "sincere", "tenacious", "vivid", "whimsical", "zealous", "abundant", "brave", "calm", "curious", "eager", "gentle",
+             "honest", "joyful", "kind", "loyal", "patient", "proud", "wise", "hello", "thank you", "good morning", "how are you", "where is the hospital", "I am hungry", "water", "medicine", "doctor", "family",
+             "friend", "happiness", "peace", "love", "school", "teacher", "book", "rain", "sun", "moon", "river", "mountain", "tree", "flower", "bird", "elephant", "tiger", "cow", "milk", "bread", "rice",
+             "vegetables", "fruits", "market", "train", "bus", "car", "road", "house", "kitchen", "window", "door", "chair", "table", "bed", "clock", "phone", "computer", "money", "bank", "temple", "prayer",
+             "festival", "wedding", "birthday", "music", "dance", "song", "story", "dream"]
+    langs = ["{w} in hindi", "{w} in english", "translate {w} to marathi", "translate {w} to tamil", "translate {w} to bengali", "translate {w} to gujarati"]
+    for w in words:
+        for t in ["meaning of {w}", "synonym of {w}"] + langs:
+            use(t, {"w": w})
+    topics = ["photosynthesis", "gravity", "the solar system", "black holes", "the human heart", "the digestive system", "climate change", "the water cycle", "volcanoes", "earthquakes", "electricity",
+              "magnetism", "atoms", "cells", "dna", "evolution", "the french revolution", "world war 2", "the mughal empire", "the indian constitution", "mahatma gandhi", "bhagat singh", "rabindranath tagore",
+              "apj abdul kalam", "sardar patel", "subhas chandra bose", "rani lakshmibai", "chhatrapati shivaji", "akbar", "ashoka", "the taj mahal", "the red fort", "qutub minar", "the himalayas", "the ganges",
+              "the indian ocean", "the amazon rainforest", "the sahara desert", "mount everest", "the moon landing", "isro", "chandrayaan 3", "mangalyaan", "nasa", "artificial intelligence", "machine learning",
+              "the internet", "blockchain", "cryptocurrency", "upi", "the stock market", "inflation", "gst", "income tax", "mutual funds", "fixed deposits", "diabetes", "blood pressure", "arthritis",
+              "yoga", "ayurveda", "meditation", "vitamin d", "protein", "cholesterol", "thyroid", "migraine", "dengue", "malaria", "covid 19", "vaccines", "the olympics", "cricket", "the ipl", "sachin tendulkar",
+              "virat kohli", "ms dhoni", "pv sindhu", "neeraj chopra", "chess", "viswanathan anand", "bollywood", "satyajit ray", "lata mangeshkar", "kishore kumar", "ar rahman", "classical dance", "bharatanatyam",
+              "kathak", "diwali", "holi", "eid", "christmas", "pongal", "onam", "durga puja", "ganesh chaturthi", "navratri", "raksha bandhan", "the ramayana", "the mahabharata", "the bhagavad gita", "buddhism",
+              "jainism", "sikhism", "the vedas", "sanskrit", "pythagoras theorem", "algebra", "trigonometry", "calculus", "probability", "statistics", "fractions", "percentages", "simple interest",
+              "compound interest", "the periodic table", "acids and bases", "chemical reactions", "newton's laws", "motion", "light", "sound", "heat", "nutrition", "the respiratory system", "the nervous system",
+              "the skeletal system", "plants", "animals", "ecosystems", "pollution", "renewable energy", "solar power", "wind energy", "democracy", "elections in india", "the parliament", "the supreme court",
+              "human rights", "the united nations", "the g20", "globalisation", "the industrial revolution", "the renaissance", "ancient egypt", "the roman empire", "the indus valley civilisation"]
+    for t in topics:
+        use("wikipedia page on {w}", {"w": t})
+        use("{w} pdf", {"w": t})
+        use("{topic} diagram", {"topic": t})
+        use("{topic} formulas", {"topic": t})
+        use("{w} wikipedia", {"w": t})
+        use("explain {q} with a video", {"q": t})
+        use("notes on {topic}", {"topic": t})
+        use("images of {w}", {"w": t})
+        use("quiz on {topic}", {"topic": t})
+    dishes = ["masala chai", "dal makhani", "paneer butter masala", "butter chicken", "biryani", "rajma", "chole", "aloo paratha", "dosa", "idli", "sambar", "upma", "poha", "khichdi", "pulao",
+              "palak paneer", "malai kofta", "gulab jamun", "rasgulla", "kheer", "halwa", "ladoo", "jalebi", "pav bhaji", "vada pav", "pani puri", "dhokla", "thepla", "misal pav", "pongal", "rasam",
+              "appam", "fish curry", "egg curry", "mutton curry", "veg fried rice", "hakka noodles", "manchurian", "pasta", "pizza", "sandwich", "cake", "cookies", "smoothie", "lemonade", "lassi",
+              "cold coffee", "tomato soup", "sprouts salad", "oats porridge", "ragi dosa", "besan chilla", "moong dal", "sabudana khichdi", "kadhi", "baingan bharta", "bhindi masala", "gobi manchurian",
+              "dal tadka", "jeera rice"]
+    for d in dishes:
+        for t in ["recipe for {q}", "how to make {q}", "how to cook {q}", "{q} recipe"]:
+            use(t, {"q": d})
+    howtos = ["tie a tie", "fold a shirt", "make a paper boat", "do surya namaskar", "meditate", "use upi", "use whatsapp", "make a video call", "take a screenshot", "use google maps",
+              "change my phone wallpaper", "reset my password", "use zoom", "make a pdf", "scan a document", "send a photo on whatsapp", "use google pay", "book a train ticket", "pay electricity bill online",
+              "file income tax", "link aadhaar with pan", "update aadhaar address", "apply for a passport", "renew driving licence", "check credit score", "make a resume", "write a cover letter",
+              "learn typing", "learn english speaking", "learn excel", "learn coding", "grow tomatoes at home", "care for a money plant", "clean a laptop screen", "speed up my laptop", "save phone battery",
+              "remove a virus", "back up my phone", "use chatgpt", "make tea", "lose weight", "sleep better", "reduce stress", "improve memory", "do breathing exercises", "lower blood pressure naturally",
+              "control sugar levels", "start running", "do pushups", "stretch after walking"]
+    for h in howtos:
+        use("how to {q}", {"q": h})
+        use("show me how to {q}", {"q": h})
+    songs = ["bella ciao", "kesariya", "tum hi ho", "channa mereya", "lag ja gale", "kal ho naa ho", "chaiyya chaiyya", "jai ho", "vande mataram", "hanuman chalisa", "gayatri mantra", "om namah shivaya",
+             "achyutam keshavam", "raghupati raghav", "ae watan", "dil diyan gallan", "apna bana le", "pasoori", "srivalli", "naatu naatu", "kun faya kun", "tujh mein rab dikhta hai", "pehla nasha",
+             "yeh dosti", "mere sapno ki rani", "kabhi kabhi mere dil mein", "tujhe dekha toh", "chura liya hai tumne", "ek pyar ka nagma hai", "ajeeb dastan hai yeh", "piya tose naina lage", "teri mitti",
+             "maa tujhe salaam", "chak de india", "zinda", "kar har maidan fateh", "lakshya", "badtameez dil", "gallan goodiyaan", "london thumakda", "nagada sang dhol", "ghoomar", "kala chashma",
+             "lungi dance", "dilbar", "sheila ki jawani", "munni badnaam", "tum se hi", "agar tum saath ho", "raabta", "jeene laga hoon", "phir le aaya dil", "tera ban jaunga", "bekhayali", "kaise hua",
+             "tum mile", "o saathi", "hawayein", "khairiyat", "shayad", "jhoome jo pathaan", "besharam rang", "chaleya", "heeriye", "satranga", "arjan vailly", "o maahi", "pehle bhi main", "tere vaaste",
+             "shape of you", "believer", "despacito", "perfect", "blinding lights", "senorita", "faded", "see you again", "let her go", "counting stars", "calm down", "levitating", "heat waves", "unstoppable",
+             "thunder", "hymn for the weekend", "yellow", "fix you", "viva la vida", "something just like this", "closer", "attention", "photograph", "thinking out loud", "all of me", "someone like you",
+             "hello adele", "rolling in the deep", "bad guy", "lovely", "dynamite", "butter", "gangnam style", "waka waka", "macarena", "dance monkey", "stay", "peaches", "as it was", "flowers",
+             "anti hero", "shake it off", "love story", "blank space", "cruel summer", "espresso"]
+    for sg in songs:
+        for t in ["play {q} on youtube", "play the song {q}", "play {q} on spotify", "youtube play {q}", "put on {q} on youtube", "play {q} video"]:
+            use(t, {"q": sg})
+    shows = ["sacred games", "mirzapur", "panchayat", "the family man", "kota factory", "scam 1992", "made in heaven", "delhi crime", "aspirants", "gullak", "money heist", "stranger things", "squid game",
+             "the crown", "wednesday", "dark", "breaking bad", "friends", "the office", "game of thrones", "3 idiots", "dangal", "pk", "lagaan", "sholay", "dilwale dulhania le jayenge", "kabhi khushi kabhie gham",
+             "zindagi na milegi dobara", "rrr", "baahubali", "kgf", "pushpa", "jawan", "pathaan", "animal", "12th fail", "laapataa ladies", "stree 2", "kalki 2898 ad", "jailer"]
+    for sh in shows:
+        use("watch {q} on netflix", {"q": sh})
+        use("watch {q} on prime video", {"q": sh})
+        use("watch {q} on hotstar", {"q": sh})
+        use("search {q} on imdb", {"q": sh})
+        use("search {q} on youtube", {"q": sh + " trailer"})
+    stocks = ["reliance", "tcs", "infosys", "hdfc bank", "icici bank", "sbi", "itc", "hul", "bharti airtel", "wipro", "hcl tech", "tata motors", "tata steel", "adani enterprises", "asian paints",
+              "maruti suzuki", "bajaj finance", "kotak bank", "axis bank", "larsen and toubro", "sun pharma", "titan", "nestle india", "ongc", "ntpc", "power grid", "coal india", "zomato", "paytm", "nykaa",
+              "apple", "microsoft", "google", "amazon", "tesla", "nvidia", "meta", "netflix"]
+    for st in stocks:
+        use("{w} share price", {"w": st})
+        use("news about {w}", {"w": st + " stock"})
+    jobs = ["teacher", "nurse", "driver", "accountant", "data entry", "software developer", "graphic designer", "sales executive", "receptionist", "electrician", "plumber", "chef", "delivery partner",
+            "customer support", "content writer", "digital marketing", "hr executive", "bank clerk", "pharmacist", "lab technician", "security guard", "tutor", "photographer", "beautician", "tailor"]
+    for jb in jobs:
+        use("jobs for {w}", {"w": jb})
+        use("find {w} jobs", {"w": jb})
+    specialities = ["cardiologist", "dermatologist", "orthopaedic", "dentist", "eye", "ent", "gynaecologist", "paediatrician", "neurologist", "psychiatrist", "physiotherapist", "diabetologist",
+                    "general physician", "homeopathy", "ayurveda"]
+    for sp in specialities:
+        use("find a {w} doctor", {"w": sp})
+        for c in cities[:12]:
+            use("search {q} on practo", {"q": f"{sp} in {c}"})
+    files = ["resume", "aadhaar", "pan card", "passport", "marksheet", "certificate", "salary slip", "bank statement", "invoice", "bill", "ticket", "report", "notes", "assignment", "project",
+             "presentation", "photo", "receipt", "policy", "prescription", "lab report", "tax return", "rent agreement", "insurance", "warranty"]
+    for f in files:
+        for t in ["find the file {name}", "open the file {name}", "copy the file {name} to the desktop"]:
+            use(t, {"name": f})
+    medicines = ["paracetamol", "dolo 650", "crocin", "metformin", "amlodipine", "telmisartan", "atorvastatin", "pantoprazole", "cetirizine", "azithromycin", "amoxicillin", "ibuprofen", "aspirin",
+                 "thyronorm", "glycomet", "ecosprin", "shelcal", "becosules", "limcee", "digene", "ors", "vicks", "volini", "moov", "combiflam"]
+    for md in medicines:
+        use("side effects of {w}", {"w": md})
+        use("search {q} on 1mg", {"q": md})
+        use("add {item} to my 1mg cart", {"item": md})
+    for b in ["selina concise biology class 9", "selina concise physics class 10", "selina concise chemistry class 10", "ml aggarwal class 10 maths", "rs aggarwal class 8", "rd sharma class 10",
+              "ncert class 10 science", "ncert class 9 maths", "ncert class 12 physics", "ncert class 11 chemistry", "icse class 10 english", "cbse class 12 accountancy", "total english class 9",
+              "treasure trove class 10", "frank class 8 science", "s chand physics class 9", "lakhmir singh class 8", "arihant class 10 sample papers", "oswaal class 12 question bank", "together with class 9 science"]:
+        use("open {book} solutions on knowledgeboat", {"book": b})
+        use("ncert solutions for {book}", {"book": b})
+        use("{w} pdf", {"w": b})
+    for e in ["cbse class 10", "cbse class 12", "icse class 10", "isc class 12", "jee main", "jee advanced", "neet", "cuet", "upsc prelims", "ssc cgl", "bank po", "ctet", "gate", "cat", "clat", "nda"]:
+        for t in ["previous year papers for {exam}", "{exam} syllabus", "{exam} result"]:
+            use(t, {"exam": e})
+    skills = ["python", "excel", "english speaking", "spoken hindi", "guitar", "drawing", "photography", "video editing", "public speaking", "accounting", "tally", "digital marketing", "web design",
+              "java", "c programming", "data science", "machine learning", "cooking", "yoga", "typing"]
+    for sk in skills:
+        use("learn {skill} for free", {"skill": sk})
+        use("search {q} on coursera", {"q": sk})
+        use("search {q} on udemy", {"q": sk})
+    for g in ["google", "bing", "duckduckgo", "reddit", "quora", "pinterest", "github", "stack overflow", "wikipedia", "google news", "google scholar", "archive"]:
+        for t in topics:
+            use("search {q} on " + g, {"q": t})
+
+
+if __name__ == "__main__" and len(sys.argv) > 2 and sys.argv[2] == "--mega":
+    mega()
+    with open(sys.argv[1], "w", encoding="utf-8") as f:
+        for item in out:
+            f.write(json.dumps(item, ensure_ascii=False) + "\n")
+    tasks = sum(1 for i in out if "task" in i)
+    templates = sum(1 for i in out if "task" in i and "{" in i["task"])
+    print(f"{len(out)} lines: {tasks} tasks ({templates} templates), {len(out) - tasks} lessons")

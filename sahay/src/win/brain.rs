@@ -678,8 +678,19 @@ fn import(shared: &Shared, store: &mut Vec<knowledge::Example>, path: &str) -> R
         return Err("That file has no tasks or lessons I can use. Each line should be like {\"task\": \"...\", \"steps\": [\"...\"]} or {\"lesson\": \"...\"}.".into());
     }
     let before = store.len();
+    let mut known: std::collections::HashSet<String> = store.iter().map(|e| format!("{}\u{1}{}", e.task.to_lowercase(), e.steps.join("\u{2}"))).collect();
+    let mut lines = String::new();
     for e in d.examples {
-        save_example(store, e);
+        if known.insert(format!("{}\u{1}{}", e.task.to_lowercase(), e.steps.join("\u{2}"))) {
+            lines.push_str(&knowledge::to_line(&e));
+            lines.push('\n');
+            store.push(e);
+        }
+    }
+    if !lines.is_empty() {
+        use std::io::Write;
+        let mut f = std::fs::OpenOptions::new().create(true).append(true).open(knowledge_path()).map_err(|e| e.to_string())?;
+        f.write_all(lines.as_bytes()).map_err(|e| e.to_string())?;
     }
     let added = store.len() - before;
     let lessons = d.lessons.len();

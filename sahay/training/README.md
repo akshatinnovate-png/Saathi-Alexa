@@ -2,7 +2,7 @@
 
 Sahay learns from a dataset file the moment you give it one. Drop the file onto Sahay's chat, choose **Teach from a dataset…** from the sphere's menu, or type `learn from C:\path\to\file.jsonl`.
 
-Start with [`sahay-starter.jsonl`](sahay-starter.jsonl) (104 tasks, 30 lessons), or the mega set [`sahay-massive.jsonl`](sahay-massive.jsonl) (2,452 tasks including 779 instant templates, and 100 lessons). Both can be loaded; nothing is duplicated. `generate_dataset.py` rebuilds the mega set.
+Start with [`sahay-starter.jsonl`](sahay-starter.jsonl) (104 tasks, 30 lessons), or the mega set [`sahay-massive.jsonl`](sahay-massive.jsonl) (2,452 tasks including 779 instant templates, and 100 lessons). Both can be loaded; nothing is duplicated. The biggest is [`sahay-50k.jsonl`](sahay-50k.jsonl): 51,026 tasks (779 instant templates plus filled-in examples across shopping, music, messages, travel, study, health, jobs and more) and 100 lessons. `generate_dataset.py` rebuilds them (`python generate_dataset.py sahay-50k.jsonl --mega`).
 
 ## The format
 
