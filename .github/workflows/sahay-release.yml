@@ -38,3 +38,62 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
         run: gh release create "sahay-v$env:PLAIN" "Sahay-$env:PLAIN.exe" SHA256SUMS-sahay --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Saathi byproduct - Sahay v$env:PLAIN" --notes-file sahay/RELEASE_NOTES.md
+  android:
+    needs: sahay
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c
+        with:
+          gradle-version: '9.6.0'
+      - name: Signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          plain="${VERSION#v}"
+          echo "PLAIN=$plain" >> "$GITHUB_ENV"
+          IFS=. read -r a b c <<< "$plain"
+          echo "CODE=$((a * 10000 + b * 100 + c))" >> "$GITHUB_ENV"
+          store="$RUNNER_TEMP/sahay.jks"
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$store"
+            { echo "SAATHI_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"; echo "SAATHI_KEY_ALIAS=$KEY_ALIAS"; echo "SAATHI_KEY_PASSWORD=$KEY_PASSWORD"; echo "SIGNING=family"; } >> "$GITHUB_ENV"
+          else
+            pass="$(openssl rand -hex 24)"
+            echo "::add-mask::$pass"
+            keytool -genkeypair -keystore "$store" -storetype PKCS12 -storepass "$pass" -keypass "$pass" -alias sahay -keyalg EC -groupname secp256r1 -validity 10000 -dname "CN=Sahay one-off build" > /dev/null
+            { echo "SAATHI_KEYSTORE_PASSWORD=$pass"; echo "SAATHI_KEY_ALIAS=sahay"; echo "SAATHI_KEY_PASSWORD=$pass"; echo "SIGNING=one-off"; } >> "$GITHUB_ENV"
+          fi
+          echo "SAATHI_KEYSTORE=$store" >> "$GITHUB_ENV"
+      - run: gradle --no-daemon -p sahay-android assembleRelease -PsahayVersionName="$PLAIN" -PsahayVersionCode="$CODE"
+      - name: Name, check and fingerprint the APK
+        run: |
+          apksigner="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner"
+          out="Sahay-Android-$PLAIN.apk"
+          cp sahay-android/app/build/outputs/apk/release/app-release.apk "$out"
+          "$apksigner" verify --print-certs "$out" | tee sahay-android-signature.txt
+          echo "Signed with: $SIGNING key" >> sahay-android-signature.txt
+          sha256sum "$out" > SHA256SUMS-sahay-android
+          rm -f "$RUNNER_TEMP/sahay.jks"
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
+        with:
+          subject-path: Sahay-Android-${{ env.PLAIN }}.apk
+      - name: Attach to the Sahay release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "sahay-v$PLAIN" "Sahay-Android-$PLAIN.apk" SHA256SUMS-sahay-android sahay-android-signature.txt --repo "$GITHUB_REPOSITORY" --clobber

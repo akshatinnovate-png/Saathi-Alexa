@@ -1,5 +1,9 @@
 **Sahay** (सहाय, "help") is a live voice partner that sees and drives your Windows PC. A byproduct of [Saathi](https://github.com/akshatinnovate-png/Saathi-Alexa).
 
+### New in 1.2.0
+- **Sahay for Android.** Download **Sahay-Android-1.2.0.apk** below. It is Senku by Steve Aldrin, used with the author's permission, with every charge removed: no plans, no checkout, no usage limits, no account. It runs on Google Gemini with your own free key, stored in the Android Keystore. It floats over your apps, talks with you, and operates the phone through Accessibility.
+- **Newer voice model on Windows:** Gemini 3.8 Live is tried first, and the operator follows Google's latest Flash model automatically, so model renames no longer break it. Saved settings from older versions upgrade by themselves.
+
 ### New in 1.1.0: it actually gets the job done
 - **Two brains.** The voice (Gemini Live) only talks: it answers you at once and hands the job over. A separate operator (Gemini 2.5 Flash) does the work step by step, and is required to take an action every step, so it no longer stops after opening a site.
 - **Sharper clicks.** Every step it gets a full, sharp screenshot and a numbered list of every button, link and box, then clicks the right one by number.
@@ -8,7 +12,7 @@
 - **Detailed log** of every step in `%LOCALAPPDATA%\Saathi\logs\sahay.log`, so any problem can be traced.
 
 ### Get started
-1. Download **Sahay-1.1.0.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
+1. Download **Sahay-1.2.0.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
 2. Google's free key page opens. Sign in, click **Create API key**, copy it and paste it into Sahay.
 3. Allow the microphone if Windows asks. Talk.
 
@@ -27,4 +31,4 @@
 - Free: it uses Google's free Gemini tier with your own key. Keys are encrypted with your Windows account and never leave your PC except to Google.
 - It has full control of the PC, by design. Stop it any time with one click.
 - Data and log: `%LOCALAPPDATA%\Saathi\sahay.json` and `logs\sahay.log`.
-- Verify the download: `gh attestation verify Sahay-1.1.0.exe --repo akshatinnovate-png/Saathi-Alexa`
+- Verify the download: `gh attestation verify Sahay-1.2.0.exe --repo akshatinnovate-png/Saathi-Alexa`
