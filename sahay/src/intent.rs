@@ -37,6 +37,7 @@ pub enum Intent {
     CloseTabs(String),
     Teach(String),
     CloseAll,
+    Import(String),
 }
 
 pub fn parse_clock(text: &str) -> Option<(u8, u8, usize)> {
@@ -471,6 +472,14 @@ pub fn route(text: &str) -> Option<Intent> {
             }
         }
     }
+    for p in ["learn from ", "teach from ", "import ", "load dataset ", "load ", "learn this dataset ", "train on ", "train from "] {
+        if let Some(rest) = raw.to_lowercase().strip_prefix(p).map(|_| raw[p.len()..].trim().trim_matches(['"', '\'']).to_string()) {
+            let l = rest.to_lowercase();
+            if l.ends_with(".jsonl") || l.ends_with(".json") || l.ends_with(".txt") || l.ends_with(".csv") || rest.contains(":\\") {
+                return Some(Intent::Import(rest));
+            }
+        }
+    }
     for p in ["teach: ", "teach ", "lesson: ", "learn that ", "learn this: ", "next time ", "from now on ", "always ", "never "] {
         if let Some(rest) = t.strip_prefix(p) {
             if rest.split_whitespace().count() >= 3 {
@@ -842,6 +851,7 @@ mod tests {
         assert_eq!(route("Next time use the Amazon search box"), Some(Intent::Teach("Next time use the Amazon search box".into())));
         assert_eq!(route("Close evrything"), Some(Intent::CloseAll));
         assert_eq!(route("close everything"), Some(Intent::CloseAll));
+        assert_eq!(route("learn from \"C:\\Users\\me\\Downloads\\sahay-starter.jsonl\""), Some(Intent::Import("C:\\Users\\me\\Downloads\\sahay-starter.jsonl".into())));
         assert_eq!(route("Pause it"), Some(Intent::Media("pause")));
         assert_eq!(route("play it"), Some(Intent::Media("play")));
         assert_eq!(route("full volume"), Some(Intent::Volume(100)));

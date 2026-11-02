@@ -38,11 +38,13 @@ pub struct Config {
     pub routines: Vec<Routine>,
     pub skills: Vec<(String, Vec<String>)>,
     pub lessons: Vec<String>,
+    pub brain: String,
+    pub local_model: String,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { keys: Vec::new(), model: crate::agent::MODEL.into(), name: "you".into(), color: [99, 102, 241], position: None, extra: String::new(), speak: true, memory: Vec::new(), routines: Vec::new(), skills: Vec::new(), lessons: Vec::new() }
+        Self { keys: Vec::new(), model: crate::agent::MODEL.into(), name: "you".into(), color: [99, 102, 241], position: None, extra: String::new(), speak: true, memory: Vec::new(), routines: Vec::new(), skills: Vec::new(), lessons: Vec::new(), brain: "hybrid".into(), local_model: "qwen3:4b".into() }
     }
 }
 
@@ -127,6 +129,12 @@ impl Config {
                 .take(40)
                 .collect();
         }
+        if let Some(b) = v.get("brain").and_then(Value::as_str).filter(|b| ["hybrid", "groq", "local"].contains(b)) {
+            c.brain = b.to_string();
+        }
+        if let Some(m) = v.get("localModel").and_then(Value::as_str).filter(|m| !m.trim().is_empty()) {
+            c.local_model = m.trim().chars().take(80).collect();
+        }
         if let Some(a) = v.get("lessons").and_then(Value::as_array) {
             c.lessons = a.iter().filter_map(Value::as_str).map(|m| m.chars().take(300).collect()).take(120).collect();
         }
@@ -159,6 +167,8 @@ impl Config {
             "speak": self.speak,
             "memory": self.memory,
             "lessons": self.lessons,
+            "brain": self.brain,
+            "localModel": self.local_model,
             "skills": self.skills.iter().map(|(t, s)| json!({ "task": t, "steps": s })).collect::<Vec<_>>(),
             "routines": self.routines.iter().map(|r| json!({ "hour": r.hour, "minute": r.minute, "task": r.task, "daily": r.daily, "last": r.last })).collect::<Vec<_>>(),
         }))

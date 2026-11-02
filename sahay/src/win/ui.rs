@@ -89,3 +89,25 @@ pub fn ask(title: &str, prompt: &str, initial: &str, secret: bool) -> Option<Str
         STATE.with(|s| s.borrow_mut().0.take()).map(|t| t.trim().to_string()).filter(|t| !t.is_empty())
     }
 }
+
+pub fn pick_file(title: &str) -> Option<String> {
+    use windows::Win32::UI::Controls::Dialogs::{GetOpenFileNameW, OFN_FILEMUSTEXIST, OFN_NOCHANGEDIR, OFN_PATHMUSTEXIST, OPENFILENAMEW};
+    let filter: Vec<u16> = "Sahay datasets (*.jsonl;*.json;*.txt)\0*.jsonl;*.json;*.txt\0All files\0*.*\0\0".encode_utf16().collect();
+    let title_w: Vec<u16> = title.encode_utf16().chain(std::iter::once(0)).collect();
+    let mut buf = vec![0u16; 1024];
+    let mut ofn = OPENFILENAMEW {
+        lStructSize: std::mem::size_of::<OPENFILENAMEW>() as u32,
+        lpstrFilter: PCWSTR(filter.as_ptr()),
+        lpstrFile: windows::core::PWSTR(buf.as_mut_ptr()),
+        nMaxFile: buf.len() as u32,
+        lpstrTitle: PCWSTR(title_w.as_ptr()),
+        Flags: OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR,
+        ..Default::default()
+    };
+    if unsafe { GetOpenFileNameW(&mut ofn) }.as_bool() {
+        let len = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
+        Some(String::from_utf16_lossy(&buf[..len]))
+    } else {
+        None
+    }
+}

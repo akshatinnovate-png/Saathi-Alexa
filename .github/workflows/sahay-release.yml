@@ -37,7 +37,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
-        run: gh release create "sahay-v$env:PLAIN" "Sahay-$env:PLAIN.exe" SHA256SUMS-sahay --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Saathi byproduct - Sahay v$env:PLAIN" --notes-file sahay/RELEASE_NOTES.md
+        run: gh release create "sahay-v$env:PLAIN" "Sahay-$env:PLAIN.exe" SHA256SUMS-sahay sahay/training/sahay-starter.jsonl --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Saathi byproduct - Sahay v$env:PLAIN" --notes-file sahay/RELEASE_NOTES.md
   android:
     needs: sahay
     runs-on: ubuntu-latest

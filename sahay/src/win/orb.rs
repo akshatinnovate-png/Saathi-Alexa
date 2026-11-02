@@ -248,6 +248,14 @@ fn menu(hwnd: HWND) {
         let _ = AppendMenuW(m, MF_STRING, 6, w!("Extra instructions…"));
         let _ = AppendMenuW(m, if s.config().speak { MF_STRING | MF_CHECKED } else { MF_STRING }, 10, w!("Speak replies aloud"));
         let _ = AppendMenuW(m, if system::starts_with_windows() { MF_STRING | MF_CHECKED } else { MF_STRING }, 11, w!("Start with Windows"));
+        let _ = AppendMenuW(m, MF_SEPARATOR, 0, None);
+        let _ = AppendMenuW(m, MF_STRING, 12, w!("Teach from a dataset…"));
+        let _ = AppendMenuW(m, MF_STRING, 13, w!("Open my knowledge file"));
+        let brain = s.config().brain;
+        let _ = AppendMenuW(m, if brain == "hybrid" { MF_STRING | MF_CHECKED } else { MF_STRING }, 14, w!("Brain: Groq, local when busy"));
+        let _ = AppendMenuW(m, if brain == "groq" { MF_STRING | MF_CHECKED } else { MF_STRING }, 15, w!("Brain: Groq only"));
+        let _ = AppendMenuW(m, if brain == "local" { MF_STRING | MF_CHECKED } else { MF_STRING }, 16, w!("Brain: this PC only (offline)"));
+        let _ = AppendMenuW(m, MF_STRING, 17, w!("Set up the local brain…"));
         let _ = AppendMenuW(m, MF_STRING, 7, w!("Restart as administrator"));
         let _ = AppendMenuW(m, MF_STRING, 8, w!("Open the log"));
         let _ = AppendMenuW(m, MF_SEPARATOR, 0, None);
@@ -284,6 +292,34 @@ fn menu(hwnd: HWND) {
             }
             9 => quit(),
             10 => s.update_config(|c| c.speak = !c.speak),
+            12 => {
+                if let Some(path) = ui::pick_file("Choose a Sahay dataset") {
+                    s.say("You", &format!("learn from {path}"));
+                    let _ = s.asks.send(format!("learn from {path}"));
+                }
+            }
+            13 => {
+                let path = system::home().join("knowledge.jsonl");
+                if !path.exists() {
+                    let _ = std::fs::write(&path, "");
+                }
+                let _ = system::shell_open(&path.to_string_lossy(), "open");
+            }
+            14 => s.update_config(|c| c.brain = "hybrid".into()),
+            15 => s.update_config(|c| c.brain = "groq".into()),
+            16 => s.update_config(|c| c.brain = "local".into()),
+            17 => {
+                let st = s.clone();
+                std::thread::spawn(move || {
+                    let _ = windows::Win32::System::Com::CoInitializeEx(None, windows::Win32::System::Com::COINIT_MULTITHREADED);
+                    let model = st.config().local_model;
+                    let say = |t: &str| st.say("Sahay", t);
+                    match super::local::setup(&say, &model) {
+                        Ok(done) => st.reply(&done),
+                        Err(e) => st.say("Sahay", &format!("Setting up the local brain failed: {e}")),
+                    }
+                });
+            }
             11 => {
                 let on = !system::starts_with_windows();
                 if system::set_start_with_windows(on) {

@@ -1,8 +1,9 @@
 use super::cursor::Cursor;
 use super::engine::Engine;
-use super::{https, media, research, sound, system, Shared, Status};
+use super::{https, local, media, research, sound, system, Shared, Status};
 use crate::agent::{self, Reply};
 use crate::intent::{self, Intent};
+use crate::knowledge;
 use crate::plan;
 use crate::retry::{classify, estimate_tokens, retry_after_from, Failure, Fleet, Pick};
 use serde_json::{json, Value};
@@ -27,11 +28,21 @@ struct Groq {
     fleet: Fleet,
     keys: Vec<String>,
     primary: String,
+    local: Option<String>,
+    local_checked: Option<Instant>,
 }
 
 impl Groq {
     fn new() -> Self {
-        Self { fleet: Fleet::new(1, Vec::new()), keys: Vec::new(), primary: String::new() }
+        Self { fleet: Fleet::new(1, Vec::new()), keys: Vec::new(), primary: String::new(), local: None, local_checked: None }
+    }
+
+    fn local(&mut self, preferred: &str) -> Option<String> {
+        if self.local_checked.is_none_or(|t| t.elapsed() > Duration::from_secs(30)) {
+            self.local = local::available(preferred);
+            self.local_checked = Some(Instant::now());
+        }
+        self.local.clone()
     }
 
     fn refresh(&mut self, keys: &[String], primary: &str) {
@@ -66,14 +77,42 @@ fn pause(shared: &Shared, d: Duration, msg: &str, told: &mut bool) -> bool {
     true
 }
 
+fn ask_local(shared: &Shared, model: &str, messages: &[Value]) -> Outcome {
+    shared.set_status(Status::Thinking, "Thinking on this PC…");
+    let started = Instant::now();
+    let body = agent::local_request(messages, model).to_string();
+    match local::chat(&body) {
+        Ok((200, text)) => {
+            system::log(&format!("local {model} answered in {} ms", started.elapsed().as_millis()));
+            match agent::parse(&text) {
+                Ok(r) => Outcome::Reply(r),
+                Err(e) => Outcome::Note(format!("(Your last answer could not be read: {e}. Answer again with do_steps.)")),
+            }
+        }
+        Ok((status, text)) => Outcome::Fail(format!("The local brain answered {status}: {}", text.chars().take(160).collect::<String>())),
+        Err(e) => Outcome::Fail(format!("The local brain failed: {e}")),
+    }
+}
+
 fn ask_groq(shared: &Shared, groq: &mut Groq, messages: &mut Vec<Value>, told: &mut bool) -> Outcome {
     let mut network_tries = 0u32;
+    let first_cfg = shared.config();
+    if first_cfg.brain == "local" {
+        return match groq.local(&first_cfg.local_model) {
+            Some(m) => ask_local(shared, &m, messages),
+            None => Outcome::Fail("The local brain isn't set up yet: right-click the sphere, then Set up the local brain.".into()),
+        };
+    }
     loop {
         if shared.stop.load(Ordering::Relaxed) || shared.quit.load(Ordering::Relaxed) {
             return Outcome::Fail("Stopped.".into());
         }
         let cfg = shared.config();
+        let backup = if cfg.brain == "hybrid" { groq.local(&cfg.local_model) } else { None };
         if cfg.keys.is_empty() {
+            if let Some(m) = backup {
+                return ask_local(shared, &m, messages);
+            }
             shared.ask_for_key();
             return Outcome::Fail("Add a Groq key first: right-click the sphere, then Groq keys.".into());
         }
@@ -81,6 +120,13 @@ fn ask_groq(shared: &Shared, groq: &mut Groq, messages: &mut Vec<Value>, told: &
         let tokens = estimate_tokens(agent::request(messages, agent::MODEL).to_string().len(), ANSWER_BUDGET);
         let (k, m) = match groq.fleet.pick(Instant::now(), tokens) {
             Pick::Go(k, m) => (k, m),
+            Pick::Wait(d) if backup.is_some() && d > Duration::from_secs(2) => {
+                system::log("groq is busy; using the local brain");
+                if !std::mem::replace(told, true) {
+                    shared.say("Sahay", "Groq is busy, so I'm thinking on this PC instead.");
+                }
+                return ask_local(shared, backup.as_deref().unwrap_or(local::DEFAULT_MODEL), messages);
+            }
             Pick::Wait(d) => {
                 system::log(&format!("every model is busy; waiting {} ms", d.as_millis()));
                 let msg = if d > Duration::from_secs(120) { format!("Groq's free allowance is used up for now; it refills in {}. A key from another Groq account would keep me going.", human(d)) } else { format!("All of Groq's free models are busy this minute; continuing in {}s…", d.as_secs().max(1)) };
@@ -88,6 +134,9 @@ fn ask_groq(shared: &Shared, groq: &mut Groq, messages: &mut Vec<Value>, told: &
                     return Outcome::Fail("Stopped.".into());
                 }
                 continue;
+            }
+            Pick::Exhausted if backup.is_some() => {
+                return ask_local(shared, backup.as_deref().unwrap_or(local::DEFAULT_MODEL), messages);
             }
             Pick::Exhausted => {
                 shared.ask_for_key();
@@ -169,6 +218,12 @@ fn ask_groq(shared: &Shared, groq: &mut Groq, messages: &mut Vec<Value>, told: &
             groq.fleet.rest(k, m, Instant::now(), Duration::from_secs(10));
             if network_tries < 6 {
                 continue;
+            }
+        }
+        if network_tries >= 2 {
+            if let Some(m) = backup.as_deref() {
+                system::log("groq unreachable; using the local brain");
+                return ask_local(shared, m, messages);
             }
         }
         if network_tries >= 8 {
@@ -368,6 +423,7 @@ fn instant(shared: &Arc<Shared>, engine: &mut Engine, rx: &Receiver<String>, int
             }
             Ok(format!("Volume is at {n}%."))
         }
+        Intent::Import(_) => Err("handled by the brain".into()),
         Intent::Teach(lesson) => {
             shared.update_config(|c| crate::config::add_lesson(&mut c.lessons, lesson));
             Ok("Got it. I'll do it that way from now on.".into())
@@ -588,6 +644,46 @@ fn instant(shared: &Arc<Shared>, engine: &mut Engine, rx: &Receiver<String>, int
     }
 }
 
+fn knowledge_path() -> std::path::PathBuf {
+    system::home().join("knowledge.jsonl")
+}
+
+fn load_knowledge() -> Vec<knowledge::Example> {
+    std::fs::read_to_string(knowledge_path()).map(|t| knowledge::parse_dataset(&t).examples).unwrap_or_default()
+}
+
+fn save_example(store: &mut Vec<knowledge::Example>, e: knowledge::Example) {
+    if store.iter().any(|x| x.task.eq_ignore_ascii_case(&e.task) && x.steps == e.steps) {
+        return;
+    }
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(knowledge_path()) {
+        use std::io::Write;
+        let _ = writeln!(f, "{}", knowledge::to_line(&e));
+    }
+    store.push(e);
+}
+
+fn import(shared: &Shared, store: &mut Vec<knowledge::Example>, path: &str) -> Result<String, String> {
+    let text = std::fs::read_to_string(path.trim()).map_err(|e| format!("I couldn't read {path}: {e}"))?;
+    let d = knowledge::parse_dataset(&text);
+    if d.examples.is_empty() && d.lessons.is_empty() {
+        return Err("That file has no tasks or lessons I can use. Each line should be like {\"task\": \"...\", \"steps\": [\"...\"]} or {\"lesson\": \"...\"}.".into());
+    }
+    let before = store.len();
+    for e in d.examples {
+        save_example(store, e);
+    }
+    let added = store.len() - before;
+    let lessons = d.lessons.len();
+    shared.update_config(|c| {
+        for l in &d.lessons {
+            crate::config::add_lesson(&mut c.lessons, l);
+        }
+    });
+    let templates = store.iter().filter(|e| e.task.contains('{')).count();
+    Ok(format!("Learned {added} new task{} and {lessons} lesson{}{}. I now know {} tasks ({templates} I can do instantly without thinking).", if added == 1 { "" } else { "s" }, if lessons == 1 { "" } else { "s" }, if d.skipped > 0 { format!(" ({} lines skipped)", d.skipped) } else { String::new() }, store.len()))
+}
+
 fn step_list(args: &Value) -> Vec<String> {
     match args.get("steps") {
         Some(Value::Array(a)) => a.iter().filter_map(|v| v.as_str().map(String::from).or_else(|| (!v.is_null()).then(|| v.to_string()))).flat_map(|s| s.lines().map(String::from).collect::<Vec<_>>()).filter(|s| !s.trim().is_empty()).collect(),
@@ -668,6 +764,8 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
     let mut engine = Engine::new(Cursor::new(shared.cursor.load(Ordering::Relaxed), cfg.color), own);
     let mut messages: Vec<Value> = vec![json!({ "role": "system", "content": agent::system_prompt(&cfg.name, &cfg.extra) })];
     let mut groq = Groq::new();
+    let mut store = load_knowledge();
+    system::log(&format!("knowledge: {} tasks", store.len()));
     while let Ok(first) = rx.recv() {
         if shared.quit.load(Ordering::Relaxed) {
             return;
@@ -678,6 +776,16 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
         messages[0] = json!({ "role": "system", "content": agent::with_memory(agent::system_prompt(&cfg.name, &cfg.extra), &cfg.memory) });
         engine.keys = cfg.keys.clone();
         agent::new_task(&mut messages);
+        if let Some(Intent::Import(path)) = intent::route(&first) {
+            shared.set_status(Status::Acting, "Learning from your file…");
+            match import(&shared, &mut store, &path) {
+                Ok(said) => shared.reply(&said),
+                Err(e) => shared.say("Sahay", &e),
+            }
+            shared.busy.store(false, Ordering::Relaxed);
+            shared.set_status(Status::Idle, "");
+            continue;
+        }
         let chain = intent::route_all(&first);
         let routed = chain.as_ref().and_then(|c| (c.len() == 1).then(|| c[0].clone()));
         let mut prepared: Option<String> = None;
@@ -791,6 +899,38 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
                 }
             }
         }
+        if prepared.is_none() && chain.is_none() {
+            if let Some((steps, said)) = knowledge::template_plan(&store, &first) {
+                shared.say("Sahay", "I know how to do this…");
+                match carry_out(&shared, &mut engine, &rx, &steps) {
+                    Ran::Done(reports) => {
+                        let extra = reports.iter().map(|r| r.lines().skip(1).take(6).collect::<Vec<_>>().join(" ")).collect::<Vec<_>>().join(" ");
+                        let reply = match (said.is_empty(), extra.trim().is_empty()) {
+                            (true, true) => "Done.".to_string(),
+                            (true, false) => extra.trim().chars().take(600).collect(),
+                            (false, true) => said,
+                            (false, false) => format!("{said} {}", extra.trim().chars().take(600).collect::<String>()),
+                        };
+                        shared.reply(&reply);
+                        messages.push(json!({ "role": "user", "content": first }));
+                        messages.push(json!({ "role": "assistant", "content": reply }));
+                        engine.cursor.hide();
+                        shared.busy.store(false, Ordering::Relaxed);
+                        shared.set_status(Status::Idle, "");
+                        continue;
+                    }
+                    Ran::Stopped => {
+                        engine.cursor.hide();
+                        shared.busy.store(false, Ordering::Relaxed);
+                        shared.set_status(Status::Stopped, "");
+                        continue;
+                    }
+                    Ran::Failed { reason, .. } => system::log(&format!("known way failed ({reason}); thinking it through")),
+                    Ran::Interrupted { .. } => {}
+                }
+            }
+        }
+        let hints = knowledge::as_hints(&knowledge::similar(&store, &first, 3));
         if let Some(content) = prepared {
             messages.push(json!({ "role": "user", "content": content }));
         } else if intent::is_question(&first) {
@@ -799,7 +939,7 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
             shared.set_status(Status::Acting, "Reading the screen…");
             let seen = engine.look_brief();
             let notes = crate::guides::notes(&first, &cfg.lessons);
-            messages.push(json!({ "role": "user", "content": format!("{first}{notes}\n{seen}") }));
+            messages.push(json!({ "role": "user", "content": format!("{first}{notes}{hints}\n{seen}") }));
         }
         shared.set_status(Status::Thinking, "Thinking…");
         let mut told = false;
@@ -809,6 +949,7 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
         let mut checks = 0;
         let mut executed: Vec<String> = Vec::new();
         let mut reported = false;
+        let mut solved = false;
         let learn = |shared: &Shared, executed: &[String], replans: usize, reported: bool| {
             if replans == 0 && !reported && !executed.is_empty() && !plan::uses_numbers(executed) && !task.is_empty() {
                 system::log(&format!("learned how to \"{task}\" ({} steps)", executed.len()));
@@ -850,6 +991,7 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
             let Some(call) = reply.calls.first() else {
                 if checks > 0 {
                     learn(&shared, &executed, replans, reported);
+                solved = true;
                 }
                 shared.reply(&reply.text);
                 break;
@@ -885,6 +1027,7 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
                     messages.push(agent::tool_result(call, "All steps done and confirmed."));
                     let final_words = if say.is_empty() { "Done.".to_string() } else { say };
                     learn(&shared, &executed, replans, reported);
+                solved = true;
                     shared.reply(&final_words);
                     messages.push(json!({ "role": "assistant", "content": final_words }));
                     break;
@@ -927,6 +1070,9 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
                     break;
                 }
             }
+        }
+        if solved && replans == 0 && !reported && !executed.is_empty() && !plan::uses_numbers(&executed) {
+            save_example(&mut store, knowledge::Example { task: first.trim().to_string(), steps: executed.clone(), say: String::new() });
         }
         engine.cursor.hide();
         shared.busy.store(false, Ordering::Relaxed);

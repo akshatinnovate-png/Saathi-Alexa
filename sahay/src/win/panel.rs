@@ -9,7 +9,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::SetFocus;
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, GetClientRect, GetSystemMetrics, GetWindowTextLengthW, GetWindowTextW, IsWindowVisible, LoadCursorW, MoveWindow, RegisterClassW, SendMessageW, SetForegroundWindow,
     SetWindowTextW, ShowWindow, BS_DEFPUSHBUTTON, BS_PUSHBUTTON, ES_AUTOHSCROLL, ES_AUTOVSCROLL, ES_MULTILINE, ES_READONLY, HMENU, IDC_ARROW, SM_CXSCREEN, SM_CYSCREEN, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE,
-    WINDOW_STYLE, SetLayeredWindowAttributes, LWA_ALPHA, WS_EX_LAYERED, WM_APP, WM_CLOSE, WM_COMMAND, WM_CTLCOLOREDIT, WM_CTLCOLORSTATIC, WM_SETFONT, WM_SIZE, WNDCLASSW, WS_CAPTION, WS_CHILD, WS_EX_TOPMOST, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_OVERLAPPED,
+    WINDOW_STYLE, SetLayeredWindowAttributes, LWA_ALPHA, WS_EX_LAYERED, WM_APP, WM_CLOSE, WM_COMMAND, WM_CTLCOLOREDIT, WM_DROPFILES, WM_CTLCOLORSTATIC, WM_SETFONT, WM_SIZE, WNDCLASSW, WS_CAPTION, WS_CHILD, WS_EX_TOPMOST, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_OVERLAPPED,
     WS_SYSMENU, WS_TABSTOP, WS_THICKFRAME, WS_VISIBLE, WS_VSCROLL,
 };
 
@@ -120,6 +120,21 @@ unsafe extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPA
                 SetBkColor(dc, COLORREF(0x0029_1F1B));
                 LRESULT(*BG.get().unwrap_or(&0))
             }
+            WM_DROPFILES => {
+                let drop = windows::Win32::UI::Shell::HDROP(wparam.0 as *mut _);
+                let count = windows::Win32::UI::Shell::DragQueryFileW(drop, 0xFFFF_FFFF, None);
+                for i in 0..count.min(5) {
+                    let mut buf = vec![0u16; 1024];
+                    let n = windows::Win32::UI::Shell::DragQueryFileW(drop, i, Some(&mut buf)) as usize;
+                    let path = String::from_utf16_lossy(&buf[..n]);
+                    if let Some(s) = SHARED.get() {
+                        s.say("You", &format!("learn from {path}"));
+                        let _ = s.asks.send(format!("learn from {path}"));
+                    }
+                }
+                windows::Win32::UI::Shell::DragFinish(drop);
+                LRESULT(0)
+            }
             WM_SIZE => {
                 layout(hwnd);
                 LRESULT(0)
@@ -177,9 +192,10 @@ pub fn create(shared: Arc<Shared>) -> HWND {
         let stop = child(w!("BUTTON"), "Stop", BS_PUSHBUTTON as u32 | WS_TABSTOP.0, WINDOW_EX_STYLE(0), hwnd, ID_STOP as isize, font);
         let mic = child(w!("BUTTON"), "🎤", BS_PUSHBUTTON as u32 | WS_TABSTOP.0, WINDOW_EX_STYLE(0), hwnd, ID_TALK as isize, font);
         let _ = TALK.set(mic.0 as isize);
+        windows::Win32::UI::Shell::DragAcceptFiles(hwnd, true);
         let _ = CONTROLS.set((log.0 as isize, input.0 as isize, send.0 as isize, stop.0 as isize));
         layout(hwnd);
-        append("Sahay: Hi! Tell me what to do on this computer, and I'll do it. Every reply and every step shows here. Press 🎤 to talk instead of typing, and Stop (or the sphere) to stop me. Ctrl+Alt+S opens me from anywhere; Ctrl+Alt+M opens me listening.");
+        append("Sahay: Hi! Tell me what to do on this computer, and I'll do it. Every reply and every step shows here. Press 🎤 to talk instead of typing, and Stop (or the sphere) to stop me. Ctrl+Alt+S opens me from anywhere; Ctrl+Alt+M opens me listening. Drop a dataset file here to teach me.");
         hwnd
     }
 }

@@ -1,5 +1,15 @@
 **Sahay** (सहाय, "help") drives your Windows PC for you. You type what you want; it moves its own cursor, clicks and types until the job is done. A byproduct of [Saathi](https://github.com/akshatinnovate-png/Saathi-Alexa).
 
+### New in 2.8.0: teach it with a dataset, and a brain on your own PC
+- **Teach Sahay with a dataset.** Download **sahay-starter.jsonl** below (104 task templates and 30 lessons) and drop it onto Sahay's chat, or choose **Teach from a dataset…** from the sphere's menu, or type `learn from <path>`. Sahay learns from it at once:
+  - **Templates run instantly, with zero tokens.** "send {message} to {name} on WhatsApp", "add {item} to my Amazon cart", "directions to {place}", "set brightness to {level}" and a hundred more fill in from your words and run straight away.
+  - **Examples and lessons make the brain smarter.** For anything new, the most similar tasks Sahay knows are shown to the brain as worked solutions, together with the matching lessons.
+  - **It keeps learning by itself.** Every task it finishes cleanly is added to your knowledge file (sphere menu: Open my knowledge file), in the same format, ready to share or edit.
+- **A local brain, offline and unlimited.** Sphere menu: **Set up the local brain…** installs Ollama (free), turns on your graphics chip, and downloads Qwen3 4B (about 2.5 GB). Then:
+  - **Brain: Groq, local when busy** (default): Groq first, and the moment it is busy, rate-limited or unreachable Sahay thinks on your PC instead of pausing.
+  - **Brain: Groq only**, or **Brain: this PC only (offline)**.
+- **Train the local brain's weights (optional).** The same knowledge file fine-tunes the local model on a free Google Colab GPU with `sahay/training/finetune_colab.py`; name the result `sahay` in Ollama and Sahay uses it automatically. See `sahay/training/README.md`.
+
 ### New in 2.7.2: it learns how to do things
 - **A how-to handbook.** Groq now gets short, relevant know-how with each task (only what applies, so tokens stay low): how Amazon and Flipkart search, filter and add to cart (products open in a new tab; confirm "Added to Cart"), how to choose a phone or laptop, YouTube, WhatsApp, Gmail, Google, Wikipedia, Windows settings, files, forms and closing apps safely.
 - **Learns from its mistakes.** When a plan fails and Groq finds the fix, it writes a one-line lesson that Sahay keeps and brings back for similar tasks.
@@ -105,7 +115,7 @@
 - **Doesn't quit on limits.** If Groq's free limit is hit it waits exactly as long as Groq says and carries on; add several keys to switch between them.
 
 ### Get started
-1. Download **Sahay-2.7.2.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
+1. Download **Sahay-2.8.0.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
 2. Groq's free key page opens (console.groq.com/keys). Sign in, click **Create API Key**, copy it and paste it into Sahay. Older Gemini keys are no longer used.
 3. The chat opens. Type what you want done, for example "play Bella Ciao on YouTube".
 

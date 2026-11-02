@@ -3,6 +3,7 @@ pub mod cursor;
 pub mod engine;
 pub mod https;
 pub mod input;
+pub mod local;
 pub mod media;
 pub mod ocr;
 pub mod orb;

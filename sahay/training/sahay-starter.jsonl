@@ -1,0 +1,134 @@
+{"task": "search {query} on youtube", "steps": ["open https://www.youtube.com/results?search_query={query:url}", "expect \"Filters\""], "say": "Here are YouTube results for {query}."}
+{"task": "play {song} on youtube", "steps": ["open https://www.youtube.com/results?search_query={song:url}", "click \"{song}\"", "sound on", "skip ads"], "say": "Playing {song}."}
+{"task": "play the first video", "steps": ["click \"views\"", "sound on", "skip ads"], "say": "Playing the first video."}
+{"task": "open my youtube history", "steps": ["open https://www.youtube.com/feed/history", "expect \"Watch history\""], "say": "Here's your watch history."}
+{"task": "open my youtube subscriptions", "steps": ["open https://www.youtube.com/feed/subscriptions", "expect \"Subscriptions\""], "say": "Here are your subscriptions."}
+{"task": "play {song} on spotify", "steps": ["open https://open.spotify.com/search/{song:url}", "wait for \"Songs\"", "double \"{song}\"", "sound on"], "say": "Playing {song} on Spotify."}
+{"task": "watch {show} on netflix", "steps": ["open https://www.netflix.com/search?q={show:url}", "wait 3", "click \"{show}\""], "say": "Opening {show} on Netflix."}
+{"task": "search {show} on hotstar", "steps": ["open https://www.hotstar.com/in/explore?search_query={show:url}"], "say": "Here's {show} on Hotstar."}
+{"task": "play some {genre} music", "steps": ["open https://www.youtube.com/results?search_query={genre:url}+music+playlist", "click \"{genre}\"", "sound on", "skip ads"], "say": "Playing {genre} music."}
+{"task": "play bhajans", "steps": ["open https://www.youtube.com/results?search_query=morning+bhajans", "click \"Bhajan\"", "sound on", "skip ads"], "say": "Playing bhajans."}
+{"task": "skip the ad", "steps": ["skip ads"], "say": "Done."}
+{"task": "turn on captions", "steps": ["key c"], "say": "Captions toggled."}
+{"task": "make the video faster", "steps": ["key shift+."], "say": "Faster."}
+{"task": "make the video slower", "steps": ["key shift+,"], "say": "Slower."}
+{"task": "go forward 10 seconds", "steps": ["key l"], "say": "Skipped ahead 10 seconds."}
+{"task": "go back 10 seconds", "steps": ["key j"], "say": "Went back 10 seconds."}
+{"task": "add {item} to my amazon cart", "steps": ["open https://www.amazon.in/s?k={item:url}", "click \"{item}\"", "wait for \"Add to Cart\"", "click \"Add to Cart\"", "expect \"Added to Cart\""], "say": "Added {item} to your Amazon cart."}
+{"task": "find {item} on amazon", "steps": ["open https://www.amazon.in/s?k={item:url}", "expect \"results\""], "say": "Here are Amazon results for {item}."}
+{"task": "find the best rated {item} on amazon", "steps": ["open https://www.amazon.in/s?k={item:url}&s=review-rank", "expect \"results\""], "say": "Here are the best rated {item} on Amazon."}
+{"task": "find the cheapest {item} on amazon", "steps": ["open https://www.amazon.in/s?k={item:url}&s=price-asc-rank", "expect \"results\""], "say": "Here are the cheapest {item} on Amazon."}
+{"task": "open my amazon cart", "steps": ["open https://www.amazon.in/gp/cart/view.html", "expect \"Shopping Cart\""], "say": "Here's your Amazon cart."}
+{"task": "show my amazon orders", "steps": ["open https://www.amazon.in/gp/your-account/order-history", "expect \"Your Orders\""], "say": "Here are your Amazon orders."}
+{"task": "track my amazon order", "steps": ["open https://www.amazon.in/gp/your-account/order-history", "wait for \"Track package\"", "click \"Track package\""], "say": "Here's the tracking."}
+{"task": "remove {item} from my amazon cart", "steps": ["open https://www.amazon.in/gp/cart/view.html", "wait for \"{item}\"", "click \"Delete\"", "expect \"was removed\""], "say": "Removed {item} from your cart."}
+{"task": "add {item} to my flipkart cart", "steps": ["open https://www.flipkart.com/search?q={item:url}", "key escape", "click \"{item}\"", "wait for \"ADD TO CART\"", "click \"ADD TO CART\"", "expect \"GO TO CART\""], "say": "Added {item} to your Flipkart cart."}
+{"task": "find {item} on flipkart", "steps": ["open https://www.flipkart.com/search?q={item:url}", "key escape"], "say": "Here are Flipkart results for {item}."}
+{"task": "open my flipkart cart", "steps": ["open https://www.flipkart.com/viewcart", "expect \"Cart\""], "say": "Here's your Flipkart cart."}
+{"task": "find {item} on myntra", "steps": ["open https://www.myntra.com/{item:url}"], "say": "Here's {item} on Myntra."}
+{"task": "find {item} on ajio", "steps": ["open https://www.ajio.com/search/?text={item:url}"], "say": "Here's {item} on AJIO."}
+{"task": "compare prices of {item}", "steps": ["research {item} price amazon flipkart"], "say": ""}
+{"task": "send {message} to {name} on whatsapp", "steps": ["open https://web.whatsapp.com", "wait for \"Search\"", "click \"Search\"", "type {name}", "wait 1.5", "click \"{name}\"", "wait for \"Type a message\"", "click \"Type a message\"", "type {message}", "key enter"], "say": "Sent \"{message}\" to {name}."}
+{"task": "message {name} on whatsapp saying {message}", "steps": ["open https://web.whatsapp.com", "wait for \"Search\"", "click \"Search\"", "type {name}", "wait 1.5", "click \"{name}\"", "wait for \"Type a message\"", "click \"Type a message\"", "type {message}", "key enter"], "say": "Sent \"{message}\" to {name}."}
+{"task": "open whatsapp chat with {name}", "steps": ["open https://web.whatsapp.com", "wait for \"Search\"", "click \"Search\"", "type {name}", "wait 1.5", "click \"{name}\""], "say": "Here's your chat with {name}."}
+{"task": "open my gmail inbox", "steps": ["open https://mail.google.com/mail/u/0/#inbox", "expect \"Compose\""], "say": "Here's your inbox."}
+{"task": "write an email to {email} about {subject}", "steps": ["open https://mail.google.com/mail/?view=cm&fs=1&to={email:url}&su={subject:url}", "wait for \"Send\""], "say": "Your email to {email} is ready; check it and press Send."}
+{"task": "send an email to {email} saying {body}", "steps": ["open https://mail.google.com/mail/?view=cm&fs=1&to={email:url}&body={body:url}", "wait for \"Send\"", "click \"Send\"", "expect \"Message sent\""], "say": "Sent the email to {email}."}
+{"task": "search my email for {query}", "steps": ["open https://mail.google.com/mail/u/0/#search/{query:url}", "expect \"Compose\""], "say": "Here are emails about {query}."}
+{"task": "open my unread emails", "steps": ["open https://mail.google.com/mail/u/0/#search/is%3Aunread", "expect \"Compose\""], "say": "Here are your unread emails."}
+{"task": "search {query} on google", "steps": ["open https://www.google.com/search?q={query:url}"], "say": "Here are Google results for {query}."}
+{"task": "show me news about {topic}", "steps": ["open https://news.google.com/search?q={topic:url}&hl=en-IN&gl=IN&ceid=IN:en"], "say": "Here's the news about {topic}."}
+{"task": "directions to {place}", "steps": ["open https://www.google.com/maps/dir/?api=1&destination={place:url}"], "say": "Here are directions to {place}."}
+{"task": "how far is {place}", "steps": ["open https://www.google.com/maps/dir/?api=1&destination={place:url}"], "say": "Here's the route to {place}."}
+{"task": "show {place} on the map", "steps": ["open https://www.google.com/maps/search/{place:url}"], "say": "Here's {place} on the map."}
+{"task": "find {thing} near me", "steps": ["open https://www.google.com/maps/search/{thing:url}+near+me"], "say": "Here are {thing} near you."}
+{"task": "check train {number} running status", "steps": ["open https://www.google.com/search?q=train+{number}+running+status"], "say": "Here's the running status of train {number}."}
+{"task": "check pnr status {pnr}", "steps": ["open https://www.google.com/search?q=pnr+status+{pnr}"], "say": "Here's PNR {pnr}."}
+{"task": "show the live cricket score", "steps": ["open https://www.google.com/search?q=live+cricket+score"], "say": "Here's the live score."}
+{"task": "gold rate today", "steps": ["open https://www.google.com/search?q=gold+rate+today+india"], "say": "Here's today's gold rate."}
+{"task": "what is the meaning of {word}", "steps": ["open https://www.google.com/search?q=meaning+of+{word:url}"], "say": "Here's the meaning of {word}."}
+{"task": "translate {text} to {language}", "steps": ["open https://translate.google.com/?sl=auto&tl=auto&text={text:url}&op=translate"], "say": "Here's the translation page."}
+{"task": "research {topic}", "steps": ["research {topic}"], "say": ""}
+{"task": "read {url}", "steps": ["fetch {url}"], "say": ""}
+{"task": "open {site} dot com", "steps": ["open https://www.{site}.com"], "say": "Opened {site}.com."}
+{"task": "copy this page link", "steps": ["key ctrl+l", "key ctrl+c", "key escape"], "say": "Copied the link."}
+{"task": "bookmark this page", "steps": ["key ctrl+d", "key enter"], "say": "Bookmarked."}
+{"task": "reopen the closed tab", "steps": ["key ctrl+shift+t"], "say": "Reopened the tab."}
+{"task": "open a private window", "steps": ["key ctrl+shift+n"], "say": "Opened a private window."}
+{"task": "go to the next tab", "steps": ["key ctrl+tab"], "say": "Next tab."}
+{"task": "go to the previous tab", "steps": ["key ctrl+shift+tab"], "say": "Previous tab."}
+{"task": "go to the top of the page", "steps": ["key home"], "say": "At the top."}
+{"task": "go to the bottom of the page", "steps": ["key end"], "say": "At the bottom."}
+{"task": "print this page", "steps": ["key ctrl+p"], "say": "The print window is open."}
+{"task": "find {word} on this page", "steps": ["key ctrl+f", "type {word}", "key enter"], "say": "Searching the page for {word}."}
+{"task": "save this page", "steps": ["key ctrl+s"], "say": "The save window is open."}
+{"task": "open my downloads in the browser", "steps": ["key ctrl+j"], "say": "Here are your browser downloads."}
+{"task": "open browser history", "steps": ["key ctrl+h"], "say": "Here's your history."}
+{"task": "clear browsing data", "steps": ["key ctrl+shift+delete"], "say": "The clear-data window is open; choose what to clear."}
+{"task": "close this tab", "steps": ["key ctrl+w"], "say": "Closed the tab."}
+{"task": "open {url} in a new tab", "steps": ["key ctrl+t", "type {url}", "key enter"], "say": "Opened {url}."}
+{"task": "take a note {text}", "steps": ["open notepad", "wait 2", "type {text}"], "say": "Noted."}
+{"task": "write {text} in notepad", "steps": ["open notepad", "wait 2", "type {text}"], "say": "Written in Notepad."}
+{"task": "open a new word document", "steps": ["open winword", "wait for \"Blank document\"", "click \"Blank document\""], "say": "A new Word document is open."}
+{"task": "open a new excel sheet", "steps": ["open excel", "wait for \"Blank workbook\"", "click \"Blank workbook\""], "say": "A new Excel sheet is open."}
+{"task": "select all", "steps": ["key ctrl+a"], "say": "Selected everything."}
+{"task": "copy that", "steps": ["key ctrl+c"], "say": "Copied."}
+{"task": "paste it", "steps": ["key ctrl+v"], "say": "Pasted."}
+{"task": "undo that", "steps": ["key ctrl+z"], "say": "Undone."}
+{"task": "save the file", "steps": ["key ctrl+s"], "say": "Saved."}
+{"task": "turn on wifi", "steps": ["open ms-settings:network-wifi", "wait for \"Wi-Fi\"", "click \"Wi-Fi\"", "expect \"On\""], "say": "Wi-Fi is on."}
+{"task": "turn off wifi", "steps": ["open ms-settings:network-wifi", "wait for \"Wi-Fi\"", "click \"Wi-Fi\"", "expect \"Off\""], "say": "Wi-Fi is off."}
+{"task": "turn on bluetooth", "steps": ["open ms-settings:bluetooth", "wait for \"Bluetooth\"", "click \"Bluetooth\"", "expect \"On\""], "say": "Bluetooth is on."}
+{"task": "turn off bluetooth", "steps": ["open ms-settings:bluetooth", "wait for \"Bluetooth\"", "click \"Bluetooth\"", "expect \"Off\""], "say": "Bluetooth is off."}
+{"task": "turn on night light", "steps": ["open ms-settings:nightlight", "wait for \"Night light\"", "click \"Turn on now\""], "say": "Night light is on."}
+{"task": "set brightness to {level}", "steps": ["run (Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods) | Invoke-CimMethod -MethodName WmiSetBrightness -Arguments @{Timeout=1;Brightness={level}}"], "say": "Brightness set to {level}%."}
+{"task": "check for windows updates", "steps": ["open ms-settings:windowsupdate", "wait for \"Check for updates\"", "click \"Check for updates\""], "say": "Checking for updates."}
+{"task": "open display settings", "steps": ["open ms-settings:display"], "say": "Display settings are open."}
+{"task": "open sound settings", "steps": ["open ms-settings:sound"], "say": "Sound settings are open."}
+{"task": "open printer settings", "steps": ["open ms-settings:printers"], "say": "Printer settings are open."}
+{"task": "open task manager", "steps": ["key ctrl+shift+escape"], "say": "Task Manager is open."}
+{"task": "open control panel", "steps": ["open control"], "say": "Control Panel is open."}
+{"task": "how much storage is left", "steps": ["run Get-PSDrive C | Select-Object @{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}},@{n='UsedGB';e={[math]::Round($_.Used/1GB,1)}}"], "say": ""}
+{"task": "how much ram is being used", "steps": ["run $o=Get-CimInstance Win32_OperatingSystem; '{0:N1} GB free of {1:N1} GB' -f ($o.FreePhysicalMemory/1MB),($o.TotalVisibleMemorySize/1MB)"], "say": ""}
+{"task": "what is my ip address", "steps": ["run (Invoke-RestMethod https://api.ipify.org)"], "say": ""}
+{"task": "check my internet speed", "steps": ["open https://fast.com", "wait 15", "read"], "say": ""}
+{"task": "update all my apps", "steps": ["run winget upgrade --all --accept-source-agreements --accept-package-agreements --disable-interactivity"], "say": "All apps are updated."}
+{"task": "uninstall {app}", "steps": ["run winget uninstall --name \"{app}\" --disable-interactivity"], "say": "Uninstalled {app}."}
+{"task": "create a folder called {name} on the desktop", "steps": ["run New-Item -ItemType Directory -Path \"$([Environment]::GetFolderPath('Desktop'))\\{name}\" | Out-Null; 'done'"], "say": "Created the folder {name} on your desktop."}
+{"task": "open the folder {name}", "steps": ["run $f = Get-ChildItem -Path $env:USERPROFILE -Directory -Recurse -Depth 3 -Filter '*{name}*' -ErrorAction SilentlyContinue | Select-Object -First 1; if ($f) { Start-Process $f.FullName; $f.FullName } else { 'not found' }"], "say": ""}
+{"task": "show my recent downloads", "steps": ["run Get-ChildItem \"$env:USERPROFILE\\Downloads\" | Sort-Object LastWriteTime -Descending | Select-Object -First 8 Name, LastWriteTime"], "say": ""}
+{"task": "open the latest download", "steps": ["run $f = Get-ChildItem \"$env:USERPROFILE\\Downloads\" -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1; Start-Process $f.FullName; $f.Name"], "say": "Opened your latest download."}
+{"task": "zip the folder {name}", "steps": ["run $f = Get-ChildItem -Path $env:USERPROFILE -Directory -Recurse -Depth 3 -Filter '{name}' -ErrorAction SilentlyContinue | Select-Object -First 1; Compress-Archive -Path $f.FullName -DestinationPath \"$($f.FullName).zip\" -Force; \"$($f.FullName).zip\""], "say": "Zipped {name}."}
+{"task": "open {book} solutions on knowledgeboat", "steps": ["open https://www.google.com/search?q=site%3Aknowledgeboat.com+{book:url}", "click \"KnowledgeBoat\""], "say": "Here are the {book} solutions."}
+{"task": "open khan academy {topic}", "steps": ["open https://www.khanacademy.org/search?page_search_query={topic:url}"], "say": "Here's {topic} on Khan Academy."}
+{"task": "explain {topic} with a video", "steps": ["open https://www.youtube.com/results?search_query={topic:url}+explained", "click \"{topic}\"", "sound on", "skip ads"], "say": "Here's a video explaining {topic}."}
+{"lesson": "Amazon and Flipkart product links usually open in a new tab; after clicking a product the product page is the window in front."}
+{"lesson": "On Amazon, the site's own search box is called Search Amazon; never type product searches into the browser's address bar."}
+{"lesson": "Amazon price filters in links are in paise: 30,000 to 40,000 rupees is rh=p_36%3A3000000-4000000."}
+{"lesson": "Confirm adding to a cart with new words like Added to Cart, never with a cart count that was already on the page."}
+{"lesson": "Never press Buy Now, Place Order or Proceed to Pay without the user saying so."}
+{"lesson": "When choosing a product, prefer 4 stars or more with many reviews, skip Sponsored results, and say the price you saw."}
+{"lesson": "Flipkart shows a login pop-up first; press escape or click its close button."}
+{"lesson": "WhatsApp Web needs a one-time QR login on the phone; if the QR code is showing, tell the user to scan it."}
+{"lesson": "YouTube: play and pause only with media play and media pause; never press k or click the video to toggle."}
+{"lesson": "For full screen video on YouTube press f after the video is in front; escape leaves full screen."}
+{"lesson": "After opening any video or song, add sound on and skip ads."}
+{"lesson": "Use direct links (search pages, ms-settings pages, Gmail compose links) instead of clicking through menus."}
+{"lesson": "Close cookie banners and sign-in nags (Not now, Maybe later, No thanks) before anything else."}
+{"lesson": "If something is not visible, scroll down and look again before deciding it is missing."}
+{"lesson": "Tabs close with ctrl+w; apps close with alt+f4 after focusing them. Never close Program Manager or Windows system windows."}
+{"lesson": "Typing goes where the cursor is: click the box first, then type."}
+{"lesson": "After a search, click the result's title words, not the address bar or the tab."}
+{"lesson": "expect must name words that appear only after success, never symbols like ₹ alone."}
+{"lesson": "For files, folders and system information use run with PowerShell instead of clicking in File Explorer."}
+{"lesson": "Ask before deleting files, uninstalling apps, shutting down or restarting the computer."}
+{"lesson": "Never type passwords, OTPs, card or bank details unless the user gave them for this task."}
+{"lesson": "Prices and specs change: when comparing products use research and fetch, then give the best three with reasons."}
+{"lesson": "If a page is still loading, wait for words that will appear rather than clicking blindly."}
+{"lesson": "Windows settings switches are named after the setting (Wi-Fi, Bluetooth); click it and expect On or Off."}
+{"lesson": "Gmail compose link: https://mail.google.com/mail/?view=cm&fs=1&to=ADDRESS&su=SUBJECT&body=TEXT."}
+{"lesson": "Google Maps directions link: https://www.google.com/maps/dir/?api=1&destination=PLACE."}
+{"lesson": "Edge opens a URL with open msedge followed by the link; Chrome with open chrome followed by the link."}
+{"lesson": "When the user corrects you, follow the correction exactly and remember it as a lesson."}
+{"lesson": "If the same step failed twice, try a different way: another word on screen, the keyboard, a direct link or a search."}
+{"lesson": "Keep replies to one short sentence; say what was done and anything the user must do next."}

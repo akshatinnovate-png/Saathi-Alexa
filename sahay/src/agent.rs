@@ -134,7 +134,7 @@ pub fn parse(body: &str) -> Result<Reply, String> {
         return Err(e.get("message").and_then(Value::as_str).unwrap_or("Groq error").to_string());
     }
     let msg = v.pointer("/choices/0/message").cloned().ok_or("Groq sent no message")?;
-    let text = msg.get("content").and_then(Value::as_str).unwrap_or("").trim().to_string();
+    let text = strip_think(msg.get("content").and_then(Value::as_str).unwrap_or(""));
     let mut seen_ids = std::collections::HashSet::new();
     let calls: Vec<Call> = msg
         .get("tool_calls")
@@ -172,7 +172,40 @@ pub fn parse(body: &str) -> Result<Reply, String> {
     Ok(Reply { text, calls, message, cut_off, tokens })
 }
 
+fn strip_think(text: &str) -> String {
+    let mut s = text.to_string();
+    while let Some(i) = s.find("<think>") {
+        match s[i..].find("</think>") {
+            Some(j) => s.replace_range(i..i + j + 8, ""),
+            None => s.truncate(i),
+        }
+    }
+    s.trim().to_string()
+}
+
+pub fn local_request(messages: &[Value], model: &str) -> Value {
+    let mut msgs = messages.to_vec();
+    if let Some(first) = msgs.first_mut() {
+        if let Some(c) = first.get("content").and_then(Value::as_str) {
+            first["content"] = json!(format!("{c}\n/no_think"));
+        }
+    }
+    json!({
+        "model": model,
+        "messages": msgs,
+        "tools": tools(),
+        "tool_choice": "auto",
+        "temperature": 0.2,
+        "max_tokens": 900,
+        "stream": false,
+    })
+}
+
 fn inline_plan(text: &str) -> Option<Value> {
+    let lines: Vec<String> = text.lines().map(|l| l.trim().trim_start_matches(['-', '*']).trim().to_string()).filter(|l| !l.is_empty()).collect();
+    if !lines.is_empty() && !text.trim_start().starts_with('{') && lines.iter().all(|l| crate::plan::parse(l).is_ok()) {
+        return Some(json!({ "steps": lines }));
+    }
     let start = text.find('{')?;
     let end = text.rfind('}')?;
     let v: Value = serde_json::from_str(text.get(start..=end)?).ok()?;
@@ -339,5 +372,16 @@ mod tests {
         assert_eq!(r.message["tool_calls"][0]["id"], r.calls[0].id.as_str());
         assert!(r.text.is_empty());
         assert!(parse(r#"{"choices":[{"message":{"content":"Hello there"}}]}"#).unwrap().calls.is_empty());
+        let lines = parse(r#"{"choices":[{"message":{"content":"open https://www.amazon.in/gp/cart/view.html\nexpect \"Shopping Cart\""}}]}"#).unwrap();
+        assert_eq!(lines.calls[0].args["steps"].as_array().unwrap().len(), 2, "a trained model's plain step lines are run");
+    }
+
+    #[test]
+    fn thinking_is_hidden_and_local_requests_skip_it() {
+        assert_eq!(strip_think("<think>hmm let me see</think>\nDone."), "Done.");
+        assert_eq!(strip_think("<think>never closed"), "");
+        let r = local_request(&[json!({"role":"system","content":"rules"})], "qwen3:4b");
+        assert!(r["messages"][0]["content"].as_str().unwrap().ends_with("/no_think"));
+        assert_eq!(r["stream"], false);
     }
 }
