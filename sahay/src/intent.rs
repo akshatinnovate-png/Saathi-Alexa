@@ -30,6 +30,8 @@ pub enum Intent {
     Convert { amount: f64, from: String, to: String },
     FindFile(String),
     Mute(bool),
+    Install(String),
+    Media(&'static str),
 }
 
 pub fn parse_clock(text: &str) -> Option<(u8, u8, usize)> {
@@ -310,9 +312,6 @@ const KEYS: &[(&[&str], &str, &str)] = &[
     (&["go forward", "forward"], "alt+right", "Went forward."),
     (&["refresh", "reload", "refresh the page", "reload the page"], "f5", "Refreshed."),
     (&["new tab", "open a new tab", "open new tab"], "ctrl+t", "Opened a new tab."),
-    (&["pause", "resume", "pause the video", "pause it", "resume it", "pause music", "play pause", "stop the music", "stop music"], "playpause", "Done."),
-    (&["next", "next song", "next video", "next track", "skip"], "nexttrack", "Skipped to the next one."),
-    (&["previous song", "previous track", "previous video", "last song"], "prevtrack", "Went to the previous one."),
     (&["volume up", "louder", "increase volume", "turn it up", "turn up the volume"], "volumeup", "Louder."),
     (&["volume down", "quieter", "softer", "decrease volume", "turn it down", "turn down the volume"], "volumedown", "Quieter."),
     (&["scroll down", "page down"], "page_down", "Scrolled down."),
@@ -522,6 +521,14 @@ pub fn route(text: &str) -> Option<Intent> {
     if ["lock", "lock the computer", "lock the pc", "lock my pc", "lock the screen", "lock screen", "lock my computer"].contains(&t.as_str()) {
         return Some(Intent::Lock);
     }
+    for p in ["install ", "download and install ", "please install "] {
+        if let Some(app) = t.strip_prefix(p) {
+            let app = app.trim().trim_start_matches("the ").trim_end_matches(" app").trim();
+            if !app.is_empty() && app.split_whitespace().count() <= 3 && !app.contains(" on ") {
+                return Some(Intent::Install(app.to_string()));
+            }
+        }
+    }
     if ["mute", "mute it", "mute the sound", "mute sound", "silence", "be quiet"].contains(&t.as_str()) {
         return Some(Intent::Mute(true));
     }
@@ -593,6 +600,15 @@ pub fn route(text: &str) -> Option<Intent> {
     }
     if ["what time is it", "what's the time", "whats the time", "time", "what is the time", "what's the date", "what is the date", "what day is it", "date"].contains(&t.as_str()) {
         return Some(Intent::Time);
+    }
+    let media: &[(&[&str], &'static str)] = &[
+        (&["play", "play it", "start the video", "start it", "play the video", "start the song", "play the song", "resume", "resume it", "resume the video", "unpause", "unpause it", "continue", "continue playing", "keep playing", "start playing", "play again", "play the music", "start the music"], "play"),
+        (&["pause", "pause it", "pause the video", "pause the song", "pause music", "pause the music", "stop the video", "stop the music", "stop music", "stop playing", "stop the song", "hold on", "wait pause"], "pause"),
+        (&["next", "next song", "next video", "next track", "skip", "skip this", "skip this song", "skip song"], "next"),
+        (&["previous", "previous song", "previous track", "previous video", "last song", "go back a song"], "previous"),
+    ];
+    if let Some((_, what)) = media.iter().find(|(p, _)| p.contains(&t.as_str())) {
+        return Some(Intent::Media(what));
     }
     if let Some((_, keys, say)) = KEYS.iter().find(|(phrases, _, _)| phrases.contains(&t.as_str())) {
         return Some(Intent::Keys { keys, say });
@@ -724,7 +740,6 @@ mod tests {
         assert_eq!(route("what time is it?"), Some(Intent::Time));
         assert_eq!(route("open notepad and write a letter to my son"), None);
         assert_eq!(route("buy the blue shirt in size M"), None);
-        assert_eq!(route("play it"), None);
         assert_eq!(encode("c++ & you"), "c%2B%2B+%26+you");
         assert_eq!(route("type my name in the search box"), None);
         assert_eq!(route("write a letter to my son"), None);
@@ -741,6 +756,10 @@ mod tests {
         assert_eq!(route("show my routines"), Some(Intent::Routines));
         assert_eq!(route("today's news"), Some(Intent::News));
         assert_eq!(route("unmute"), Some(Intent::Mute(false)));
+        assert_eq!(route("install vlc"), Some(Intent::Install("vlc".into())));
+        assert_eq!(route("start the video"), Some(Intent::Media("play")));
+        assert_eq!(route("Pause it"), Some(Intent::Media("pause")));
+        assert_eq!(route("play it"), Some(Intent::Media("play")));
         assert_eq!(route("full volume"), Some(Intent::Volume(100)));
         assert_eq!(route("convert 100 dollars to rupees"), Some(Intent::Convert { amount: 100.0, from: "USD".into(), to: "INR".into() }));
         assert_eq!(route("50 euro in inr"), Some(Intent::Convert { amount: 50.0, from: "EUR".into(), to: "INR".into() }));

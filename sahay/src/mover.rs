@@ -68,6 +68,28 @@ pub fn resolve<'a>(query: &str, targets: &'a [Target]) -> Option<&'a Target> {
         .map(|(t, _)| t)
 }
 
+pub fn ranked<'a>(query: &str, targets: &'a [Target]) -> Vec<(&'a Target, f64)> {
+    let unquoted = query.trim().trim_matches(|c| c == '"' || c == '\'' || c == '“' || c == '”');
+    let mut found: Vec<(&Target, f64)> = targets
+        .iter()
+        .map(|t| (t, score(unquoted, &t.label) + if t.interactive { 4.0 } else { 0.0 } + if t.id.starts_with('E') { 1.0 } else { 0.0 }))
+        .filter(|(_, s)| *s >= 50.0)
+        .collect();
+    found.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    found
+}
+
+pub fn signature(targets: &[Target]) -> u64 {
+    let mut h: u64 = 1469598103934665603;
+    for t in targets {
+        for b in t.label.bytes().chain(*b"|") {
+            h ^= u64::from(b);
+            h = h.wrapping_mul(1099511628211);
+        }
+    }
+    h
+}
+
 pub fn matches<'a>(query: &str, targets: &'a [Target]) -> Vec<&'a Target> {
     let mut found: Vec<(&Target, f64)> = targets.iter().map(|t| (t, score(query, &t.label))).filter(|(_, s)| *s >= 50.0).collect();
     found.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -181,6 +203,16 @@ mod tests {
         assert!(s.contains("E1 Edit \"Search\" 500,500"));
         assert!(s.contains("T1 \"Shorts\""));
         assert!(summary("x", &[], SCREEN).contains("Nothing readable"));
+    }
+
+    #[test]
+    fn close_rivals_are_ranked_and_screens_fingerprinted() {
+        let ts = vec![t("E1", "Bella Ciao (Official Video)", "Link", true, 0, 0), t("E2", "Bella Ciao - Remix", "Link", true, 0, 60), t("T1", "Shorts", "Text", false, 0, 90)];
+        let r = ranked("bella ciao", &ts);
+        assert_eq!(r.len(), 2);
+        assert!(r[0].1 >= r[1].1);
+        assert_ne!(signature(&ts), signature(&ts[..2]));
+        assert_eq!(signature(&ts), signature(&ts.clone()));
     }
 
     #[test]

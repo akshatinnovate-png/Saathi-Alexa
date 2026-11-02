@@ -1,6 +1,6 @@
 use super::cursor::Cursor;
 use super::engine::Engine;
-use super::{https, sound, system, Shared, Status};
+use super::{https, media, sound, system, Shared, Status};
 use crate::agent::{self, Reply};
 use crate::intent::{self, Intent};
 use crate::plan;
@@ -367,6 +367,28 @@ fn instant(shared: &Arc<Shared>, engine: &mut Engine, rx: &Receiver<String>, int
             }
             Ok(format!("Volume is at {n}%."))
         }
+        Intent::Media(what) => {
+            shared.say("→", &format!("media {what}"));
+            match *what {
+                "play" => media::play(),
+                "pause" => media::pause(),
+                "next" => media::next(),
+                _ => media::previous(),
+            }
+        }
+        Intent::Install(app) => {
+            shared.say("→", &format!("install {app} with winget"));
+            shared.set_status(Status::Acting, &format!("Installing {app}…"));
+            let name = app.replace(['"', '\'', '`', ';', '&', '|'], "");
+            let (ok, out) = system::run_powershell(&format!("winget install \"{name}\" --accept-source-agreements --accept-package-agreements --disable-interactivity 2>&1 | Select-Object -Last 4"), Duration::from_secs(900), &|| shared.stop.load(Ordering::Relaxed));
+            let tail = out.lines().rfind(|l| !l.trim().is_empty()).unwrap_or("").trim().to_string();
+            let lower = out.to_lowercase();
+            if ok && (lower.contains("successfully installed") || lower.contains("already installed") || lower.contains("found an existing package")) {
+                Ok(format!("{app} is installed."))
+            } else {
+                Err(format!("winget: {tail}"))
+            }
+        }
         Intent::Mute(on) => {
             sound::mute(*on)?;
             Ok(if *on { "Muted.".into() } else { "Sound is on.".into() })
@@ -655,6 +677,39 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
                 }
             }
         }
+        let task = plan::task_key(&first);
+        if prepared.is_none() && chain.is_none() {
+            let learned = shared.config().skills.iter().find(|(t, _)| *t == task).map(|(_, s)| s.clone());
+            if let Some(steps) = learned {
+                shared.say("Sahay", "I've done this before; doing it the same way…");
+                match carry_out(&shared, &mut engine, &rx, &steps) {
+                    Ran::Done(_) => {
+                        let said = "Done.".to_string();
+                        shared.reply(&said);
+                        messages.push(json!({ "role": "user", "content": first }));
+                        messages.push(json!({ "role": "assistant", "content": said }));
+                        engine.cursor.hide();
+                        shared.busy.store(false, Ordering::Relaxed);
+                        shared.set_status(Status::Idle, "");
+                        continue;
+                    }
+                    Ran::Stopped => {
+                        engine.cursor.hide();
+                        shared.busy.store(false, Ordering::Relaxed);
+                        shared.set_status(Status::Stopped, "");
+                        continue;
+                    }
+                    other => {
+                        let why = match other {
+                            Ran::Failed { reason, .. } => reason,
+                            _ => "interrupted".into(),
+                        };
+                        system::log(&format!("learned skill for \"{task}\" failed ({why}); forgetting it and asking Groq"));
+                        shared.update_config(|c| c.skills.retain(|(t, _)| *t != task));
+                    }
+                }
+            }
+        }
         if let Some(content) = prepared {
             messages.push(json!({ "role": "user", "content": content }));
         } else if intent::is_question(&first) {
@@ -670,6 +725,14 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
         let mut replans = 0;
         let mut empty = 0;
         let mut checks = 0;
+        let mut executed: Vec<String> = Vec::new();
+        let mut reported = false;
+        let learn = |shared: &Shared, executed: &[String], replans: usize, reported: bool| {
+            if replans == 0 && !reported && !executed.is_empty() && !plan::uses_numbers(executed) && !task.is_empty() {
+                system::log(&format!("learned how to \"{task}\" ({} steps)", executed.len()));
+                shared.update_config(|c| crate::config::learn(&mut c.skills, &task, executed));
+            }
+        };
         loop {
             if shared.stop.load(Ordering::Relaxed) {
                 shared.say("Sahay", "Stopped.");
@@ -703,6 +766,9 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
             }
             messages.push(reply.message.clone());
             let Some(call) = reply.calls.first() else {
+                if checks > 0 {
+                    learn(&shared, &executed, replans, reported);
+                }
                 shared.reply(&reply.text);
                 break;
             };
@@ -718,7 +784,25 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
                 shared.say("Sahay", &reply.text);
             }
             let say = call.args.get("say").and_then(Value::as_str).unwrap_or("").trim().to_string();
-            match carry_out(&shared, &mut engine, &rx, &steps) {
+            let proven = steps.last().is_some_and(|l| matches!(plan::parse(l), Ok(plan::Step::Expect(_))));
+            let outcome = carry_out(&shared, &mut engine, &rx, &steps);
+            match &outcome {
+                Ran::Done(reports) => {
+                    executed.extend(steps.iter().cloned());
+                    reported |= !reports.is_empty();
+                }
+                Ran::Failed { done, .. } | Ran::Interrupted { done, .. } => executed.extend(done.iter().cloned()),
+                Ran::Stopped => {}
+            }
+            match outcome {
+                Ran::Done(reports) if reports.is_empty() && proven => {
+                    messages.push(agent::tool_result(call, "All steps done and confirmed."));
+                    let final_words = if say.is_empty() { "Done.".to_string() } else { say };
+                    learn(&shared, &executed, replans, reported);
+                    shared.reply(&final_words);
+                    messages.push(json!({ "role": "assistant", "content": final_words }));
+                    break;
+                }
                 Ran::Done(reports) if reports.is_empty() && checks < MAX_CHECKS => {
                     checks += 1;
                     shared.set_status(Status::Thinking, "Checking it worked…");

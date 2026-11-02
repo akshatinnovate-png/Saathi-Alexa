@@ -36,11 +36,12 @@ pub struct Config {
     pub speak: bool,
     pub memory: Vec<String>,
     pub routines: Vec<Routine>,
+    pub skills: Vec<(String, Vec<String>)>,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { keys: Vec::new(), model: crate::agent::MODEL.into(), name: "you".into(), color: [99, 102, 241], position: None, extra: String::new(), speak: true, memory: Vec::new(), routines: Vec::new() }
+        Self { keys: Vec::new(), model: crate::agent::MODEL.into(), name: "you".into(), color: [99, 102, 241], position: None, extra: String::new(), speak: true, memory: Vec::new(), routines: Vec::new(), skills: Vec::new() }
     }
 }
 
@@ -54,6 +55,17 @@ pub fn remember(memory: &mut Vec<String>, fact: &str) {
     memory.push(fact.chars().take(300).collect());
     while memory.len() > 60 {
         memory.remove(0);
+    }
+}
+
+pub fn learn(skills: &mut Vec<(String, Vec<String>)>, task: &str, steps: &[String]) {
+    if task.is_empty() || steps.is_empty() {
+        return;
+    }
+    skills.retain(|(t, _)| t != task);
+    skills.push((task.to_string(), steps.to_vec()));
+    while skills.len() > 150 {
+        skills.remove(0);
     }
 }
 
@@ -101,6 +113,14 @@ impl Config {
                 .take(40)
                 .collect();
         }
+        if let Some(a) = v.get("skills").and_then(Value::as_array) {
+            c.skills = a
+                .iter()
+                .filter_map(|s| Some((s.get("task")?.as_str()?.to_string(), s.get("steps")?.as_array()?.iter().filter_map(Value::as_str).map(String::from).take(40).collect::<Vec<_>>())))
+                .filter(|(t, s)| !t.is_empty() && !s.is_empty())
+                .take(150)
+                .collect();
+        }
         if let Some(b) = v.get("speak").and_then(Value::as_bool) {
             c.speak = b;
         }
@@ -121,6 +141,7 @@ impl Config {
             "instructions": self.extra,
             "speak": self.speak,
             "memory": self.memory,
+            "skills": self.skills.iter().map(|(t, s)| json!({ "task": t, "steps": s })).collect::<Vec<_>>(),
             "routines": self.routines.iter().map(|r| json!({ "hour": r.hour, "minute": r.minute, "task": r.task, "daily": r.daily, "last": r.last })).collect::<Vec<_>>(),
         }))
         .unwrap_or_default()
@@ -148,6 +169,13 @@ mod tests {
         assert_eq!(r.describe(), "every day at 9:00 am: play bhajans");
         let c2 = Config { routines: vec![r.clone()], ..Config::default() };
         assert_eq!(Config::from_json(&c2.to_json(|k| Some(k.to_string())), |k| Some(k.to_string())).routines, vec![r]);
+        let mut skills = Vec::new();
+        learn(&mut skills, "send hi to ravi on whatsapp", &["open https://web.whatsapp.com".to_string()]);
+        learn(&mut skills, "send hi to ravi on whatsapp", &["open https://web.whatsapp.com".to_string(), "click \"Ravi\"".to_string()]);
+        assert_eq!(skills.len(), 1);
+        assert_eq!(skills[0].1.len(), 2);
+        let c3 = Config { skills: skills.clone(), ..Config::default() };
+        assert_eq!(Config::from_json(&c3.to_json(|k| Some(k.to_string())), |k| Some(k.to_string())).skills, skills);
         let mut mem = vec!["I use Edge".to_string()];
         remember(&mut mem, "my son is Ravi");
         remember(&mut mem, "i use edge");

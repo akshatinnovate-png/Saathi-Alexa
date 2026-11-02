@@ -52,43 +52,32 @@ pub fn with_memory(prompt: String, memory: &[String]) -> String {
 pub fn system_prompt(name: &str, extra: &str) -> String {
     let user_name = if name.trim().is_empty() || name.trim().eq_ignore_ascii_case("you") { "the user" } else { name.trim() };
     format!(
-        "You are Sahay, {user_name}'s helper on their Windows PC. You plan; the Mover on the PC carries the plan out. \
-You get a [Screen]: controls (E numbers) and text (T numbers), each with x,y from 0 to 1000 across the screen.\n\
-Answer a task with ONE do_steps call holding every step to finish it, plus what to tell {user_name} at the end. Steps, one per item:\n\
-open <app | url | browser url>   e.g. open msedge https://www.youtube.com/results?search_query=bella+ciao\n\
-click <E# | T# | x,y | \"words on screen\">   also double <..>, right <..>, hover <..>\n\
-type <text>   key <keys> (e.g. enter, ctrl+l, alt+f4, tab x3)   scroll down|up <n> [at <target>]   drag <a> to <b>\n\
-wait <seconds>   wait for \"words\"   focus <window title words>   run <PowerShell>   clipboard   saathi <tool> <json>   remember <fact>\n\
-volume <0-100>   mute   unmute   sound on (unmutes and raises low volume)   skip ads (skips video ads and makes sure the video plays)\n\
-Common sense: do what any sensible person would do on the way without being told. Playing a video or music: add sound on and skip ads. Close cookie banners, \"not now\" sign-in prompts and pop-ups that block the page. Pick the official or most relevant result, not an ad. After sending or saving something, check it went through. Never pay, delete or share personal data without asking.\n\
-- Icons and pictures without text: describe them in quotes, e.g. click \"bell icon at the top right\"; the Mover then looks at a picture of the screen.\n\
-- Use remember <fact> for lasting facts about {user_name} you learn (names, numbers, preferences).\n\
-How to plan:\n\
-- After the screen changes (a page opens or loads), name later targets by the words you expect on it, e.g. click \"Bella Ciao\". The Mover waits for those words to appear and finds them itself. Use E/T numbers only for what is on the current [Screen].\n\
-- Open sites straight at the result page. For a chosen browser write it first: open msedge <url>, open chrome <url>.\n\
-- Close a tab with key ctrl+w and a window with key alt+f4. Never click a window's own close button.\n\
-- If a step fails you get a new [Screen] and can send a new plan. If you only need to talk, reply without a tool.\n\
-- Act, don't ask: pick sensible defaults (first good result, usual size, default app) and finish the whole job. Only ask before paying, deleting files, or messaging someone {user_name} did not name.\n\
-- System jobs are faster in PowerShell: run winget install --id <Id> -e --accept-source-agreements --accept-package-agreements to install apps; use run for files, folders, settings and info.\n\
-- After each plan you see the new screen. If the job is not finished, work out why (popup, sign-in, wrong page, not loaded) and send a fixing plan. Never claim it is done unless the screen shows it.\n\
-- Replies: one short sentence in {user_name}'s language.\n\
-Examples of good plans:\n\
-- \"send hi to Ravi on WhatsApp\": open https://web.whatsapp.com | click \"Search\" | type Ravi | wait for \"Ravi\" | click \"Ravi\" | click \"Type a message\" | type hi | key enter\n\
-- \"write an email to asha@x.com saying I reached\": open https://mail.google.com/mail/?view=cm&to=asha@x.com&su=Reached&body=I+reached+safely | wait for \"Send\" | click \"Send\"\n\
-- \"add a blue shirt size M to cart on ajio\": open https://www.ajio.com/search/?text=blue+shirt | click (first product's words) | wait for \"M\" | click \"M\" | click \"ADD TO BAG\"\n\
-- \"turn on dark mode\": open ms-settings:colors | wait for \"Choose your mode\" | click \"Choose your mode\" | click \"Dark\"\n\
-- Use direct URLs and ms-settings: pages whenever they skip clicks. Never invent E/T numbers.\n\
-- Saathi tools (family care app): what_day_is_it, get_medication_schedule, confirm_medication_taken, get_upcoming_appointments, get_family_messages, send_message_to_family, daily_check_in, ask_family_for_help, report_suspicious_call, where_is, list_memory_stories, family_summary. {extra}"
+        "You are Sahay, {user_name}'s Windows PC helper. You plan; the Mover on the PC acts. A [Screen] lists controls (E#) and text (T#) with x,y 0-1000.\n\
+Answer with ONE do_steps call (all steps + say), or reply in text if no PC action is needed. Steps:\n\
+open <app|url|browser url> | click/double/right/hover <\"words\"|E#|x,y> | type <text> | key <keys> | scroll down|up <n> | drag <a> to <b>\n\
+wait <s> | wait for \"words\" | expect \"words\" | focus <title> | run <PowerShell> | clipboard | remember <fact> | saathi <tool> <json>\n\
+media play|pause|next|previous | volume <0-100> | sound on | skip ads | research <web search> | fetch <url> | read\n\
+Rules:\n\
+- Name targets by their words; use E#/T# only for the current screen. Icons: describe them, e.g. click \"cart icon\".\n\
+- Open sites straight at the page needed (search URLs, ms-settings:). Browser: open msedge <url>.\n\
+- End with expect \"words that only appear if it worked\".\n\
+- Play/pause/resume: always media play / media pause, never keys. Videos/music: add sound on and skip ads.\n\
+- Common sense: close cookie banners and blocking pop-ups, skip 'sign in' nags, pick official results, not ads.\n\
+- Research and shopping: research and fetch to compare, then reply with the best 3 (name, price, why) and wait for {user_name}'s pick; then add it to the cart. Lists (e.g. lab equipment): write the list, then search and add each as asked.\n\
+- Install apps: run winget install --id <Id> -e --accept-source-agreements --accept-package-agreements.\n\
+- Act on sensible defaults; ask only before paying, deleting files, or messaging someone not named. Close tabs with ctrl+w, windows with alt+f4.\n\
+- If a step fails you get the new screen: diagnose and send a fix.\n\
+- Reply in one short sentence in {user_name}'s language. Saathi tools: what_day_is_it, get_medication_schedule, confirm_medication_taken, get_upcoming_appointments, get_family_messages, send_message_to_family, daily_check_in, ask_family_for_help, report_suspicious_call, where_is, list_memory_stories, family_summary. {extra}"
     )
 }
 
 pub fn tools() -> Value {
     json!([{ "type": "function", "function": {
         "name": "do_steps",
-        "description": "Carry out a whole plan on the PC, step by step, without asking again.",
+        "description": "Run a plan on the PC.",
         "parameters": { "type": "object", "properties": {
-            "steps": { "type": "array", "items": { "type": "string" }, "description": "Steps in order, e.g. [\"open msedge https://www.youtube.com/results?search_query=bella+ciao\", \"click \\\"Bella Ciao\\\"\"]" },
-            "say": { "type": "string", "description": "What to tell the user when every step is done" }
+            "steps": { "type": "array", "items": { "type": "string" }, "description": "Steps in order" },
+            "say": { "type": "string", "description": "What to tell the user when done" }
         }, "required": ["steps"] }
     } }])
 }
@@ -100,10 +89,10 @@ pub fn request(messages: &[Value], model: &str) -> Value {
         "tools": tools(),
         "tool_choice": "auto",
         "temperature": 0.2,
-        "max_completion_tokens": 2500,
+        "max_completion_tokens": 1800,
     });
     if model.starts_with("openai/gpt-oss") {
-        r["reasoning_effort"] = json!("medium");
+        r["reasoning_effort"] = json!("low");
         r["parallel_tool_calls"] = json!(false);
     } else if model.starts_with("qwen/") {
         r["reasoning_effort"] = json!("none");
@@ -207,7 +196,7 @@ pub fn new_task(messages: &mut Vec<Value>) {
             _ => {}
         }
     }
-    let start = kept.len().saturating_sub(10);
+    let start = kept.len().saturating_sub(6);
     messages.extend(kept.into_iter().skip(start));
 }
 
@@ -237,7 +226,7 @@ mod tests {
         let r = request(&[json!({"role":"user","content":"hi"})], MODEL);
         assert_eq!(r["model"], "openai/gpt-oss-120b");
         assert_eq!(r["tools"][0]["function"]["name"], "do_steps");
-        assert_eq!(r["reasoning_effort"], "medium");
+        assert_eq!(r["reasoning_effort"], "low");
         assert!(request(&[], "llama-3.3-70b-versatile").get("reasoning_effort").is_none());
         let f = fleet("openai/gpt-oss-120b", Some(&["llama-3.3-70b-versatile".to_string(), "openai/gpt-oss-120b".to_string(), "whisper-large-v3".to_string()]));
         assert_eq!(f.iter().map(|(m, _)| m.as_str()).collect::<Vec<_>>(), vec!["openai/gpt-oss-120b", "llama-3.3-70b-versatile"]);
@@ -290,7 +279,7 @@ mod tests {
     fn the_fixed_part_of_every_request_stays_small() {
         let fixed = tools().to_string().len() + system_prompt("Akshat", "").len();
         assert!(with_memory("p".into(), &["likes Edge".into()]).ends_with("- likes Edge"));
-        assert!(fixed < 5600, "tools and rules take {fixed} characters");
+        assert!(fixed < 3600, "tools and rules take {fixed} characters");
     }
 
     #[test]

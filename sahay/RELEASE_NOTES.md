@@ -1,5 +1,13 @@
 **Sahay** (सहाय, "help") drives your Windows PC for you. You type what you want; it moves its own cursor, clicks and types until the job is done. A byproduct of [Saathi](https://github.com/akshatinnovate-png/Saathi-Alexa).
 
+### New in 2.7.0: research, learned skills, far fewer tokens
+- **Far fewer Groq tokens.** Instant commands, media control and learned skills use none. When Groq is needed, the rules are less than half their old size, less history is sent, Groq thinks briefly, and plans end with expect "…" so the Mover confirms success itself instead of a second Groq call. A typical Groq task now costs roughly 1,000–2,000 tokens instead of 5,000–8,000.
+- **Learned skills.** When Groq solves a task cleanly, Sahay keeps the plan. Ask the same thing again and it repeats it locally, with zero tokens. If the page has changed and the old way fails, it forgets that plan and asks Groq afresh.
+- **Research and shopping.** Groq can now search the web and read pages directly (research and fetch), so "find me a good laptop under 60,000, compare and advise me" comes back with the best three, prices and reasons, and waits for your pick; then it adds your choice to the cart. "I need lab equipment for a chemistry class" lists what you need, then finds each item on Amazon. It never pays.
+- **Play and pause are exact.** "Start the video", "resume", "pause", "next" use Windows' media controls, which know whether something is playing, so play only plays and pause only pauses; no more flip-flopping. Groq is told to use the same.
+- **Fewer misclicks.** If two things match a click almost equally and the first does nothing, Sahay clicks the other one.
+- **"Install VLC", "install Zoom"** install apps with winget, instantly.
+
 ### New in 2.6.0: common sense
 - **"Play bella ciao on YouTube" now does what you meant, not just what you said.** Sahay opens the video, then:
   - unmutes the PC and turns the volume up to full if it was off or low;
@@ -78,7 +86,7 @@
 - **Doesn't quit on limits.** If Groq's free limit is hit it waits exactly as long as Groq says and carries on; add several keys to switch between them.
 
 ### Get started
-1. Download **Sahay-2.6.0.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
+1. Download **Sahay-2.7.0.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
 2. Groq's free key page opens (console.groq.com/keys). Sign in, click **Create API Key**, copy it and paste it into Sahay. Older Gemini keys are no longer used.
 3. The chat opens. Type what you want done, for example "play Bella Ciao on YouTube".
 

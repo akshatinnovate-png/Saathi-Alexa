@@ -25,11 +25,16 @@ pub enum Step {
     Mute(bool),
     SoundOn,
     WatchVideo,
+    Expect(String),
+    Media(&'static str),
+    Research(String),
+    Fetch(String),
+    Read,
 }
 
 impl Step {
     pub fn reports(&self) -> bool {
-        matches!(self, Step::Run(_) | Step::Clipboard | Step::Saathi { .. })
+        matches!(self, Step::Run(_) | Step::Clipboard | Step::Saathi { .. } | Step::Research(_) | Step::Fetch(_) | Step::Read)
     }
 }
 
@@ -133,6 +138,26 @@ pub fn parse(line: &str) -> Result<Step, String> {
         }
         "clipboard" => Step::Clipboard,
         "volume" => Step::Volume(rest.trim().trim_end_matches('%').trim().parse::<u32>().map_err(|_| format!("\"{}\" needs a number from 0 to 100", line.trim()))?.min(100)),
+        "expect" | "verify" | "check" => {
+            need("words that prove it worked")?;
+            Step::Expect(unquote(&rest))
+        }
+        "media" => Step::Media(match rest.trim().to_ascii_lowercase().as_str() {
+            "play" | "resume" | "start" => "play",
+            "pause" | "stop" => "pause",
+            "next" | "skip" => "next",
+            "previous" | "prev" | "back" => "previous",
+            _ => return Err(format!("\"{}\": media takes play, pause, next or previous", line.trim())),
+        }),
+        "research" | "search_web" | "websearch" | "google" => {
+            need("what to search for")?;
+            Step::Research(unquote(&rest))
+        }
+        "fetch" | "read_url" => {
+            need("a web address")?;
+            Step::Fetch(unquote(&rest))
+        }
+        "read" | "read_page" | "read_screen" => Step::Read,
         "mute" => Step::Mute(true),
         "unmute" => Step::Mute(false),
         "sound" | "ensure_sound" => Step::SoundOn,
@@ -148,6 +173,14 @@ pub fn parse(line: &str) -> Result<Step, String> {
         }
         other => return Err(format!("Unknown step \"{other}\" in \"{}\"", line.trim())),
     })
+}
+
+pub fn uses_numbers(steps: &[String]) -> bool {
+    steps.iter().any(|s| matches!(parse(s), Ok(Step::Click { aim: Aim::Id(_), .. } | Step::Hover(Aim::Id(_)) | Step::Drag(Aim::Id(_), _) | Step::Drag(_, Aim::Id(_)) | Step::Scroll { at: Some(Aim::Id(_)), .. })))
+}
+
+pub fn task_key(text: &str) -> String {
+    text.to_lowercase().chars().map(|c| if c.is_alphanumeric() { c } else { ' ' }).collect::<String>().split_whitespace().filter(|w| !["please", "pls", "can", "you", "could", "would", "kindly", "sahay", "now", "for", "me", "the", "a", "an"].contains(w)).collect::<Vec<_>>().join(" ")
 }
 
 pub fn changes_screen(step: &Step) -> bool {
@@ -182,8 +215,16 @@ mod tests {
         assert_eq!(parse("unmute").unwrap(), Step::Mute(false));
         assert_eq!(parse("sound on").unwrap(), Step::SoundOn);
         assert_eq!(parse("skip ads").unwrap(), Step::WatchVideo);
+        assert_eq!(parse("expect \"Message sent\"").unwrap(), Step::Expect("Message sent".into()));
+        assert_eq!(parse("media play").unwrap(), Step::Media("play"));
+        assert_eq!(parse("research best laptop under 60000").unwrap(), Step::Research("best laptop under 60000".into()));
+        assert!(parse("fetch https://x.com/a").unwrap().reports());
+        assert!(parse("read").unwrap().reports());
+        assert!(uses_numbers(&["click E4".to_string()]));
+        assert!(!uses_numbers(&["click \"Send\"".to_string(), "type Edge 4".to_string()]));
         assert!(parse("dance wildly").is_err());
         assert!(parse("click").is_err());
         assert!(parse("run Get-Date").unwrap().reports());
+        assert_eq!(task_key("Please send hi to Ravi on WhatsApp!"), task_key("send hi to ravi on whatsapp"));
     }
 }

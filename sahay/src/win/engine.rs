@@ -193,15 +193,14 @@ impl Engine {
                 sleep_unless(stop, Duration::from_millis(900));
                 continue;
             }
-            let playing = self.targets.iter().any(|t| norm(&t.label).starts_with("pause k") || norm(&t.label) == "pause");
+            let state = super::media::state();
+            let playing = state == super::media::State::Playing || (state == super::media::State::Nothing && self.targets.iter().any(|t| norm(&t.label).starts_with("pause k")));
             if !playing && !pressed_play && start.elapsed() > Duration::from_secs(4) {
-                if let Some(t) = self.targets.iter().find(|t| matches!(norm(&t.label).as_str(), "play k" | "play")).cloned() {
-                    if self.click_target(&t, stop).is_ok() {
-                        pressed_play = true;
-                        notes.push("pressed play".into());
-                        sleep_unless(stop, Duration::from_millis(1200));
-                        continue;
-                    }
+                pressed_play = true;
+                if super::media::play().is_ok() {
+                    notes.push("pressed play".into());
+                    sleep_unless(stop, Duration::from_millis(800));
+                    continue;
                 }
             }
             if playing && start.elapsed() > Duration::from_secs(if saw_ad { 4 } else { 9 }) {
@@ -307,12 +306,33 @@ impl Engine {
             }
             Step::Click { aim, button, double } => {
                 let (x, y, what) = self.point(aim, plan, changed, stop)?;
+                let rival = match aim {
+                    Aim::Words(w) => {
+                        let r = mover::ranked(w, &self.targets);
+                        match (r.first(), r.get(1)) {
+                            (Some(a), Some(b)) if a.1 - b.1 < 8.0 && a.0.rect.center() == (x, y) && !["Edit", "ComboBox"].contains(&a.0.kind.as_str()) => Some(b.0.clone()),
+                            _ => None,
+                        }
+                    }
+                    _ => None,
+                };
+                let before = mover::signature(&self.targets);
                 if !self.cursor.glide_to(x, y, stop) {
                     return Err("Stopped".into());
                 }
                 self.through(&[(x, y)], || input::click(x, y, button, *double))?;
                 self.cursor.ripple(x, y);
-                (format!("Clicked {what}"), 600)
+                let mut note = format!("Clicked {what}");
+                if let Some(other) = rival {
+                    sleep_unless(stop, Duration::from_millis(1300));
+                    self.look();
+                    if mover::signature(&self.targets) == before {
+                        system::log(&format!("click on {what} changed nothing; trying \"{}\"", other.label));
+                        self.click_target(&other, stop)?;
+                        note = format!("Clicked \"{}\" (the first match did nothing)", other.label.chars().take(60).collect::<String>());
+                    }
+                }
+                (note, 600)
             }
             Step::Hover(aim) => {
                 let (x, y, what) = self.point(aim, plan, changed, stop)?;
@@ -386,6 +406,33 @@ impl Engine {
                 (if *on { "Muted".into() } else { "Unmuted".into() }, 0)
             }
             Step::SoundOn => (super::sound::make_audible(30, 100)?.unwrap_or_else(|| "Sound is already on".into()), 0),
+            Step::Expect(words) => {
+                let end = Instant::now() + Duration::from_secs(10);
+                loop {
+                    self.look();
+                    if mover::resolve(words, &self.targets).is_some() {
+                        break (format!("Confirmed: \"{words}\" is on screen"), 0);
+                    }
+                    if Instant::now() >= end {
+                        return Err(format!("expected \"{words}\" but it is not on screen"));
+                    }
+                    if !sleep_unless(stop, Duration::from_millis(700)) {
+                        return Err("Stopped".into());
+                    }
+                }
+            }
+            Step::Media(what) => {
+                let r = match *what {
+                    "play" => super::media::play(),
+                    "pause" => super::media::pause(),
+                    "next" => super::media::next(),
+                    _ => super::media::previous(),
+                };
+                (r?, 300)
+            }
+            Step::Research(q) => (super::research::search(q)?, 0),
+            Step::Fetch(url) => (super::research::fetch(url)?, 0),
+            Step::Read => (self.look(), 0),
             Step::WatchVideo => {
                 let notes = self.watch_video(Duration::from_secs(45), stop);
                 (if notes.is_empty() { "The video is playing".into() } else { format!("Video: {}", notes.join(", ")) }, 0)
