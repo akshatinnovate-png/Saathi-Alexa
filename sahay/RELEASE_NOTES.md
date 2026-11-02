@@ -1,5 +1,10 @@
 **Sahay** (सहाय, "help") drives your Windows PC for you. You type what you want; it moves its own cursor, clicks and types until the job is done. A byproduct of [Saathi](https://github.com/akshatinnovate-png/Saathi-Alexa).
 
+### New in 2.2.1: fewer mistakes
+- **Checks before saying done.** After Groq's plan runs, Sahay reads the screen again and has Groq confirm the task really finished; if not, it carries on with only the missing steps.
+- **Clicks the right thing.** Words must really match: a single letter like a size "M" only matches "M", part of a word never matches, and filler words like "the" or "button" don't count. If nothing matches well, it waits and looks again instead of clicking a guess.
+- **Hands over instead of guessing.** "type my name in the search box", "write a letter to my son" and opinion questions like "what is a good laptop under 50000" now go to Groq instead of being taken literally.
+
 ### New in 2.2.0: it talks, and does far more on its own
 - **Speaks its answers** in Windows' own voice (turn it off from the sphere's menu: Speak replies aloud).
 - **🎤 Talk button** in the chat starts Windows voice typing, so you can speak instead of type.
@@ -44,7 +49,7 @@
 - **Doesn't quit on limits.** If Groq's free limit is hit it waits exactly as long as Groq says and carries on; add several keys to switch between them.
 
 ### Get started
-1. Download **Sahay-2.2.0.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
+1. Download **Sahay-2.2.1.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
 2. Groq's free key page opens (console.groq.com/keys). Sign in, click **Create API Key**, copy it and paste it into Sahay. Older Gemini keys are no longer used.
 3. The chat opens. Type what you want done, for example "play Bella Ciao on YouTube".
 

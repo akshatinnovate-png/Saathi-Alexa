@@ -318,7 +318,8 @@ pub fn route(text: &str) -> Option<Intent> {
     for p in ["who is ", "who was ", "who's ", "tell me about ", "what is a ", "what is an ", "what was "] {
         if let Some(topic) = t.strip_prefix(p) {
             let topic = topic.trim();
-            if !topic.is_empty() && topic.split_whitespace().count() <= 6 && !["the time", "the date", "today", "my name", "this", "that", "it"].contains(&topic) {
+            let opinion = ["best", "good", "better", "cheap", "should", "my ", " i ", "me ", "near", "under", "price", "cost", "today", "now", "latest"].iter().any(|w| format!(" {topic} ").contains(w));
+            if !topic.is_empty() && topic.split_whitespace().count() <= 5 && !topic.chars().any(|c| c.is_ascii_digit()) && !opinion && !["the time", "the date", "this", "that", "it"].contains(&topic) {
                 return Some(Intent::Wiki(topic.to_string()));
             }
         }
@@ -363,7 +364,8 @@ pub fn route(text: &str) -> Option<Intent> {
     }
     let raw_lower = raw.to_lowercase();
     for p in ["type ", "write "] {
-        if t.starts_with(p) && !t.contains(" email") && !t.contains(" message") && !t.contains(" letter") && !t.contains(" on whatsapp") {
+        let placed = [" in the ", " into ", " in this ", " box", " field", " bar", " email", " message", " letter", " on whatsapp", " a ", " an "].iter().any(|w| t.contains(w));
+        if t.starts_with(p) && !placed {
             let at = raw_lower.find(p).map(|i| i + p.len()).unwrap_or(0);
             let body = raw[at..].trim().trim_matches(['"', '\'']).to_string();
             if !body.is_empty() {
@@ -537,6 +539,10 @@ mod tests {
         assert_eq!(route("buy the blue shirt in size M"), None);
         assert_eq!(route("play it"), None);
         assert_eq!(encode("c++ & you"), "c%2B%2B+%26+you");
+        assert_eq!(route("type my name in the search box"), None);
+        assert_eq!(route("write a letter to my son"), None);
+        assert_eq!(route("what is a good laptop under 50000"), None);
+        assert_eq!(route("who is the best doctor near me"), None);
         assert!(is_question("why is the sky blue?"));
         assert!(!is_question("can you open notepad"));
         assert!(!is_question("what's on this page?"));

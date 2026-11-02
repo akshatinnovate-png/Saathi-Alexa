@@ -18,6 +18,8 @@ fn normalize(s: &str) -> String {
         .join(" ")
 }
 
+const STOP: &[&str] = &["the", "a", "an", "to", "of", "on", "in", "for", "and", "or", "is", "at", "by", "with", "button", "link", "tab", "icon"];
+
 fn score(query: &str, label: &str) -> f64 {
     let q = normalize(query);
     let l = normalize(label);
@@ -27,22 +29,28 @@ fn score(query: &str, label: &str) -> f64 {
     if q == l {
         return 100.0;
     }
-    if l.starts_with(&q) {
-        return 85.0 + 10.0 * (q.len() as f64 / l.len() as f64);
+    let ratio = q.len().min(l.len()) as f64 / q.len().max(l.len()) as f64;
+    let pad = |s: &str| format!(" {s} ");
+    if l.starts_with(&q) && l.as_bytes().get(q.len()) == Some(&b' ') {
+        return 88.0 + 10.0 * ratio;
     }
-    if l.contains(&q) {
-        return 65.0 + 20.0 * (q.len() as f64 / l.len() as f64);
+    if pad(&l).contains(&pad(&q)) {
+        return 70.0 + 20.0 * ratio;
     }
-    if l.len() >= 3 && q.contains(&l) {
-        return 45.0 + 20.0 * (l.len() as f64 / q.len() as f64);
+    if l.len() >= 4 && l.contains(' ') && pad(&q).contains(&pad(&l)) {
+        return 52.0 + 20.0 * ratio;
     }
-    let qt: Vec<&str> = q.split(' ').collect();
+    let qt: Vec<&str> = q.split(' ').filter(|t| !STOP.contains(t)).collect();
     let lt: Vec<&str> = l.split(' ').collect();
-    let common = qt.iter().filter(|t| lt.iter().any(|w| w == *t || (t.len() >= 4 && w.starts_with(*t)))).count();
-    if common == 0 {
+    if qt.is_empty() {
         return 0.0;
     }
-    55.0 * common as f64 / qt.len() as f64 + 10.0 * common as f64 / lt.len() as f64
+    let matched = qt.iter().filter(|t| lt.iter().any(|w| w == *t || (t.len() >= 4 && w.starts_with(*t)) || (w.len() >= 4 && t.starts_with(w)))).count();
+    let frac = matched as f64 / qt.len() as f64;
+    if frac < 0.6 {
+        return 0.0;
+    }
+    40.0 + 25.0 * frac + 10.0 * matched as f64 / lt.len() as f64
 }
 
 pub fn resolve<'a>(query: &str, targets: &'a [Target]) -> Option<&'a Target> {
@@ -55,13 +63,13 @@ pub fn resolve<'a>(query: &str, targets: &'a [Target]) -> Option<&'a Target> {
     targets
         .iter()
         .map(|t| (t, score(unquoted, &t.label) + if t.interactive { 4.0 } else { 0.0 } + if t.id.starts_with('E') { 1.0 } else { 0.0 }))
-        .filter(|(_, s)| *s >= 40.0)
+        .filter(|(_, s)| *s >= 50.0)
         .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
         .map(|(t, _)| t)
 }
 
 pub fn matches<'a>(query: &str, targets: &'a [Target]) -> Vec<&'a Target> {
-    let mut found: Vec<(&Target, f64)> = targets.iter().map(|t| (t, score(query, &t.label))).filter(|(_, s)| *s >= 40.0).collect();
+    let mut found: Vec<(&Target, f64)> = targets.iter().map(|t| (t, score(query, &t.label))).filter(|(_, s)| *s >= 50.0).collect();
     found.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
     found.into_iter().take(8).map(|(t, _)| t).collect()
 }
@@ -139,6 +147,11 @@ mod tests {
         assert_eq!(pick("blue t-shirt", &ts), Some("T2"));
         assert_eq!(pick("checkout", &ts), Some("E3"));
         assert_eq!(pick("place order", &ts), None, "nothing like it on screen means no click");
+        let sizes = vec![t("T1", "Mobile Covers", "Text", false, 0, 0), t("E1", "M", "Button", true, 0, 50), t("E2", "Medium blue", "Text", false, 0, 90)];
+        assert_eq!(pick("M", &sizes), Some("E1"), "a single letter only matches that letter");
+        let noisy = vec![t("T1", "Add to Wishlist", "Text", false, 0, 0), t("E1", "ADD TO BAG", "Button", true, 0, 50)];
+        assert_eq!(pick("add to bag", &noisy), Some("E1"));
+        assert_eq!(pick("bag", &[t("T1", "Baggage rules", "Text", false, 0, 0)]), None, "part of a word is not a match");
     }
 
     #[test]

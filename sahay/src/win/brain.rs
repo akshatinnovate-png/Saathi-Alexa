@@ -472,6 +472,7 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
         let mut calls = 0;
         let mut replans = 0;
         let mut empty = 0;
+        let mut checked = false;
         loop {
             if shared.stop.load(Ordering::Relaxed) {
                 shared.say("Sahay", "Stopped.");
@@ -521,6 +522,13 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
             }
             let say = call.args.get("say").and_then(Value::as_str).unwrap_or("").trim().to_string();
             match carry_out(&shared, &mut engine, &rx, &steps) {
+                Ran::Done(reports) if reports.is_empty() && !checked => {
+                    checked = true;
+                    shared.set_status(Status::Thinking, "Checking it worked…");
+                    std::thread::sleep(Duration::from_millis(600));
+                    let seen = engine.look_brief();
+                    messages.push(agent::tool_result(call, &format!("All steps ran. The screen now:\n{seen}Check it against the task. If the task is finished, reply to the user in one or two short sentences without a tool. If not, send only the remaining steps with do_steps.")));
+                }
                 Ran::Done(reports) if reports.is_empty() => {
                     messages.push(agent::tool_result(call, "All steps done."));
                     let final_words = if say.is_empty() { "Done.".to_string() } else { say };
