@@ -1,7 +1,7 @@
 use serde_json::{json, Value};
 use std::collections::VecDeque;
 
-pub const DEFAULT_MODELS: &[&str] = &["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
+pub const DEFAULT_MODELS: &[&str] = &["gemini-flash-latest", "gemini-2.5-flash", "gemini-flash-lite-latest", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
 pub const HOST: &str = "generativelanguage.googleapis.com";
 pub const MAX_STEPS: usize = 250;
 

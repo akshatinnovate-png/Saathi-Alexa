@@ -3,6 +3,7 @@ use serde_json::{json, Value};
 pub const LIVE_URL: &str = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
 
 pub const DEFAULT_MODELS: &[&str] = &[
+    "gemini-3.8-live",
     "gemini-2.5-flash-native-audio-preview-09-2025",
     "gemini-live-2.5-flash-preview",
     "gemini-2.0-flash-live-001",

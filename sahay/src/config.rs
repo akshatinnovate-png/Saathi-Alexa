@@ -1,5 +1,7 @@
 use serde_json::{json, Value};
 
+const RETIRED_DEFAULTS: &[&str] = &["gemini-2.5-flash-native-audio-preview-09-2025", "gemini-live-2.5-flash-preview", "gemini-2.0-flash-live-001"];
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
     pub keys: Vec<String>,
@@ -37,7 +39,8 @@ impl Config {
         let Ok(v) = serde_json::from_str::<Value>(text) else { return c };
         c.keys = strings(v.get("sealedKeys")).iter().filter_map(|k| unseal(k)).filter(|k| !k.is_empty()).collect();
         let models = strings(v.get("models"));
-        if !models.is_empty() {
+        let known = |m: &String| crate::protocol::DEFAULT_MODELS.contains(&m.as_str()) || RETIRED_DEFAULTS.contains(&m.as_str());
+        if !models.is_empty() && !models.iter().all(known) {
             c.models = models;
         }
         if let Some(s) = v.get("voice").and_then(Value::as_str).filter(|s| !s.is_empty()) {
@@ -91,6 +94,15 @@ mod tests {
         assert!(!text.contains("AIza-one"), "a raw key never reaches the file");
         let back = Config::from_json(&text, |s| s.strip_prefix("sealed:").map(|r| r.chars().rev().collect()));
         assert_eq!(back, c);
+    }
+
+    #[test]
+    fn an_untouched_old_model_list_upgrades_but_a_custom_one_is_kept() {
+        let old = Config::from_json(r#"{"models":["gemini-2.5-flash-native-audio-preview-09-2025","gemini-live-2.5-flash-preview"]}"#, |_| None);
+        assert_eq!(old.models, Config::default().models);
+        assert_eq!(old.models[0], "gemini-3.8-live");
+        let custom = Config::from_json(r#"{"models":["my-own-live-model"]}"#, |_| None);
+        assert_eq!(custom.models, vec!["my-own-live-model".to_string()]);
     }
 
     #[test]
