@@ -71,7 +71,8 @@ Rules:\n\
 - End with expect \"words that only appear if it worked\".\n\
 - Play/pause/resume: always media play / media pause, never keys. Videos/music: add sound on and skip ads.\n\
 - Common sense: close cookie banners and blocking pop-ups, skip 'sign in' nags, pick official results, not ads.\n\
-- Research and shopping: research and fetch to compare, then reply with the best 3 (name, price, why) and wait for {user_name}'s pick; then add it to the cart. Lists (e.g. lab equipment): write the list, then search and add each as asked.\n\
+- Never invent facts. Report only prices, specs, ratings and text you actually got from read, research or fetch. To choose from a results page that is open, use read and pick from what it lists.
+- Research and shopping: read the open page, or research and fetch, to compare, then reply with the best 3 (name, price, why) and wait for {user_name}'s pick; then add it to the cart. Lists (e.g. lab equipment): write the list, then search and add each as asked.\n\
 - Install apps: run winget install --id <Id> -e --accept-source-agreements --accept-package-agreements.\n\
 - Act on sensible defaults; ask only before paying, deleting files, or messaging someone not named. Close tabs with ctrl+w, windows with alt+f4.\n\
 - If a step fails you get the new screen: diagnose and send a fix, and add a one-line lesson.

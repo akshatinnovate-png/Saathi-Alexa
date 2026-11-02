@@ -644,6 +644,14 @@ fn instant(shared: &Arc<Shared>, engine: &mut Engine, rx: &Receiver<String>, int
     }
 }
 
+fn is_new_command(message: &str) -> bool {
+    let t = message.trim().to_lowercase();
+    if t.ends_with('?') || t.split_whitespace().count() <= 1 && !["stop", "cancel"].contains(&t.as_str()) {
+        return false;
+    }
+    intent::route_all(message).is_some() || ["close ", "open ", "stop", "cancel", "play ", "go to ", "search ", "find ", "turn ", "instead ", "forget it", "leave it", "never mind"].iter().any(|p| t.starts_with(p))
+}
+
 fn knowledge_path() -> std::path::PathBuf {
     system::home().join("knowledge.jsonl")
 }
@@ -766,7 +774,15 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
     let mut groq = Groq::new();
     let mut store = load_knowledge();
     system::log(&format!("knowledge: {} tasks", store.len()));
-    while let Ok(first) = rx.recv() {
+    let mut pending: Option<String> = None;
+    loop {
+        let first = match pending.take() {
+            Some(p) => p,
+            None => match rx.recv() {
+                Ok(m) => m,
+                Err(_) => break,
+            },
+        };
         if shared.quit.load(Ordering::Relaxed) {
             return;
         }
@@ -1060,8 +1076,14 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
                     let seen = engine.look_brief();
                     messages.push(agent::tool_result(call, &format!("Done: {}\nFailed: {failed} ({reason}). The rest was not done.\nThe screen now:\n{seen}Send a new plan from here.", if done.is_empty() { "nothing".to_string() } else { done.join(" | ") })));
                 }
+                Ran::Interrupted { message, .. } if is_new_command(&message) => {
+                    messages.push(agent::tool_result(call, &format!("Cancelled: the user gave a new instruction: {message}")));
+                    shared.say("Sahay", "OK, doing that instead.");
+                    pending = Some(message);
+                    break;
+                }
                 Ran::Interrupted { done, message } => {
-                    let seen = engine.look();
+                    let seen = engine.look_brief();
                     messages.push(agent::tool_result(call, &format!("Paused after: {}. The user wrote: {message}\nThe screen now:\n{seen}", if done.is_empty() { "nothing".to_string() } else { done.join(" | ") })));
                 }
                 Ran::Stopped => {

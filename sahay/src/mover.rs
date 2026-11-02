@@ -84,7 +84,7 @@ pub fn resolve<'a>(query: &str, targets: &'a [Target]) -> Option<&'a Target> {
     let unquoted = q.trim_matches(|c| c == '"' || c == '\'' || c == '“' || c == '”');
     targets
         .iter()
-        .map(|t| (t, score(unquoted, &t.label) + if t.interactive { 4.0 } else { 0.0 } + if t.id.starts_with('E') { 1.0 } else { 0.0 } - if t.chrome && !about_browser(unquoted) { 35.0 } else { 0.0 }))
+        .map(|t| (t, score(unquoted, &t.label) + if t.interactive { 4.0 } else { 0.0 } + if t.id.starts_with('E') { 1.0 } else { 0.0 } - if t.chrome && !about_browser(unquoted) { 1000.0 } else { 0.0 }))
         .filter(|(_, s)| *s >= 50.0)
         .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
         .map(|(t, _)| t)
@@ -94,7 +94,7 @@ pub fn ranked<'a>(query: &str, targets: &'a [Target]) -> Vec<(&'a Target, f64)> 
     let unquoted = query.trim().trim_matches(|c| c == '"' || c == '\'' || c == '“' || c == '”');
     let mut found: Vec<(&Target, f64)> = targets
         .iter()
-        .map(|t| (t, score(unquoted, &t.label) + if t.interactive { 4.0 } else { 0.0 } + if t.id.starts_with('E') { 1.0 } else { 0.0 } - if t.chrome && !about_browser(unquoted) { 35.0 } else { 0.0 }))
+        .map(|t| (t, score(unquoted, &t.label) + if t.interactive { 4.0 } else { 0.0 } + if t.id.starts_with('E') { 1.0 } else { 0.0 } - if t.chrome && !about_browser(unquoted) { 1000.0 } else { 0.0 }))
         .filter(|(_, s)| *s >= 50.0)
         .collect();
     found.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));

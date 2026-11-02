@@ -321,6 +321,7 @@ const ENGINES: &[(&[&str], &str, &str)] = &[
 
 const KEYS: &[(&[&str], &str, &str)] = &[
     (&["close tab", "close this tab", "close the tab"], "ctrl+w", "Closed the tab."),
+    (&["send it", "send", "send that", "send this", "send it now", "send the message", "press send", "hit send", "hit enter", "press enter", "submit", "submit it", "post it", "enter"], "enter", "Sent."),
     (&["close window", "close this window", "close the window", "close this", "close it"], "alt+f4", "Closed the window."),
     (&["go back", "back", "previous page"], "alt+left", "Went back."),
     (&["go forward", "forward"], "alt+right", "Went forward."),
@@ -351,7 +352,7 @@ pub fn encode(q: &str) -> String {
 fn clean(text: &str) -> String {
     let mut t = text.trim().to_lowercase();
     t = t.trim_end_matches(['.', '!', '?', ',']).trim().to_string();
-    let polite = ["hey sahay", "hi sahay", "sahay", "please", "pls", "plz", "can you", "could you", "would you", "will you", "kindly", "just", "now"];
+    let polite = ["hey sahay", "hi sahay", "sahay", "please", "pls", "plz", "can you", "could you", "would you", "will you", "kindly", "just", "now", "bruh", "bro", "yaar", "dude", "ok", "okay", "arre", "abe"];
     let mut changed = true;
     while changed {
         changed = false;
@@ -363,7 +364,7 @@ fn clean(text: &str) -> String {
                 }
             }
         }
-        for p in [" please", " pls", " for me", " now"] {
+        for p in [" please", " pls", " for me", " now", " bruh", " bro", " yaar", " yar", " man", " dude", " ji", " na", " re", " buddy", " lol"] {
             if let Some(r) = t.strip_suffix(p) {
                 t = r.trim().to_string();
                 changed = true;
@@ -764,7 +765,7 @@ pub fn route(text: &str) -> Option<Intent> {
         }
     }
     if let Some(rest) = t.strip_prefix("close ") {
-        let name = rest.trim().trim_start_matches("the ").trim_end_matches(" tab").trim_end_matches(" window").trim();
+        let name = rest.trim().trim_start_matches("the ").trim_end_matches(" only").trim_end_matches(" tab").trim_end_matches(" window").trim_end_matches(" tabs").trim();
         if ["evrything", "everythin", "everyting", "everthing", "evrythng", "everything", "all", "every thing", "all of it"].contains(&name) {
             return Some(Intent::CloseAll);
         }
@@ -851,6 +852,8 @@ mod tests {
         assert_eq!(route("Next time use the Amazon search box"), Some(Intent::Teach("Next time use the Amazon search box".into())));
         assert_eq!(route("Close evrything"), Some(Intent::CloseAll));
         assert_eq!(route("close everything"), Some(Intent::CloseAll));
+        assert_eq!(route("send it bruh"), Some(Intent::Keys { keys: "enter", say: "Sent." }));
+        assert_eq!(route("close amazon ONLY"), Some(Intent::Close("amazon".into())));
         assert_eq!(route("learn from \"C:\\Users\\me\\Downloads\\sahay-starter.jsonl\""), Some(Intent::Import("C:\\Users\\me\\Downloads\\sahay-starter.jsonl".into())));
         assert_eq!(route("Pause it"), Some(Intent::Media("pause")));
         assert_eq!(route("play it"), Some(Intent::Media("play")));

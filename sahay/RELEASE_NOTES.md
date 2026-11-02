@@ -1,5 +1,11 @@
 **Sahay** (सहाय, "help") drives your Windows PC for you. You type what you want; it moves its own cursor, clicks and types until the job is done. A byproduct of [Saathi](https://github.com/akshatinnovate-png/Saathi-Alexa).
 
+### New in 2.8.1: fixes from real use
+- **No made-up facts.** Prices, specs and ratings must come from what Sahay actually read on the page (or from web research); to choose from an open Amazon results page it reads the page and picks from what is listed.
+- **Never fooled by the browser.** Tab titles, the address bar and the toolbar are ignored completely unless you mention them, so "wait for Samsung Galaxy A56" waits for the product, not the tab title, and "Search" is the site's box, not Edge's address bar.
+- **A new instruction replaces the old one.** Typing a command while Sahay works ("close amazon only") cancels the current plan and does the new one at once; questions like "added?" still go to the current task.
+- **"Send it" just sends.** "Send it", "submit", "press send" and "hit enter" press Enter where you are typing. Casual words like bruh, bro, yaar and dude are ignored.
+
 ### New in 2.8.0: teach it with a dataset, and a brain on your own PC
 - **Teach Sahay with a dataset.** Download **sahay-starter.jsonl** below (104 task templates and 30 lessons) and drop it onto Sahay's chat, or choose **Teach from a dataset…** from the sphere's menu, or type `learn from <path>`. Sahay learns from it at once:
   - **Templates run instantly, with zero tokens.** "send {message} to {name} on WhatsApp", "add {item} to my Amazon cart", "directions to {place}", "set brightness to {level}" and a hundred more fill in from your words and run straight away.
@@ -115,7 +121,7 @@
 - **Doesn't quit on limits.** If Groq's free limit is hit it waits exactly as long as Groq says and carries on; add several keys to switch between them.
 
 ### Get started
-1. Download **Sahay-2.8.0.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
+1. Download **Sahay-2.8.1.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
 2. Groq's free key page opens (console.groq.com/keys). Sign in, click **Create API Key**, copy it and paste it into Sahay. Older Gemini keys are no longer used.
 3. The chat opens. Type what you want done, for example "play Bella Ciao on YouTube".
 
