@@ -4,6 +4,8 @@ Sahay learns from a dataset file the moment you give it one. Drop the file onto 
 
 Start with [`sahay-starter.jsonl`](sahay-starter.jsonl) (104 tasks, 30 lessons), or the mega set [`sahay-massive.jsonl`](sahay-massive.jsonl) (2,452 tasks including 779 instant templates, and 100 lessons). Both can be loaded; nothing is duplicated. The biggest is [`sahay-50k.jsonl`](sahay-50k.jsonl): 51,026 tasks (779 instant templates plus filled-in examples across shopping, music, messages, travel, study, health, jobs and more) and 100 lessons. `generate_dataset.py` rebuilds them (`python generate_dataset.py sahay-50k.jsonl --mega`).
 
+The new-skills set [`sahay-800k/`](sahay-800k) has 813,074 tasks in 9 uncompressed parts of up to 100,000 lines: food ordering in about 250 cities, jobs by role and city, local services, doctors, movie tickets, restaurants, weather questions, rentals, travel between cities, quick-commerce groceries, phrases in 20 languages, every Bhagavad Gita verse, devotional music, medicines and health conditions, cars, colleges, coding, maths, unit conversions, kids' content, sharing, network checks, books, bill payments, government services and banking. Its 151 templates are in `templates.jsonl`. Teach the whole folder at once with `learn from C:\path\to\sahay-800k`. `generate_new.py` rebuilds it.
+
 ## The format
 
 One JSON object per line. There are two kinds of line.

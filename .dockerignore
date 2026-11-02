@@ -10,3 +10,6 @@ cdk.out
 target
 core/fuzz/target
 core/fuzz/corpus
+
+sahay/training/*.jsonl
+sahay/training/sahay-800k

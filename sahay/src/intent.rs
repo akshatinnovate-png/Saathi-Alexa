@@ -476,7 +476,7 @@ pub fn route(text: &str) -> Option<Intent> {
     for p in ["learn from ", "teach from ", "import ", "load dataset ", "load ", "learn this dataset ", "train on ", "train from "] {
         if let Some(rest) = raw.to_lowercase().strip_prefix(p).map(|_| raw[p.len()..].trim().trim_matches(['"', '\'']).to_string()) {
             let l = rest.to_lowercase();
-            if l.ends_with(".jsonl") || l.ends_with(".json") || l.ends_with(".txt") || l.ends_with(".csv") || rest.contains(":\\") {
+            if l.ends_with(".jsonl") || l.ends_with(".json") || l.ends_with(".txt") || l.ends_with(".csv") || rest.contains(":\\") || rest.starts_with("\\\\") {
                 return Some(Intent::Import(rest));
             }
         }

@@ -48,6 +48,92 @@ fn fill_dummy(step: &str) -> String {
     out
 }
 
+pub fn load_trusted(text: &str) -> Vec<Example> {
+    text.lines()
+        .filter_map(|l| serde_json::from_str::<Value>(l.trim()).ok())
+        .filter_map(|v| {
+            let task = v.get("task")?.as_str()?.to_string();
+            let steps: Vec<String> = v.get("steps")?.as_array()?.iter().filter_map(Value::as_str).map(String::from).collect();
+            let say = v.get("say").and_then(Value::as_str).unwrap_or("").to_string();
+            (!task.is_empty() && !steps.is_empty()).then_some(Example { task, steps, say })
+        })
+        .collect()
+}
+
+#[derive(Default)]
+pub struct Index {
+    postings: std::collections::HashMap<String, Vec<u32>>,
+    sizes: Vec<u16>,
+    templates: Vec<u32>,
+}
+
+impl Index {
+    pub fn build(examples: &[Example]) -> Self {
+        let mut ix = Index::default();
+        for (i, e) in examples.iter().enumerate() {
+            ix.add(i, e);
+        }
+        ix
+    }
+
+    pub fn add(&mut self, i: usize, e: &Example) {
+        let words = bag(&e.task);
+        if self.sizes.len() <= i {
+            self.sizes.resize(i + 1, 0);
+        }
+        self.sizes[i] = words.len().min(u16::MAX as usize) as u16;
+        let mut uniq = words;
+        uniq.sort();
+        uniq.dedup();
+        for w in uniq {
+            self.postings.entry(w).or_default().push(i as u32);
+        }
+        if e.task.contains('{') {
+            self.templates.push(i as u32);
+        }
+    }
+
+    pub fn similar<'a>(&self, examples: &'a [Example], request: &str, k: usize) -> Vec<&'a Example> {
+        let mut want = bag(request);
+        want.sort();
+        want.dedup();
+        if want.is_empty() {
+            return Vec::new();
+        }
+        let mut counts: std::collections::HashMap<u32, u16> = std::collections::HashMap::new();
+        for w in &want {
+            if let Some(list) = self.postings.get(w) {
+                if list.len() > 200_000 {
+                    continue;
+                }
+                for &i in list {
+                    *counts.entry(i).or_default() += 1;
+                }
+            }
+        }
+        let mut scored: Vec<(f64, u32)> = counts
+            .into_iter()
+            .map(|(i, c)| (f64::from(c) / ((want.len() + usize::from(self.sizes[i as usize])) as f64).sqrt().max(1.0), i))
+            .filter(|(s, _)| *s >= 0.45)
+            .collect();
+        scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal).then(a.1.cmp(&b.1)));
+        scored.into_iter().take(k).filter_map(|(_, i)| examples.get(i as usize)).collect()
+    }
+
+    pub fn template_plan(&self, examples: &[Example], request: &str) -> Option<(Vec<String>, String)> {
+        for &i in self.templates.iter().rev() {
+            let e = examples.get(i as usize)?;
+            if let Some(slots) = match_template(&e.task, request) {
+                let steps: Vec<String> = e.steps.iter().map(|s| fill(s, &slots)).collect();
+                if steps.iter().all(|s| crate::plan::parse(s).is_ok()) {
+                    return Some((steps, fill(&e.say, &slots)));
+                }
+            }
+        }
+        None
+    }
+}
+
 pub fn parse_dataset(text: &str) -> Imported {
     let mut out = Imported::default();
     let take = |v: &Value, out: &mut Imported| {
@@ -160,11 +246,13 @@ pub fn fill(step: &str, slots: &[(String, String)]) -> String {
     let mut s = step.to_string();
     for (name, value) in slots {
         s = s.replace(&format!("{{{name}:url}}"), &crate::intent::encode(value));
+        s = s.replace(&format!("{{{name}:slug}}"), &value.to_lowercase().replace('&', "and").replace('\'', "").split_whitespace().collect::<Vec<_>>().join("-"));
         s = s.replace(&format!("{{{name}}}"), value);
     }
     s
 }
 
+#[cfg(test)]
 pub fn template_plan(examples: &[Example], request: &str) -> Option<(Vec<String>, String)> {
     for e in examples.iter().rev().filter(|e| e.task.contains('{')) {
         if let Some(slots) = match_template(&e.task, request) {
@@ -181,6 +269,7 @@ fn bag(s: &str) -> Vec<String> {
     tokens(&s.to_lowercase()).into_iter().filter(|t| !t.starts_with('{') && t.len() > 2 && !FILLER.contains(&t.as_str()) && !["the", "and", "with", "from", "this", "that", "into", "onto"].contains(&t.as_str())).map(|t| t.trim_end_matches('s').to_string()).collect()
 }
 
+#[cfg(test)]
 pub fn similar<'a>(examples: &'a [Example], request: &str, k: usize) -> Vec<&'a Example> {
     let want = bag(request);
     if want.is_empty() {
@@ -213,6 +302,34 @@ mod tests {
 
     const STARTER: &str = include_str!("../training/sahay-starter.jsonl");
     const MASSIVE: &str = include_str!("../training/sahay-massive.jsonl");
+
+    #[test]
+    fn the_800k_dataset_templates_and_parts_are_valid() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("training/sahay-800k");
+        let t = parse_dataset(&std::fs::read_to_string(dir.join("templates.jsonl")).unwrap());
+        assert_eq!(t.skipped, 0, "every new template is valid");
+        assert!(t.examples.len() >= 150);
+        for part in ["sahay-800k-part01.jsonl", "sahay-800k-part09.jsonl"] {
+            let d = parse_dataset(&std::fs::read_to_string(dir.join(part)).unwrap());
+            assert_eq!(d.skipped, 0, "{part} loads completely");
+        }
+        let (steps, _) = template_plan(&t.examples, "order chole bhature in Navi Mumbai on zomato").unwrap();
+        assert_eq!(steps[0], "open https://www.zomato.com/navi-mumbai/delivery/dish-chole-bhature");
+        let (steps, _) = template_plan(&t.examples, "find data analyst jobs in Pune on naukri").unwrap();
+        assert_eq!(steps[0], "open https://www.naukri.com/data-analyst-jobs-in-pune");
+        let parts: usize = std::fs::read_dir(&dir).unwrap().filter_map(Result::ok).filter(|e| e.file_name().to_string_lossy().starts_with("sahay-800k-part")).map(|e| std::fs::read_to_string(e.path()).unwrap().lines().count()).sum();
+        assert!(parts >= 800_000, "{parts} lines");
+    }
+
+    #[test]
+    fn the_index_finds_the_same_neighbours_fast() {
+        let d = parse_dataset(STARTER);
+        let ix = Index::build(&d.examples);
+        let a: Vec<&str> = ix.similar(&d.examples, "put a laptop bag in my amazon cart", 3).iter().map(|e| e.task.as_str()).collect();
+        assert!(!a.is_empty() && a[0].to_lowercase().contains("amazon"), "{a:?}");
+        assert!(ix.template_plan(&d.examples, "add wireless mouse to my amazon cart").is_some());
+        assert_eq!(load_trusted(&to_line(&d.examples[0])), vec![d.examples[0].clone()]);
+    }
 
     #[test]
     fn the_50k_dataset_loads_completely() {

@@ -657,13 +657,14 @@ fn knowledge_path() -> std::path::PathBuf {
 }
 
 fn load_knowledge() -> Vec<knowledge::Example> {
-    std::fs::read_to_string(knowledge_path()).map(|t| knowledge::parse_dataset(&t).examples).unwrap_or_default()
+    std::fs::read_to_string(knowledge_path()).map(|t| knowledge::load_trusted(&t)).unwrap_or_default()
 }
 
-fn save_example(store: &mut Vec<knowledge::Example>, e: knowledge::Example) {
-    if store.iter().any(|x| x.task.eq_ignore_ascii_case(&e.task) && x.steps == e.steps) {
+fn save_example(store: &mut Vec<knowledge::Example>, index: &mut knowledge::Index, e: knowledge::Example) {
+    if store.iter().rev().take(5000).any(|x| x.task.eq_ignore_ascii_case(&e.task) && x.steps == e.steps) {
         return;
     }
+    index.add(store.len(), &e);
     if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(knowledge_path()) {
         use std::io::Write;
         let _ = writeln!(f, "{}", knowledge::to_line(&e));
@@ -671,8 +672,22 @@ fn save_example(store: &mut Vec<knowledge::Example>, e: knowledge::Example) {
     store.push(e);
 }
 
-fn import(shared: &Shared, store: &mut Vec<knowledge::Example>, path: &str) -> Result<String, String> {
-    let text = std::fs::read_to_string(path.trim()).map_err(|e| format!("I couldn't read {path}: {e}"))?;
+fn import(shared: &Shared, store: &mut Vec<knowledge::Example>, index: &mut knowledge::Index, path: &str) -> Result<String, String> {
+    let p = std::path::Path::new(path.trim());
+    if p.is_dir() {
+        let mut files: Vec<std::path::PathBuf> = std::fs::read_dir(p).map_err(|e| e.to_string())?.filter_map(Result::ok).map(|e| e.path()).filter(|f| f.extension().is_some_and(|x| x == "jsonl" || x == "json" || x == "txt")).collect();
+        files.sort();
+        if files.is_empty() {
+            return Err(format!("{path} has no .jsonl files"));
+        }
+        let mut last = String::new();
+        for (n, f) in files.iter().enumerate() {
+            shared.say("Sahay", &format!("Learning from {} ({} of {})…", f.file_name().map(|x| x.to_string_lossy().into_owned()).unwrap_or_default(), n + 1, files.len()));
+            last = import(shared, store, index, &f.to_string_lossy())?;
+        }
+        return Ok(last);
+    }
+    let text = std::fs::read_to_string(p).map_err(|e| format!("I couldn't read {path}: {e}"))?;
     let d = knowledge::parse_dataset(&text);
     if d.examples.is_empty() && d.lessons.is_empty() {
         return Err("That file has no tasks or lessons I can use. Each line should be like {\"task\": \"...\", \"steps\": [\"...\"]} or {\"lesson\": \"...\"}.".into());
@@ -684,6 +699,7 @@ fn import(shared: &Shared, store: &mut Vec<knowledge::Example>, path: &str) -> R
         if known.insert(format!("{}\u{1}{}", e.task.to_lowercase(), e.steps.join("\u{2}"))) {
             lines.push_str(&knowledge::to_line(&e));
             lines.push('\n');
+            index.add(store.len(), &e);
             store.push(e);
         }
     }
@@ -784,6 +800,7 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
     let mut messages: Vec<Value> = vec![json!({ "role": "system", "content": agent::system_prompt(&cfg.name, &cfg.extra) })];
     let mut groq = Groq::new();
     let mut store = load_knowledge();
+    let mut index = knowledge::Index::build(&store);
     system::log(&format!("knowledge: {} tasks", store.len()));
     let mut pending: Option<String> = None;
     loop {
@@ -805,7 +822,7 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
         agent::new_task(&mut messages);
         if let Some(Intent::Import(path)) = intent::route(&first) {
             shared.set_status(Status::Acting, "Learning from your file…");
-            match import(&shared, &mut store, &path) {
+            match import(&shared, &mut store, &mut index, &path) {
                 Ok(said) => shared.reply(&said),
                 Err(e) => shared.say("Sahay", &e),
             }
@@ -927,7 +944,7 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
             }
         }
         if prepared.is_none() && chain.is_none() {
-            if let Some((steps, said)) = knowledge::template_plan(&store, &first) {
+            if let Some((steps, said)) = index.template_plan(&store, &first) {
                 shared.say("Sahay", "I know how to do this…");
                 match carry_out(&shared, &mut engine, &rx, &steps) {
                     Ran::Done(reports) => {
@@ -957,7 +974,7 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
                 }
             }
         }
-        let hints = knowledge::as_hints(&knowledge::similar(&store, &first, 3));
+        let hints = knowledge::as_hints(&index.similar(&store, &first, 3));
         if let Some(content) = prepared {
             messages.push(json!({ "role": "user", "content": content }));
         } else if intent::is_question(&first) {
@@ -1105,7 +1122,7 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
             }
         }
         if solved && replans == 0 && !reported && !executed.is_empty() && !plan::uses_numbers(&executed) {
-            save_example(&mut store, knowledge::Example { task: first.trim().to_string(), steps: executed.clone(), say: String::new() });
+            save_example(&mut store, &mut index, knowledge::Example { task: first.trim().to_string(), steps: executed.clone(), say: String::new() });
         }
         engine.cursor.hide();
         shared.busy.store(false, Ordering::Relaxed);

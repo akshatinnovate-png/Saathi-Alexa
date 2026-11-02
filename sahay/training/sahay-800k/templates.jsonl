@@ -1,0 +1,151 @@
+{"task": "order {dish} in {city} on swiggy", "steps": ["open https://www.swiggy.com/search?query={dish:url}", "wait for \"{dish}\"", "click \"{dish}\""], "say": "Here's {dish} on Swiggy; pick a restaurant and I'll add it."}
+{"task": "get {dish} delivered in {city} from swiggy", "steps": ["open https://www.swiggy.com/search?query={dish:url}", "wait for \"{dish}\"", "click \"{dish}\""], "say": "Here's {dish} on Swiggy."}
+{"task": "order {dish} in {city} on zomato", "steps": ["open https://www.zomato.com/{city:slug}/delivery/dish-{dish:slug}"], "say": "Here's {dish} delivery in {city} on Zomato."}
+{"task": "find {dish} in {city} on zomato", "steps": ["open https://www.zomato.com/{city:slug}/delivery/dish-{dish:slug}"], "say": "Here's {dish} in {city} on Zomato."}
+{"task": "best {dish} in {city}", "steps": ["open https://www.google.com/search?q=best+{dish:url}+in+{city:url}"], "say": "Here are the best places for {dish} in {city}."}
+{"task": "where to eat {dish} in {city}", "steps": ["open https://www.google.com/maps/search/{dish:url}+in+{city:url}"], "say": "Here are places for {dish} in {city}."}
+{"task": "find {role} jobs in {city} on linkedin", "steps": ["open https://www.linkedin.com/jobs/search/?keywords={role:url}&location={city:url}"], "say": "Here are {role} jobs in {city} on LinkedIn."}
+{"task": "find {role} jobs in {city} on naukri", "steps": ["open https://www.naukri.com/{role:slug}-jobs-in-{city:slug}"], "say": "Here are {role} jobs in {city} on Naukri."}
+{"task": "find {role} jobs in {city} on indeed", "steps": ["open https://in.indeed.com/jobs?q={role:url}&l={city:url}"], "say": "Here are {role} jobs in {city} on Indeed."}
+{"task": "{role} vacancies in {city}", "steps": ["open https://www.google.com/search?q={role:url}+vacancies+in+{city:url}"], "say": "Here are {role} vacancies in {city}."}
+{"task": "{role} job openings in {city}", "steps": ["open https://www.google.com/search?q={role:url}+jobs+in+{city:url}&ibp=htl;jobs"], "say": "Here are {role} openings in {city}."}
+{"task": "apply for {role} jobs in {city}", "steps": ["open https://in.indeed.com/jobs?q={role:url}&l={city:url}"], "say": "Here are {role} jobs in {city} you can apply to."}
+{"task": "find a {service} in {city}", "steps": ["open https://www.google.com/maps/search/{service:url}+in+{city:url}"], "say": "Here are {service} options in {city}."}
+{"task": "need a {service} in {city}", "steps": ["open https://www.google.com/maps/search/{service:url}+in+{city:url}"], "say": "Here are {service} options in {city}."}
+{"task": "{service} in {city} on justdial", "steps": ["open https://www.justdial.com/{city:slug}/{service:slug}"], "say": "Here are {service} listings in {city} on Justdial."}
+{"task": "find a {speciality} in {city}", "steps": ["open https://www.practo.com/{city:slug}/{speciality:slug}"], "say": "Here are {speciality}s in {city} on Practo."}
+{"task": "book a {speciality} in {city} on practo", "steps": ["open https://www.practo.com/{city:slug}/{speciality:slug}"], "say": "Here are {speciality}s in {city}; pick a time and I'll help book."}
+{"task": "best {speciality} in {city}", "steps": ["open https://www.google.com/search?q=best+{speciality:url}+in+{city:url}"], "say": "Here are top {speciality}s in {city}."}
+{"task": "{movie} tickets in {city}", "steps": ["open https://in.bookmyshow.com/explore/movies-{city:slug}", "wait for \"{movie}\"", "click \"{movie}\""], "say": "Here's {movie} in {city}; pick a show."}
+{"task": "book tickets for {movie} in {city}", "steps": ["open https://in.bookmyshow.com/explore/movies-{city:slug}", "wait for \"{movie}\"", "click \"{movie}\""], "say": "Here's {movie} in {city}; pick a show and seats."}
+{"task": "{movie} showtimes in {city}", "steps": ["open https://www.google.com/search?q={movie:url}+showtimes+{city:url}"], "say": "Here are {movie} showtimes in {city}."}
+{"task": "{cuisine} restaurants in {city}", "steps": ["open https://www.zomato.com/{city:slug}/restaurants/{cuisine:slug}"], "say": "Here are {cuisine} restaurants in {city}."}
+{"task": "best {cuisine} food in {city}", "steps": ["open https://www.google.com/maps/search/best+{cuisine:url}+restaurant+in+{city:url}"], "say": "Here are the best {cuisine} places in {city}."}
+{"task": "will it rain in {city} tomorrow", "steps": ["open https://www.google.com/search?q=will+it+rain+in+{city:url}+tomorrow"], "say": "Here's tomorrow's forecast for {city}."}
+{"task": "{city} weather this week", "steps": ["open https://www.google.com/search?q={city:url}+weather+this+week"], "say": "Here's this week's weather in {city}."}
+{"task": "aqi in {city}", "steps": ["open https://www.google.com/search?q=aqi+in+{city:url}"], "say": "Here's the air quality in {city}."}
+{"task": "temperature in {city} today", "steps": ["open https://www.google.com/search?q=temperature+in+{city:url}+today"], "say": "Here's today's temperature in {city}."}
+{"task": "sunrise time in {city}", "steps": ["open https://www.google.com/search?q=sunrise+time+in+{city:url}"], "say": "Here's sunrise in {city}."}
+{"task": "humidity in {city} today", "steps": ["open https://www.google.com/search?q=humidity+in+{city:url}"], "say": "Here's the humidity in {city}."}
+{"task": "weather forecast for {city}", "steps": ["open https://www.google.com/search?q=weather+forecast+{city:url}"], "say": "Here's the forecast for {city}."}
+{"task": "is it cold in {city}", "steps": ["open https://www.google.com/search?q=weather+{city:url}"], "say": "Here's the weather in {city}."}
+{"task": "1 bhk flat for rent in {city}", "steps": ["open https://www.magicbricks.com/property-for-rent/residential-real-estate?bedroom=1&cityName={city:url}"], "say": "Here are 1 BHK flats for rent in {city}."}
+{"task": "buy a 1 bhk flat in {city}", "steps": ["open https://www.magicbricks.com/property-for-sale/residential-real-estate?bedroom=1&cityName={city:url}"], "say": "Here are 1 BHK flats for sale in {city}."}
+{"task": "2 bhk flat for rent in {city}", "steps": ["open https://www.magicbricks.com/property-for-rent/residential-real-estate?bedroom=2&cityName={city:url}"], "say": "Here are 2 BHK flats for rent in {city}."}
+{"task": "buy a 2 bhk flat in {city}", "steps": ["open https://www.magicbricks.com/property-for-sale/residential-real-estate?bedroom=2&cityName={city:url}"], "say": "Here are 2 BHK flats for sale in {city}."}
+{"task": "3 bhk flat for rent in {city}", "steps": ["open https://www.magicbricks.com/property-for-rent/residential-real-estate?bedroom=3&cityName={city:url}"], "say": "Here are 3 BHK flats for rent in {city}."}
+{"task": "buy a 3 bhk flat in {city}", "steps": ["open https://www.magicbricks.com/property-for-sale/residential-real-estate?bedroom=3&cityName={city:url}"], "say": "Here are 3 BHK flats for sale in {city}."}
+{"task": "4 bhk flat for rent in {city}", "steps": ["open https://www.magicbricks.com/property-for-rent/residential-real-estate?bedroom=4&cityName={city:url}"], "say": "Here are 4 BHK flats for rent in {city}."}
+{"task": "buy a 4 bhk flat in {city}", "steps": ["open https://www.magicbricks.com/property-for-sale/residential-real-estate?bedroom=4&cityName={city:url}"], "say": "Here are 4 BHK flats for sale in {city}."}
+{"task": "pg for rent in {city}", "steps": ["open https://www.google.com/search?q=pg+for+rent+in+{city:url}"], "say": "Here are PGs in {city}."}
+{"task": "budget hotels in {city}", "steps": ["open https://www.google.com/travel/hotels/{city:url}"], "say": "Here are hotels in {city}."}
+{"task": "best time to visit {city}", "steps": ["open https://www.google.com/search?q=best+time+to+visit+{city:url}"], "say": "Here's the best time to visit {city}."}
+{"task": "what is {city} famous for", "steps": ["open https://www.google.com/search?q=what+is+{city:url}+famous+for"], "say": "Here's what {city} is famous for."}
+{"task": "{city} local news", "steps": ["open https://news.google.com/search?q={city:url}&hl=en-IN&gl=IN&ceid=IN:en"], "say": "Here's local news for {city}."}
+{"task": "cheapest way from {a} to {b}", "steps": ["open https://www.google.com/search?q=cheapest+way+from+{a:url}+to+{b:url}"], "say": "Here's how to get from {a} to {b} cheaply."}
+{"task": "bus tickets from {a} to {b}", "steps": ["open https://www.redbus.in/search?fromCityName={a:url}&toCityName={b:url}"], "say": "Here are buses from {a} to {b}."}
+{"task": "flight tickets from {a} to {b}", "steps": ["open https://www.google.com/travel/flights?q=flights+from+{a:url}+to+{b:url}"], "say": "Here are flights from {a} to {b}."}
+{"task": "drive from {a} to {b}", "steps": ["open https://www.google.com/maps/dir/?api=1&origin={a:url}&destination={b:url}&travelmode=driving"], "say": "Here's the drive from {a} to {b}."}
+{"task": "train tickets from {a} to {b}", "steps": ["open https://www.google.com/search?q=trains+from+{a:url}+to+{b:url}"], "say": "Here are trains from {a} to {b}."}
+{"task": "how many km from {a} to {b}", "steps": ["open https://www.google.com/maps/dir/?api=1&origin={a:url}&destination={b:url}"], "say": "Here's the distance from {a} to {b}."}
+{"task": "order {item} on blinkit", "steps": ["open https://blinkit.com/s/?q={item:url}", "wait for \"{item}\"", "click \"Add\""], "say": "Added {item} on Blinkit; check the cart before paying."}
+{"task": "get {item} from blinkit", "steps": ["open https://blinkit.com/s/?q={item:url}"], "say": "Here's {item} on Blinkit."}
+{"task": "order {item} on zepto", "steps": ["open https://www.zeptonow.com/search?query={item:url}", "wait for \"{item}\"", "click \"Add\""], "say": "Added {item} on Zepto; check the cart before paying."}
+{"task": "get {item} from zepto", "steps": ["open https://www.zeptonow.com/search?query={item:url}"], "say": "Here's {item} on Zepto."}
+{"task": "order {item} on instamart", "steps": ["open https://www.swiggy.com/instamart/search?query={item:url}", "wait for \"{item}\"", "click \"Add\""], "say": "Added {item} on Instamart; check the cart before paying."}
+{"task": "get {item} from instamart", "steps": ["open https://www.swiggy.com/instamart/search?query={item:url}"], "say": "Here's {item} on Instamart."}
+{"task": "order {item} on bigbasket", "steps": ["open https://www.bigbasket.com/ps/?q={item:url}", "wait for \"{item}\"", "click \"Add\""], "say": "Added {item} on Bigbasket; check the cart before paying."}
+{"task": "get {item} from bigbasket", "steps": ["open https://www.bigbasket.com/ps/?q={item:url}"], "say": "Here's {item} on Bigbasket."}
+{"task": "how do you say {phrase} in hindi", "steps": ["open https://translate.google.com/?sl=auto&tl=hi&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Hindi."}
+{"task": "translate {phrase} into hindi", "steps": ["open https://translate.google.com/?sl=auto&tl=hi&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Hindi."}
+{"task": "how do you say {phrase} in marathi", "steps": ["open https://translate.google.com/?sl=auto&tl=mr&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Marathi."}
+{"task": "translate {phrase} into marathi", "steps": ["open https://translate.google.com/?sl=auto&tl=mr&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Marathi."}
+{"task": "how do you say {phrase} in tamil", "steps": ["open https://translate.google.com/?sl=auto&tl=ta&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Tamil."}
+{"task": "translate {phrase} into tamil", "steps": ["open https://translate.google.com/?sl=auto&tl=ta&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Tamil."}
+{"task": "how do you say {phrase} in telugu", "steps": ["open https://translate.google.com/?sl=auto&tl=te&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Telugu."}
+{"task": "translate {phrase} into telugu", "steps": ["open https://translate.google.com/?sl=auto&tl=te&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Telugu."}
+{"task": "how do you say {phrase} in kannada", "steps": ["open https://translate.google.com/?sl=auto&tl=kn&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Kannada."}
+{"task": "translate {phrase} into kannada", "steps": ["open https://translate.google.com/?sl=auto&tl=kn&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Kannada."}
+{"task": "how do you say {phrase} in malayalam", "steps": ["open https://translate.google.com/?sl=auto&tl=ml&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Malayalam."}
+{"task": "translate {phrase} into malayalam", "steps": ["open https://translate.google.com/?sl=auto&tl=ml&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Malayalam."}
+{"task": "how do you say {phrase} in bengali", "steps": ["open https://translate.google.com/?sl=auto&tl=bn&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Bengali."}
+{"task": "translate {phrase} into bengali", "steps": ["open https://translate.google.com/?sl=auto&tl=bn&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Bengali."}
+{"task": "how do you say {phrase} in gujarati", "steps": ["open https://translate.google.com/?sl=auto&tl=gu&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Gujarati."}
+{"task": "translate {phrase} into gujarati", "steps": ["open https://translate.google.com/?sl=auto&tl=gu&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Gujarati."}
+{"task": "how do you say {phrase} in punjabi", "steps": ["open https://translate.google.com/?sl=auto&tl=pa&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Punjabi."}
+{"task": "translate {phrase} into punjabi", "steps": ["open https://translate.google.com/?sl=auto&tl=pa&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Punjabi."}
+{"task": "how do you say {phrase} in urdu", "steps": ["open https://translate.google.com/?sl=auto&tl=ur&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Urdu."}
+{"task": "translate {phrase} into urdu", "steps": ["open https://translate.google.com/?sl=auto&tl=ur&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Urdu."}
+{"task": "how do you say {phrase} in odia", "steps": ["open https://translate.google.com/?sl=auto&tl=or&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Odia."}
+{"task": "translate {phrase} into odia", "steps": ["open https://translate.google.com/?sl=auto&tl=or&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Odia."}
+{"task": "how do you say {phrase} in assamese", "steps": ["open https://translate.google.com/?sl=auto&tl=as&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Assamese."}
+{"task": "translate {phrase} into assamese", "steps": ["open https://translate.google.com/?sl=auto&tl=as&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Assamese."}
+{"task": "how do you say {phrase} in sanskrit", "steps": ["open https://translate.google.com/?sl=auto&tl=sa&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Sanskrit."}
+{"task": "translate {phrase} into sanskrit", "steps": ["open https://translate.google.com/?sl=auto&tl=sa&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Sanskrit."}
+{"task": "how do you say {phrase} in nepali", "steps": ["open https://translate.google.com/?sl=auto&tl=ne&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Nepali."}
+{"task": "translate {phrase} into nepali", "steps": ["open https://translate.google.com/?sl=auto&tl=ne&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Nepali."}
+{"task": "how do you say {phrase} in english", "steps": ["open https://translate.google.com/?sl=auto&tl=en&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in English."}
+{"task": "translate {phrase} into english", "steps": ["open https://translate.google.com/?sl=auto&tl=en&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in English."}
+{"task": "how do you say {phrase} in french", "steps": ["open https://translate.google.com/?sl=auto&tl=fr&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in French."}
+{"task": "translate {phrase} into french", "steps": ["open https://translate.google.com/?sl=auto&tl=fr&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in French."}
+{"task": "how do you say {phrase} in german", "steps": ["open https://translate.google.com/?sl=auto&tl=de&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in German."}
+{"task": "translate {phrase} into german", "steps": ["open https://translate.google.com/?sl=auto&tl=de&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in German."}
+{"task": "how do you say {phrase} in spanish", "steps": ["open https://translate.google.com/?sl=auto&tl=es&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Spanish."}
+{"task": "translate {phrase} into spanish", "steps": ["open https://translate.google.com/?sl=auto&tl=es&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Spanish."}
+{"task": "how do you say {phrase} in arabic", "steps": ["open https://translate.google.com/?sl=auto&tl=ar&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Arabic."}
+{"task": "translate {phrase} into arabic", "steps": ["open https://translate.google.com/?sl=auto&tl=ar&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Arabic."}
+{"task": "how do you say {phrase} in japanese", "steps": ["open https://translate.google.com/?sl=auto&tl=ja&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Japanese."}
+{"task": "translate {phrase} into japanese", "steps": ["open https://translate.google.com/?sl=auto&tl=ja&text={phrase:url}&op=translate"], "say": "Here's \"{phrase}\" in Japanese."}
+{"task": "bhagavad gita chapter {c} verse {v}", "steps": ["open https://www.holy-bhagavad-gita.org/chapter/{c}/verse/{v}"], "say": "Here's Gita chapter {c}, verse {v}."}
+{"task": "read bhagavad gita chapter {c}", "steps": ["open https://www.holy-bhagavad-gita.org/chapter/{c}"], "say": "Here's chapter {c} of the Gita."}
+{"task": "play {god} {kind}", "steps": ["open https://www.youtube.com/results?search_query={god:url}+{kind:url}", "click \"{god}\"", "sound on", "skip ads"], "say": "Playing {god} {kind}."}
+{"task": "put on {god} {kind}", "steps": ["open https://www.youtube.com/results?search_query={god:url}+{kind:url}", "click \"{god}\"", "sound on", "skip ads"], "say": "Playing {god} {kind}."}
+{"task": "uses of {med}", "steps": ["open https://www.1mg.com/search/all?name={med:url}"], "say": "Here's {med} on 1mg; ask your doctor before taking it."}
+{"task": "price of {med}", "steps": ["open https://www.1mg.com/search/all?name={med:url}"], "say": "Here's the price of {med}."}
+{"task": "alternatives to {med}", "steps": ["open https://www.google.com/search?q=alternatives+to+{med:url}+tablet"], "say": "Here are alternatives to {med}; check with your doctor."}
+{"task": "can i take {med} with food", "steps": ["open https://www.google.com/search?q={med:url}+before+or+after+food"], "say": "Here's when to take {med}; your doctor's advice comes first."}
+{"task": "order {med} online", "steps": ["open https://www.1mg.com/search/all?name={med:url}"], "say": "Here's {med} on 1mg."}
+{"task": "diet for {condition}", "steps": ["open https://www.google.com/search?q=diet+for+{condition:url}"], "say": "Here's diet advice for {condition}."}
+{"task": "exercises for {condition}", "steps": ["open https://www.youtube.com/results?search_query=exercises+for+{condition:url}", "click \"{condition}\"", "sound on", "skip ads"], "say": "Here are exercises for {condition}."}
+{"task": "home remedies for {condition}", "steps": ["open https://www.google.com/search?q=home+remedies+for+{condition:url}"], "say": "Here are home remedies for {condition}; see a doctor if it's serious."}
+{"task": "treatment for {condition}", "steps": ["open https://www.google.com/search?q=treatment+for+{condition:url}"], "say": "Here's how {condition} is treated; please consult a doctor."}
+{"task": "which doctor for {condition}", "steps": ["open https://www.google.com/search?q=which+doctor+to+see+for+{condition:url}"], "say": "Here's which doctor treats {condition}."}
+{"task": "test for {condition}", "steps": ["open https://www.google.com/search?q=test+for+{condition:url}"], "say": "Here are tests for {condition}."}
+{"task": "on road price of {car} in {city}", "steps": ["open https://www.google.com/search?q=on+road+price+of+{car:url}+in+{city:url}"], "say": "Here's the on-road price of the {car} in {city}."}
+{"task": "{car} review", "steps": ["open https://www.youtube.com/results?search_query={car:url}+review", "click \"{car}\"", "sound on", "skip ads"], "say": "Here's a {car} review."}
+{"task": "{car} mileage", "steps": ["open https://www.google.com/search?q={car:url}+mileage"], "say": "Here's the {car} mileage."}
+{"task": "{car} on cardekho", "steps": ["open https://www.google.com/search?q=site%3Acardekho.com+{car:url}"], "say": "Here's the {car} on CarDekho."}
+{"task": "{car} service centre in {city}", "steps": ["open https://www.google.com/maps/search/{car:url}+service+centre+in+{city:url}"], "say": "Here are {car} service centres in {city}."}
+{"task": "{college} admission", "steps": ["open https://www.google.com/search?q={college:url}+admission"], "say": "Here's admission info for {college}."}
+{"task": "{college} fees", "steps": ["open https://www.google.com/search?q={college:url}+fees"], "say": "Here are {college} fees."}
+{"task": "{college} cutoff", "steps": ["open https://www.google.com/search?q={college:url}+cutoff"], "say": "Here's the {college} cutoff."}
+{"task": "{college} placements", "steps": ["open https://www.google.com/search?q={college:url}+placements"], "say": "Here are {college} placements."}
+{"task": "{college} website", "steps": ["open https://www.google.com/search?q={college:url}+official+website"], "say": "Here's the {college} website."}
+{"task": "how to {task} in {lang}", "steps": ["open https://www.google.com/search?q=how+to+{task:url}+in+{lang:url}"], "say": "Here's how to {task} in {lang}."}
+{"task": "{lang} code to {task}", "steps": ["open https://www.google.com/search?q={lang:url}+code+to+{task:url}"], "say": "Here's {lang} code to {task}."}
+{"task": "{lang} tutorial for beginners", "steps": ["open https://www.youtube.com/results?search_query={lang:url}+tutorial+for+beginners", "click \"{lang}\"", "sound on", "skip ads"], "say": "Here's a {lang} tutorial."}
+{"task": "solve {eq}", "steps": ["open https://www.wolframalpha.com/input?i={eq:url}"], "say": "Here's the solution to {eq}."}
+{"task": "calculate {eq} on wolfram", "steps": ["open https://www.wolframalpha.com/input?i={eq:url}"], "say": "Here's {eq} worked out."}
+{"task": "convert {n} {a} to {b}", "steps": ["open https://www.google.com/search?q={n:url}+{a:url}+to+{b:url}"], "say": "Here's {n} {a} in {b}."}
+{"task": "how many {b} is {n} {a}", "steps": ["open https://www.google.com/search?q={n:url}+{a:url}+to+{b:url}"], "say": "Here's {n} {a} in {b}."}
+{"task": "play {rhyme} for kids", "steps": ["open https://www.youtube.com/results?search_query={rhyme:url}+for+kids", "click \"{rhyme}\"", "sound on", "skip ads"], "say": "Playing {rhyme}."}
+{"task": "tell a story about {rhyme}", "steps": ["open https://www.youtube.com/results?search_query={rhyme:url}+story+for+kids", "click \"{rhyme}\"", "sound on", "skip ads"], "say": "Here's a story about {rhyme}."}
+{"task": "post {text} on twitter", "steps": ["open https://x.com/intent/post?text={text:url}", "wait for \"Post\""], "say": "Your post is ready; press Post when you're happy with it."}
+{"task": "share {text} on whatsapp", "steps": ["open https://wa.me/?text={text:url}", "wait for \"Continue to Chat\"", "click \"Continue to Chat\""], "say": "Choose who to send it to on WhatsApp."}
+{"task": "share {text} on telegram", "steps": ["open https://t.me/share/url?url={text:url}"], "say": "Choose who to share it with on Telegram."}
+{"task": "ping {host}", "steps": ["run Test-Connection {host} -Count 4 | Select-Object Address,ResponseTime | Out-String"], "say": ""}
+{"task": "is {host} down", "steps": ["run if (Test-Connection {host} -Count 2 -Quiet) {{ '{host} is up' }} else {{ '{host} is not answering' }}"], "say": ""}
+{"task": "what is the ip of {host}", "steps": ["run (Resolve-DnsName {host} -Type A | Select-Object -First 1).IPAddress"], "say": ""}
+{"task": "buy the book {book} on amazon", "steps": ["open https://www.amazon.in/s?k={book:url}&i=stripbooks", "click \"{book}\"", "wait for \"Add to Cart\"", "click \"Add to Cart\"", "expect \"Added to Cart\""], "say": "Added {book} to your Amazon cart."}
+{"task": "summary of the book {book}", "steps": ["research {book} book summary"], "say": ""}
+{"task": "{book} audiobook", "steps": ["open https://www.youtube.com/results?search_query={book:url}+audiobook", "click \"{book}\"", "sound on", "skip ads"], "say": "Playing the {book} audiobook."}
+{"task": "pay {bill} online", "steps": ["open https://www.google.com/search?q=pay+{bill:url}+online"], "say": "Here's where to pay the {bill}; I won't pay without you."}
+{"task": "pay my {bill} with {app}", "steps": ["open https://www.google.com/search?q=pay+{bill:url}+on+{app:url}"], "say": "Here's how to pay the {bill} with {app}."}
+{"task": "{service} online", "steps": ["open https://www.google.com/search?q={service:url}+official+site"], "say": "Here's the official site for {service}."}
+{"task": "how to {service}", "steps": ["open https://www.youtube.com/results?search_query=how+to+{service:url}", "click \"{service}\"", "sound on", "skip ads"], "say": "Here's a video on how to {service}."}
+{"task": "documents needed to {service}", "steps": ["open https://www.google.com/search?q=documents+required+to+{service:url}"], "say": "Here are the documents needed to {service}."}
+{"task": "open {bank} net banking", "steps": ["open https://www.google.com/search?q={bank:url}+net+banking+login+official"], "say": "Here's {bank} net banking; you log in yourself."}
+{"task": "{bank} customer care number", "steps": ["open https://www.google.com/search?q={bank:url}+customer+care+number"], "say": "Here's the {bank} customer care number."}
+{"task": "{bank} fd interest rates", "steps": ["open https://www.google.com/search?q={bank:url}+fd+interest+rates"], "say": "Here are {bank} FD rates."}
+{"task": "{bank} branch near me", "steps": ["open https://www.google.com/maps/search/{bank:url}+branch+near+me"], "say": "Here are {bank} branches near you."}
+{"task": "{bank} ifsc code in {city}", "steps": ["open https://www.google.com/search?q={bank:url}+ifsc+code+{city:url}"], "say": "Here's the {bank} IFSC in {city}."}
