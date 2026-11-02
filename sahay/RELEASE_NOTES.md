@@ -1,5 +1,15 @@
 **Sahay** (सहाय, "help") drives your Windows PC for you. You type what you want; it moves its own cursor, clicks and types until the job is done. A byproduct of [Saathi](https://github.com/akshatinnovate-png/Saathi-Alexa).
 
+### New in 2.7.2: it learns how to do things
+- **A how-to handbook.** Groq now gets short, relevant know-how with each task (only what applies, so tokens stay low): how Amazon and Flipkart search, filter and add to cart (products open in a new tab; confirm "Added to Cart"), how to choose a phone or laptop, YouTube, WhatsApp, Gmail, Google, Wikipedia, Windows settings, files, forms and closing apps safely.
+- **Learns from its mistakes.** When a plan fails and Groq finds the fix, it writes a one-line lesson that Sahay keeps and brings back for similar tasks.
+- **You can teach it.** "Teach: on Amazon, sort by customer reviews before choosing", "next time use the Amazon search box", "always open links in Edge". These lessons are used from then on.
+- **Never closes Windows itself.** Program Manager (the desktop), Windows Input Experience, Click to Do, Start, Search and Sahay are protected. "Close everything" (even spelt "close evrything") closes your apps one by one and nothing else.
+- **Honest checks.** A success check must use words that appear only after success; checks that are only symbols (like ₹) are refused, and numbers must match exactly, so "₹30,000 – ₹40,000" is never confused with "₹40,000 – ₹59,000". "Knowledge Boat" matches "KnowledgeBoat".
+- **Knows the address bar from the site's search box.** Browser controls are marked as such for Groq.
+- **Unknown names still open.** "Open knowedgle boat" looks it up on the web and opens the top result; "open browser <link>" uses your default browser.
+- **No raw JSON replies.** If a model writes its plan as text, Sahay recognises it and carries it out.
+
 ### New in 2.7.1: fixes from real use
 - **Clicks the page, not the browser.** Words are matched inside the web page first; tab titles, the address bar and the toolbar only count when you mention them. This stops "click Selina" hitting the tab title and "wait for Sphinx cat" being fooled by the search box.
 - **No blind clicking.** Groq may no longer guess screen positions, and plays or pauses video only through the media controls.
@@ -95,7 +105,7 @@
 - **Doesn't quit on limits.** If Groq's free limit is hit it waits exactly as long as Groq says and carries on; add several keys to switch between them.
 
 ### Get started
-1. Download **Sahay-2.7.1.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
+1. Download **Sahay-2.7.2.exe** below and run it. (Windows may say "Windows protected your PC": click More info, then Run anyway.)
 2. Groq's free key page opens (console.groq.com/keys). Sign in, click **Create API Key**, copy it and paste it into Sahay. Older Gemini keys are no longer used.
 3. The chat opens. Type what you want done, for example "play Bella Ciao on YouTube".
 

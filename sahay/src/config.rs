@@ -37,11 +37,12 @@ pub struct Config {
     pub memory: Vec<String>,
     pub routines: Vec<Routine>,
     pub skills: Vec<(String, Vec<String>)>,
+    pub lessons: Vec<String>,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { keys: Vec::new(), model: crate::agent::MODEL.into(), name: "you".into(), color: [99, 102, 241], position: None, extra: String::new(), speak: true, memory: Vec::new(), routines: Vec::new(), skills: Vec::new() }
+        Self { keys: Vec::new(), model: crate::agent::MODEL.into(), name: "you".into(), color: [99, 102, 241], position: None, extra: String::new(), speak: true, memory: Vec::new(), routines: Vec::new(), skills: Vec::new(), lessons: Vec::new() }
     }
 }
 
@@ -55,6 +56,19 @@ pub fn remember(memory: &mut Vec<String>, fact: &str) {
     memory.push(fact.chars().take(300).collect());
     while memory.len() > 60 {
         memory.remove(0);
+    }
+}
+
+pub fn add_lesson(lessons: &mut Vec<String>, lesson: &str) {
+    let l = lesson.trim();
+    if l.len() < 8 {
+        return;
+    }
+    let lower = l.to_lowercase();
+    lessons.retain(|x| x.to_lowercase() != lower);
+    lessons.push(l.chars().take(300).collect());
+    while lessons.len() > 120 {
+        lessons.remove(0);
     }
 }
 
@@ -113,6 +127,9 @@ impl Config {
                 .take(40)
                 .collect();
         }
+        if let Some(a) = v.get("lessons").and_then(Value::as_array) {
+            c.lessons = a.iter().filter_map(Value::as_str).map(|m| m.chars().take(300).collect()).take(120).collect();
+        }
         if let Some(a) = v.get("skills").and_then(Value::as_array) {
             c.skills = a
                 .iter()
@@ -141,6 +158,7 @@ impl Config {
             "instructions": self.extra,
             "speak": self.speak,
             "memory": self.memory,
+            "lessons": self.lessons,
             "skills": self.skills.iter().map(|(t, s)| json!({ "task": t, "steps": s })).collect::<Vec<_>>(),
             "routines": self.routines.iter().map(|r| json!({ "hour": r.hour, "minute": r.minute, "task": r.task, "daily": r.daily, "last": r.last })).collect::<Vec<_>>(),
         }))

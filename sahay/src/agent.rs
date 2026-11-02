@@ -74,7 +74,8 @@ Rules:\n\
 - Research and shopping: research and fetch to compare, then reply with the best 3 (name, price, why) and wait for {user_name}'s pick; then add it to the cart. Lists (e.g. lab equipment): write the list, then search and add each as asked.\n\
 - Install apps: run winget install --id <Id> -e --accept-source-agreements --accept-package-agreements.\n\
 - Act on sensible defaults; ask only before paying, deleting files, or messaging someone not named. Close tabs with ctrl+w, windows with alt+f4.\n\
-- If a step fails you get the new screen: diagnose and send a fix.\n\
+- If a step fails you get the new screen: diagnose and send a fix, and add a one-line lesson.
+- expect must use words that appear only after success (\"Added to Cart\", \"Message sent\"), never symbols or text that was already there.\n\
 - Reply in one short sentence in {user_name}'s language. Saathi tools: what_day_is_it, get_medication_schedule, confirm_medication_taken, get_upcoming_appointments, get_family_messages, send_message_to_family, daily_check_in, ask_family_for_help, report_suspicious_call, where_is, list_memory_stories, family_summary. {extra}"
     )
 }
@@ -85,7 +86,8 @@ pub fn tools() -> Value {
         "description": "Run a plan on the PC.",
         "parameters": { "type": "object", "properties": {
             "steps": { "type": "array", "items": { "type": "string" }, "description": "Steps in order" },
-            "say": { "type": "string", "description": "What to tell the user when done" }
+            "say": { "type": "string", "description": "What to tell the user when done" },
+            "lesson": { "type": "string", "description": "Only after an earlier plan failed: one line to remember for similar tasks" }
         }, "required": ["steps"] }
     } }])
 }
@@ -134,7 +136,7 @@ pub fn parse(body: &str) -> Result<Reply, String> {
     let msg = v.pointer("/choices/0/message").cloned().ok_or("Groq sent no message")?;
     let text = msg.get("content").and_then(Value::as_str).unwrap_or("").trim().to_string();
     let mut seen_ids = std::collections::HashSet::new();
-    let calls = msg
+    let calls: Vec<Call> = msg
         .get("tool_calls")
         .and_then(Value::as_array)
         .map(|a| {
@@ -149,6 +151,15 @@ pub fn parse(body: &str) -> Result<Reply, String> {
                 .collect()
         })
         .unwrap_or_default();
+    if calls.is_empty() {
+        if let Some(inline) = inline_plan(&text) {
+            let id = format!("call_inline_{}", text.len());
+            let message = json!({ "role": "assistant", "content": Value::Null, "tool_calls": [{ "id": id, "type": "function", "function": { "name": "do_steps", "arguments": inline.to_string() } }] });
+            let cut_off = v.pointer("/choices/0/finish_reason").and_then(Value::as_str) == Some("length");
+            let tokens = v.pointer("/usage/total_tokens").and_then(Value::as_u64).map(|n| n as usize);
+            return Ok(Reply { text: String::new(), calls: vec![Call { id, name: "do_steps".into(), args: inline }], message, cut_off, tokens });
+        }
+    }
     let mut message = json!({ "role": "assistant", "content": text });
     if text.is_empty() && msg.get("tool_calls").is_some() {
         message["content"] = Value::Null;
@@ -159,6 +170,15 @@ pub fn parse(body: &str) -> Result<Reply, String> {
     let cut_off = v.pointer("/choices/0/finish_reason").and_then(Value::as_str) == Some("length");
     let tokens = v.pointer("/usage/total_tokens").and_then(Value::as_u64).map(|n| n as usize);
     Ok(Reply { text, calls, message, cut_off, tokens })
+}
+
+fn inline_plan(text: &str) -> Option<Value> {
+    let start = text.find('{')?;
+    let end = text.rfind('}')?;
+    let v: Value = serde_json::from_str(text.get(start..=end)?).ok()?;
+    let v = v.get("arguments").cloned().or_else(|| v.get("parameters").cloned()).filter(|a| a.get("steps").is_some()).unwrap_or(v);
+    v.get("steps").and_then(Value::as_array).filter(|a| !a.is_empty())?;
+    Some(v)
 }
 
 pub fn tool_result(call: &Call, content: &str) -> Value {
@@ -307,5 +327,17 @@ mod tests {
         assert!(m[1]["content"].as_str().unwrap().chars().count() < 1100);
         let mut tiny = vec![json!({"role":"system","content":"s"}), json!({"role":"user","content":"hi"})];
         assert!(!shrink(&mut tiny));
+    }
+
+    #[test]
+    fn plans_written_as_text_are_still_run() {
+        let body = r#"{"choices":[{"message":{"content":"{\n \"say\": \"Opened it.\",\n \"steps\": [\"open https://www.knowledgeboat.com\", \"expect \\\"KnowledgeBoat\\\"\"]\n}"},"finish_reason":"stop"}]}"#;
+        let r = parse(body).unwrap();
+        assert_eq!(r.calls.len(), 1);
+        assert_eq!(r.calls[0].name, "do_steps");
+        assert_eq!(r.calls[0].args["steps"][0], "open https://www.knowledgeboat.com");
+        assert_eq!(r.message["tool_calls"][0]["id"], r.calls[0].id.as_str());
+        assert!(r.text.is_empty());
+        assert!(parse(r#"{"choices":[{"message":{"content":"Hello there"}}]}"#).unwrap().calls.is_empty());
     }
 }

@@ -165,6 +165,7 @@ fn browser_and_url(t: &str) -> Option<(&'static str, String)> {
         "firefox" => "firefox",
         "brave" => "brave",
         "opera" => "opera",
+        "browser" | "default" | "web" => "default",
         _ => return None,
     };
     if !looks_like_url(rest) {
@@ -180,6 +181,9 @@ pub fn open(target: &str) -> (bool, String) {
         return (false, "Nothing to open".into());
     }
     if let Some((browser, url)) = browser_and_url(t) {
+        if browser == "default" {
+            return if shell_open(&url, "open") { (true, format!("Opened {url}")) } else { (false, format!("Windows could not open {url}")) };
+        }
         if browser == "msedge" && shell_open(&format!("microsoft-edge:{url}"), "open") {
             return (true, format!("Opened {url} in Microsoft Edge"));
         }
@@ -434,4 +438,13 @@ pub fn set_start_with_windows(on: bool) -> bool {
     } else {
         reg(&["delete", RUN_KEY, "/v", "Sahay", "/f"])
     }
+}
+
+pub fn protected(title: &str) -> bool {
+    let t = title.trim().to_lowercase();
+    t.is_empty() || ["program manager", "windows input experience", "click to do", "search", "start", "task view", "taskbar", "notification center", "action center", "quick settings", "windows shell experience host", "sahay", "sahay caption", "sahay cursor", "nvidia geforce overlay", "msctfime ui", "default ime"].iter().any(|p| t == *p) || t.starts_with("windows input") || t.starts_with("program manager")
+}
+
+pub fn user_windows() -> Vec<(isize, String)> {
+    windows().into_iter().filter(|(h, t)| !own(HWND(*h as *mut _)) && !protected(t) && !cloaked(HWND(*h as *mut _))).collect()
 }

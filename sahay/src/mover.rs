@@ -31,7 +31,19 @@ fn score(query: &str, label: &str) -> f64 {
         return 100.0;
     }
     let ratio = q.len().min(l.len()) as f64 / q.len().max(l.len()) as f64;
+    let (qs, ls) = (q.replace(' ', ""), l.replace(' ', ""));
+    if qs.len() >= 5 && qs == ls {
+        return 96.0;
+    }
+    if qs.len() >= 6 && ls.contains(&qs) {
+        return 72.0 + 15.0 * (qs.len() as f64 / ls.len() as f64);
+    }
     let pad = |s: &str| format!(" {s} ");
+    let digits = |s: &str| s.split(' ').filter(|t| t.chars().any(|c| c.is_ascii_digit())).map(String::from).collect::<Vec<_>>();
+    let (qd, ld) = (digits(&q), digits(&l));
+    if !qd.is_empty() && qd.iter().any(|n| !ld.contains(n)) {
+        return 0.0;
+    }
     if l.starts_with(&q) && l.as_bytes().get(q.len()) == Some(&b' ') {
         return 88.0 + 10.0 * ratio;
     }
@@ -43,6 +55,9 @@ fn score(query: &str, label: &str) -> f64 {
     }
     let qt: Vec<&str> = q.split(' ').filter(|t| !STOP.contains(t)).collect();
     let lt: Vec<&str> = l.split(' ').collect();
+    if qt.iter().filter(|t| t.chars().any(|c| c.is_ascii_digit())).any(|n| !lt.contains(n)) {
+        return 0.0;
+    }
     if qt.is_empty() {
         return 0.0;
     }
@@ -113,7 +128,7 @@ pub fn summary(window: &str, targets: &[Target], screen: Rect) -> String {
         let (x, y) = to_normalized(screen, t.rect.center().0, t.rect.center().1);
         let label: String = t.label.chars().take(48).collect();
         if t.id.starts_with('E') {
-            out.push_str(&format!("{} {} \"{label}\" {x},{y}\n", t.id, t.kind));
+            out.push_str(&format!("{} {}{} \"{label}\" {x},{y}\n", t.id, if t.chrome { "browser " } else { "" }, t.kind));
         } else {
             out.push_str(&format!("{} \"{label}\" {x},{y}\n", t.id));
         }
@@ -222,6 +237,10 @@ mod tests {
         let tabs = vec![t("E1", "Sphynx cat - Wikipedia", "TabItem", true, 0, 0), t("E2", "Cat - Wikipedia", "TabItem", true, 100, 0), t("E3", "Dogs - Google Search", "TabItem", true, 200, 0)];
         let found: Vec<&str> = ranked("cats tab", &tabs).iter().map(|(t, _)| t.id.as_str()).collect();
         assert!(found.contains(&"E1") && found.contains(&"E2") && !found.contains(&"E3"), "{found:?}");
+        let prices = vec![t("T1", "₹40,000 - ₹59,000", "Text", false, 0, 0), t("T2", "₹30,000 - ₹40,000", "Text", false, 0, 40)];
+        assert_eq!(pick("₹30,000 – ₹40,000", &prices), Some("T2"), "numbers must match exactly");
+        assert_eq!(pick("₹10,000 - ₹20,000", &prices), None);
+        assert_eq!(pick("Knowledge Boat", &[t("T1", "KnowledgeBoat - Study Material", "Text", false, 0, 0)]), Some("T1"), "spacing differences don't matter");
     }
 
     #[test]

@@ -1,6 +1,6 @@
 use super::cursor::Cursor;
 use super::engine::Engine;
-use super::{https, media, sound, system, Shared, Status};
+use super::{https, media, research, sound, system, Shared, Status};
 use crate::agent::{self, Reply};
 use crate::intent::{self, Intent};
 use crate::plan;
@@ -368,6 +368,32 @@ fn instant(shared: &Arc<Shared>, engine: &mut Engine, rx: &Receiver<String>, int
             }
             Ok(format!("Volume is at {n}%."))
         }
+        Intent::Teach(lesson) => {
+            shared.update_config(|c| crate::config::add_lesson(&mut c.lessons, lesson));
+            Ok("Got it. I'll do it that way from now on.".into())
+        }
+        Intent::CloseAll => {
+            let list = system::user_windows();
+            if list.is_empty() {
+                return Ok("Nothing is open.".into());
+            }
+            let mut closed = 0;
+            for (_, title) in &list {
+                if shared.stop.load(Ordering::Relaxed) {
+                    break;
+                }
+                if system::focus(title).is_ok() {
+                    std::thread::sleep(Duration::from_millis(250));
+                    if !system::protected(&system::window_title(system::target_window())) {
+                        shared.say("→", &format!("close {}", title.chars().take(50).collect::<String>()));
+                        engine.press("alt+f4")?;
+                        closed += 1;
+                        std::thread::sleep(Duration::from_millis(400));
+                    }
+                }
+            }
+            Ok(format!("Closed {closed} window{}.", if closed == 1 { "" } else { "s" }))
+        }
         Intent::FullScreen(on) => {
             let title = system::window_title(system::target_window());
             let youtube = title.to_lowercase().contains("youtube");
@@ -491,7 +517,19 @@ fn instant(shared: &Arc<Shared>, engine: &mut Engine, rx: &Receiver<String>, int
         Intent::App(name) => {
             shared.say("→", &format!("open {name}"));
             let (ok, msg) = system::open(name);
-            if ok { Ok(format!("{msg}.")) } else { Err(msg) }
+            if ok {
+                return Ok(format!("{msg}."));
+            }
+            shared.say("→", &format!("look up \"{name}\" on the web"));
+            let found = research::search(name).ok().and_then(|r| r.lines().nth(1).and_then(|l| l.split(" | ").nth(1)).map(|u| u.trim().to_string())).filter(|u| u.starts_with("http"));
+            match found {
+                Some(url) => {
+                    shared.say("→", &format!("open {url}"));
+                    let (ok, msg) = system::open(&url);
+                    if ok { Ok(format!("Opened {url}.")) } else { Err(msg) }
+                }
+                None => Err(msg),
+            }
         }
         Intent::Open { url, browser, label } => {
             let target = with_browser(url, *browser);
@@ -760,7 +798,8 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
         } else {
             shared.set_status(Status::Acting, "Reading the screen…");
             let seen = engine.look_brief();
-            messages.push(json!({ "role": "user", "content": format!("{first}\n{seen}") }));
+            let notes = crate::guides::notes(&first, &cfg.lessons);
+            messages.push(json!({ "role": "user", "content": format!("{first}{notes}\n{seen}") }));
         }
         shared.set_status(Status::Thinking, "Thinking…");
         let mut told = false;
@@ -827,6 +866,10 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<String>) {
                 shared.say("Sahay", &reply.text);
             }
             let say = call.args.get("say").and_then(Value::as_str).unwrap_or("").trim().to_string();
+            if let Some(lesson) = call.args.get("lesson").and_then(Value::as_str).filter(|l| !l.trim().is_empty()) {
+                system::log(&format!("lesson learned: {lesson}"));
+                shared.update_config(|c| crate::config::add_lesson(&mut c.lessons, lesson));
+            }
             let proven = steps.last().is_some_and(|l| matches!(plan::parse(l), Ok(plan::Step::Expect(_))));
             let outcome = carry_out(&shared, &mut engine, &rx, &steps);
             match &outcome {

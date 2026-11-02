@@ -35,6 +35,8 @@ pub enum Intent {
     FullScreen(bool),
     Images(Option<String>),
     CloseTabs(String),
+    Teach(String),
+    CloseAll,
 }
 
 pub fn parse_clock(text: &str) -> Option<(u8, u8, usize)> {
@@ -469,6 +471,19 @@ pub fn route(text: &str) -> Option<Intent> {
             }
         }
     }
+    for p in ["teach: ", "teach ", "lesson: ", "learn that ", "learn this: ", "next time ", "from now on ", "always ", "never "] {
+        if let Some(rest) = t.strip_prefix(p) {
+            if rest.split_whitespace().count() >= 3 {
+                let keep_prefix = matches!(p, "next time " | "from now on " | "always " | "never ");
+                let at = raw.to_lowercase().find(rest).unwrap_or(0);
+                let body = raw[at..].trim().trim_end_matches(['.', '!']).to_string();
+                return Some(Intent::Teach(if keep_prefix { format!("{}{body}", raw[..p.len()].trim_start()) } else { body }));
+            }
+        }
+    }
+    if ["close everything", "close all", "close all windows", "close all apps", "close all programs", "close all the windows", "close all the apps", "close every window", "close everything open"].contains(&t.as_str()) {
+        return Some(Intent::CloseAll);
+    }
     for p in ["remember that ", "remember ", "note that ", "don't forget that "] {
         if let Some(fact) = t.strip_prefix(p) {
             let start = raw.to_lowercase().find(fact).unwrap_or(0);
@@ -741,6 +756,9 @@ pub fn route(text: &str) -> Option<Intent> {
     }
     if let Some(rest) = t.strip_prefix("close ") {
         let name = rest.trim().trim_start_matches("the ").trim_end_matches(" tab").trim_end_matches(" window").trim();
+        if ["evrything", "everythin", "everyting", "everthing", "evrythng", "everything", "all", "every thing", "all of it"].contains(&name) {
+            return Some(Intent::CloseAll);
+        }
         if !name.is_empty() && name.split_whitespace().count() <= 3 {
             return Some(Intent::Close(name.to_string()));
         }
@@ -820,6 +838,10 @@ mod tests {
         assert_eq!(route("images of the taj mahal"), Some(Intent::Images(Some("the taj mahal".into()))));
         assert_eq!(route("close all tabs related to cats, its done"), Some(Intent::CloseTabs("cats".into())));
         assert_eq!(route("close all cat tabs"), Some(Intent::CloseTabs("cat".into())));
+        assert_eq!(route("teach: on Amazon sort by customer reviews before choosing"), Some(Intent::Teach("on Amazon sort by customer reviews before choosing".into())));
+        assert_eq!(route("Next time use the Amazon search box"), Some(Intent::Teach("Next time use the Amazon search box".into())));
+        assert_eq!(route("Close evrything"), Some(Intent::CloseAll));
+        assert_eq!(route("close everything"), Some(Intent::CloseAll));
         assert_eq!(route("Pause it"), Some(Intent::Media("pause")));
         assert_eq!(route("play it"), Some(Intent::Media("play")));
         assert_eq!(route("full volume"), Some(Intent::Volume(100)));

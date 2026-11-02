@@ -390,6 +390,12 @@ impl Engine {
             }
             Step::Key { keys, times } => {
                 system::bring_forward();
+                if keys.to_lowercase().replace(' ', "") == "alt+f4" {
+                    let title = system::window_title(system::target_window());
+                    if system::protected(&title) {
+                        return Err(format!("\"{title}\" is part of Windows and must not be closed"));
+                    }
+                }
                 input::combo(&parse_combo(keys)?, *times)?;
                 (format!("Pressed {keys}"), 500)
             }
@@ -429,7 +435,12 @@ impl Engine {
                 let (_, _, what) = self.find_words(words, Duration::from_secs(20), stop)?;
                 (format!("{what} is on screen"), 0)
             }
-            Step::Focus(title) => (format!("Now in front: {}", system::focus(title)?), 500),
+            Step::Focus(title) => {
+                if system::protected(title) {
+                    return Err(format!("\"{title}\" is part of Windows; leave it alone"));
+                }
+                (format!("Now in front: {}", system::focus(title)?), 500)
+            }
             Step::Run(cmd) => {
                 let (ok, out) = system::run_powershell(cmd, Duration::from_secs(120), stop);
                 (format!("{}\n{}", if ok { "The command finished." } else { "The command failed or timed out." }, out), 0)
@@ -446,6 +457,9 @@ impl Engine {
             }
             Step::SoundOn => (super::sound::make_audible(30, 100)?.unwrap_or_else(|| "Sound is already on".into()), 0),
             Step::Expect(words) => {
+                if !words.chars().any(|c| c.is_alphanumeric()) {
+                    return Err(format!("expect needs words, not just symbols like \"{words}\"; use words that appear only after it worked"));
+                }
                 let end = Instant::now() + Duration::from_secs(10);
                 loop {
                     self.look();
