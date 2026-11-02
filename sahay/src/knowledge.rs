@@ -146,7 +146,14 @@ pub fn match_template(template: &str, request: &str) -> Option<Vec<(String, Stri
     }
     let words: Vec<(String, String)> = tokens(request).into_iter().map(|w| (w.clone(), w.to_lowercase())).filter(|(_, l)| !FILLER.contains(&l.as_str())).collect();
     let mut slots = Vec::new();
-    matches_from(&pattern, &words, &mut slots).then_some(slots)
+    if !matches_from(&pattern, &words, &mut slots) {
+        return None;
+    }
+    let vague = ["it", "this", "that", "them", "these", "those", "me", "you", "him", "her", "something", "anything"];
+    if slots.iter().any(|(_, v)| vague.contains(&v.to_lowercase().as_str())) {
+        return None;
+    }
+    Some(slots)
 }
 
 pub fn fill(step: &str, slots: &[(String, String)]) -> String {
@@ -205,6 +212,29 @@ mod tests {
     use super::*;
 
     const STARTER: &str = include_str!("../training/sahay-starter.jsonl");
+    const MASSIVE: &str = include_str!("../training/sahay-massive.jsonl");
+
+    #[test]
+    fn the_massive_dataset_loads_completely_and_routes_sensibly() {
+        let d = parse_dataset(MASSIVE);
+        assert_eq!(d.skipped, 0, "every line of the massive dataset loads");
+        assert!(d.examples.len() + d.lessons.len() >= 2000, "{} examples, {} lessons", d.examples.len(), d.lessons.len());
+        assert!(d.lessons.len() >= 100);
+        let plan = |r: &str| template_plan(&d.examples, r).map(|(s, _)| s);
+        assert!(plan("add a steel water bottle to my flipkart cart").unwrap().iter().any(|s| s.contains("flipkart.com/search?q=a+steel+water+bottle")));
+        assert!(plan("find phones between 30000 and 40000 on amazon").unwrap()[0].contains("p_36%3A3000000-4000000"));
+        assert!(plan("where is my spectacles").unwrap()[0].starts_with("saathi where_is"), "home items go to Saathi");
+        assert!(plan("where is jaipur").unwrap()[0].contains("google.com/maps/search/jaipur"));
+        assert!(plan("how to make masala chai").unwrap()[0].contains("masala+chai+recipe"));
+        assert!(plan("directions from pune to mumbai").unwrap()[0].contains("origin=pune&destination=mumbai"));
+        assert!(plan("is it good").is_none(), "vague words don't fill a slot");
+        assert!(plan("tell me a joke").is_none());
+        let start = std::time::Instant::now();
+        for _ in 0..20 {
+            let _ = plan("send good morning to Ravi on WhatsApp");
+        }
+        assert!(start.elapsed() < std::time::Duration::from_secs(2), "matching 2000 templates stays fast");
+    }
 
     #[test]
     fn templates_fill_in_from_the_request() {
