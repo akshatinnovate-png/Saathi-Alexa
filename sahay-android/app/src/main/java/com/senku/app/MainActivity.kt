@@ -248,8 +248,6 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 
-    }
-
     private fun nextOnboardingStep(): Int = when {
         !preferences.getBoolean("onboarding_colour_chosen", preferences.getBoolean(KEY_ONBOARDING_COMPLETE, false)) -> 0
         !accessibilityReady -> 3
