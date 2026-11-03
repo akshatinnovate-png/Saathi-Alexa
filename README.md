@@ -237,7 +237,7 @@ SAATHI_USE_BEDROCK=true AWS_REGION=us-east-1 npm start   # Claude on Amazon Bedr
 
 With a model, Claude also stands in for Amazon Translate when Translate is off, so messages and stories are translated even without AWS.
 
-### Inspect the MCP server directly
+### Inspect the MCP server directl
 
 ```bash
 npm run inspect      # MCP Inspector; connect to http://127.0.0.1:8787/mcp (Streamable HTTP)
