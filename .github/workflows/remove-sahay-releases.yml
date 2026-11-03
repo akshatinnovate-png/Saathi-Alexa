@@ -21,3 +21,10 @@ jobs:
               echo "kept $tag: no copy found in akshatinnovate-png/Sahay"
             fi
           done
+      - name: Delete leftover sahay-v* tags that have no release
+        run: |
+          set -euo pipefail
+          for tag in $(gh api "repos/$GITHUB_REPOSITORY/tags?per_page=100" -q '.[].name' | grep '^sahay-v' || true); do
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag"
+            echo "removed tag $tag"
+          done
