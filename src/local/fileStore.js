@@ -23,7 +23,7 @@ export function createFileStore({ file, seed = () => ({}), persist = true, key =
         }
         return data;
       } catch (err) {
-        if (err.code !== 'ENOENT') throw new Error(`Saathi could not read its data file ${file}: ${err.message}. Nothing was changed; fix or restore the file and start again.`);
+        if (err.code !== 'ENOENT') throw new Error(`Saathi could not read its data file ${file}: ${err.message}. Nothing was changed; fix or restore the file and start again.`, { cause: err });
       }
     }
     data = seed();

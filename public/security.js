@@ -162,8 +162,8 @@ export function setupSecurity({ isOwner, toast, privateBlock = null }) {
     try {
       response = await startRegistration({ optionsJSON: options });
     } catch (err) {
-      if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') throw new Error('Adding the passkey was cancelled.');
-      if (err?.name === 'InvalidStateError') throw new Error('This device already has a passkey for Saathi.');
+      if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') throw new Error('Adding the passkey was cancelled.', { cause: err });
+      if (err?.name === 'InvalidStateError') throw new Error('This device already has a passkey for Saathi.', { cause: err });
       throw err;
     }
     const name = /iPhone|iPad/.test(navigator.userAgent) ? 'iPhone or iPad' : /Android/.test(navigator.userAgent) ? 'Android phone' : /Mac/.test(navigator.userAgent) ? 'Mac' : /Windows/.test(navigator.userAgent) ? 'Windows PC' : 'This device';
