@@ -7,6 +7,7 @@ Kamala is 78. Everyone calls her **Aaji**. She lives alone in Pune, speaks Marat
 <p align="center">
   <a href="https://m8ven.ai/mcp/akshatinnovate-png-saathi-alexa-144k1p?s=readme"><img src="https://m8ven.ai/badge/mcp/akshatinnovate-png-saathi-alexa-144k1p?v=d98ea248741837b625cc3812ddf5f7e3" alt="M8ven Score"></a>
   <a href="https://scorecard.dev/viewer/?uri=github.com/akshatinnovate-png/Saathi-Alexa"><img src="https://api.securityscorecards.dev/projects/github.com/akshatinnovate-png/Saathi-Alexa/badge" alt="OpenSSF Scorecard"></a>
+  <a href="https://www.bestpractices.dev/projects/16289"><img src="https://www.bestpractices.dev/projects/16289/badge" alt="OpenSSF Best Practices"></a>
   <a href="https://hub.xerj.org/contributors/akshatinnovate-png"><img src="https://hub.xerj.org/contributors/akshatinnovate-png/badge.svg" alt="XERJ Corpus Hub contributor"></a>
   <br>
   <a href="https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/ci.yml"><img src="https://github.com/akshatinnovate-png/Saathi-Alexa/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>

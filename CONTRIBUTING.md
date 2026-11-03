@@ -21,7 +21,7 @@ Open an issue that starts with "Idea:". Describe who it helps (the elder, the fa
 ## Making a change
 
 1. Fork the repository and create a branch.
-2. Install: `npm ci`. Optional for the Rust parts: Rust 1.97 (`rustup`), then `cargo test`.
+2. Install Rust 1.97 (`rustup`), then `npm ci` and `npm run build:core` (this builds `src/security/saathi-core.wasm` from the Rust core; it is not committed). `cargo test` runs the Rust tests.
 3. Make your change, keeping it focused on one thing.
 4. Run the checks below. All of them must pass.
 5. Open a pull request that explains what changed and why, and how you tested it.

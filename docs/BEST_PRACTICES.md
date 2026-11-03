@@ -101,4 +101,4 @@ Answers for the "passing" level of the OpenSSF Best Practices badge (https://www
 | dynamic_analysis_enable_assertions | Met | Fuzz targets and tests run with assertions on |
 | dynamic_analysis_fixed | Met | Fuzzing found three bugs, all fixed (SECURITY.md, Fuzzing row) |
 
-Once the project has its number, the badge is `https://www.bestpractices.dev/projects/<number>/badge`, linked to `https://www.bestpractices.dev/projects/<number>`.
+The project is https://www.bestpractices.dev/projects/16289; its badge is shown at the top of the README.
