@@ -7,6 +7,7 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "test": "node --test --test-concurrency=1 test/*.test.js",
+    "coverage": "node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-include=src/** --test-coverage-lines=90 --test-coverage-branches=80 test/*.test.js",
     "seed:aws": "node scripts/seed-aws.js",
     "inspect": "npx @modelcontextprotocol/inspector",
     "eval": "node evals/safety.js && node evals/routing.js",

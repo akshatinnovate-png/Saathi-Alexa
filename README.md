@@ -398,6 +398,13 @@ Found something? Please report it privately, as described in [SECURITY.md](SECUR
 - The walkaround measures what the phone's AR tracking measures: expect a few centimetres of drift over a whole house. It captures floor outlines, not furniture or a textured mesh.
 - The intro video, slideshow photos and login illustration are credited in `docs/ASSETS.md`; confirm each licence before any commercial use.
 
+## Project
+
+- [Contributing](CONTRIBUTING.md): how to report bugs, propose changes, the test policy, DCO sign-off and code review
+- [Governance](GOVERNANCE.md), [maintainers](MAINTAINERS.md) and the [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Roadmap](ROADMAP.md) and [changelog](CHANGELOG.md)
+- [Building and reproducible builds](docs/BUILD.md), [security assurance case](docs/ASSURANCE_CASE.md)
+
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). Per-file copyright and licence are declared in [REUSE.toml](REUSE.toml) (`SPDX-License-Identifier: MIT`).

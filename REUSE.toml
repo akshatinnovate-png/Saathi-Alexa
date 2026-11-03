@@ -1,0 +1,10 @@
+version = 1
+SPDX-PackageName = "Saathi"
+SPDX-PackageSupplier = "Akshat Sarkar <akshat.innovate@gmail.com>"
+SPDX-PackageDownloadLocation = "https://github.com/akshatinnovate-png/Saathi-Alexa"
+
+[[annotations]]
+path = "**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Akshat Sarkar and Saathi contributors"
+SPDX-License-Identifier = "MIT"

@@ -49,7 +49,8 @@ jobs:
       - run: npm ci
       - run: npm run build:core
       - run: npm run lint
-      - run: npm test
+      - name: Tests, with at least 90% line and 80% branch coverage
+        run: npm run coverage
         env:
           SAATHI_METRICS: 'off'
       - name: Tests with Class B sealing on

@@ -3,6 +3,8 @@
 
 ## [Unreleased]
 
+- **Project governance for the OpenSSF Best Practices silver and gold levels**: [GOVERNANCE.md](GOVERNANCE.md), [MAINTAINERS.md](MAINTAINERS.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [ROADMAP.md](ROADMAP.md), [docs/BUILD.md](docs/BUILD.md), [docs/ASSURANCE_CASE.md](docs/ASSURANCE_CASE.md), DCO sign-off and code review rules in CONTRIBUTING.md, and per-file licensing in [REUSE.toml](REUSE.toml).
+- **Coverage gate**: CI now fails if tests cover less than 90% of lines or 80% of branches of `src/` (`npm run coverage`). New unit tests for the escalation interpreter, onboarding, doorbell, egress guard, Google sign-in, mail, AWS language services, passwords, sessions and two-step sign-in.
 - **Sahay has moved to its own repository**, [akshatinnovate-png/Sahay](https://github.com/akshatinnovate-png/Sahay): its source, datasets, Android app and releases live there now. Saathi's Windows installer still includes Sahay, downloading the latest `Sahay.exe` from that repository when it is built.
 
 ## [1.3.0] - 2026-11-01

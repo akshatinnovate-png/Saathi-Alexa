@@ -48,7 +48,31 @@ Run the suite a second time with `SAATHI_TEST_SEAL=1 npm test`: every test then 
 
 Changes to who-may-do-what go in `core/src/policy.rs`, never in JavaScript, and need a Kani proof or an updated one.
 
+Coverage must stay at or above **90% of lines and 80% of branches** of `src/`. Check it with `npm run coverage`; CI fails below these numbers.
+
+## Signing off your work (DCO)
+
+Every commit must be signed off under the [Developer Certificate of Origin 1.1](https://developercertificate.org/): by adding the line below you state that you wrote the change, or otherwise have the right to submit it under the project's licence.
+
+```
+Signed-off-by: Your Name <you@example.com>
+```
+
+`git commit -s` adds it for you. Pull requests with commits that are not signed off are not merged.
+
+## Code review
+
+Once the project has more than one maintainer or reviewer (see [GOVERNANCE.md](GOVERNANCE.md)), every pull request needs an approving review from someone other than its author before it is merged. Reviewers check that:
+
+- the change does one thing and the description says why
+- tests cover the new behaviour and its failure cases, and all checks pass
+- nothing widens who can see an elder's data, adds an outside service, or weakens a security check without a `proposal` issue
+- words people see are plain and kind, and pages still pass the accessibility audit
+- the code follows the style below
+
 ## Style
+
+These are the project's coding standards. ESLint (`eslint.config.js`) and Clippy enforce the mechanical parts in CI.
 
 - Plain JavaScript (ES modules), no build step for the app. Match the code around you.
 - No comments in code. Names should say what things do.
