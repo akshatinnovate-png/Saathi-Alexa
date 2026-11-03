@@ -1,4 +1,4 @@
-FROM rust:1.97.0-slim-bookworm@sha256:6d220bf85c74e842a79da63997af8d2e74455c0b8847d8bb3a5888572334991d AS broker
+FROM rust:1.99.1-slim-bookworm@sha256:24707e70a4f1e23d9a7b25202ec43126d28a52294b96aad5c670df1fd1f1d400 AS broker
 WORKDIR /src
 ENV RUSTUP_TOOLCHAIN=1.97.0 CARGO_INCREMENTAL=0
 COPY Cargo.toml Cargo.lock ./
