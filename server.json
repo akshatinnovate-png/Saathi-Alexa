@@ -1,0 +1,20 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.akshatinnovate-png/saathi",
+  "title": "Saathi",
+  "description": "Elder-care companion: medicines, check-ins, family messages, scam alerts and help escalation, in English, Hindi and Marathi.",
+  "repository": {
+    "url": "https://github.com/akshatinnovate-png/Saathi-Alexa",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/akshatinnovate-png/Saathi-Alexa",
+  "version": "1.3.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "saathi-alexa",
+      "version": "1.3.1",
+      "transport": { "type": "stdio" }
+    }
+  ]
+}

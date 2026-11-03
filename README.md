@@ -163,6 +163,16 @@ Every AWS integration sits behind a small adapter and has an offline stand-in: a
 
 ---
 
+## Try it in your MCP client (30 seconds)
+
+Add this to Claude Desktop, Claude Code or any MCP client, and talk to Saathi as if you were Aaji, the fictional elder of the demo family:
+
+```json
+{ "mcpServers": { "saathi": { "command": "npx", "args": ["-y", "saathi-alexa"] } } }
+```
+
+All 18 tools work. Everything stays in memory and is gone when the client closes it, and Saathi refuses every outside connection in this mode. For a real family, run the full server below.
+
 ## Run it locally (2 minutes, no cloud account)
 
 ### 1. Install Node.js (20 or later) and Git
@@ -403,7 +413,7 @@ Found something? Please report it privately, as described in [SECURITY.md](SECUR
 - [Contributing](CONTRIBUTING.md): how to report bugs, propose changes, the test policy, DCO sign-off and code review
 - [Governance](GOVERNANCE.md), [maintainers](MAINTAINERS.md) and the [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Roadmap](ROADMAP.md) and [changelog](CHANGELOG.md)
-- [Building and reproducible builds](docs/BUILD.md), [security assurance case](docs/ASSURANCE_CASE.md)
+- [Privacy policy](PRIVACY.md), [building and reproducible builds](docs/BUILD.md), [security assurance case](docs/ASSURANCE_CASE.md)
 
 ## License
 

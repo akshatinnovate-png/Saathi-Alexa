@@ -1,8 +1,31 @@
 {
   "name": "saathi-alexa",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Saathi: an Alexa+ MCP server (Streamable HTTP, spec 2025-11-25) that helps elders living with memory loss, disability or a language gap stay connected to the families who love them.",
   "main": "src/index.js",
+  "bin": {
+    "saathi-mcp": "bin/saathi-mcp.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "LICENSE",
+    "README.md",
+    "PRIVACY.md",
+    "SECURITY.md"
+  ],
+  "mcpName": "io.github.akshatinnovate-png/saathi",
+  "homepage": "https://github.com/akshatinnovate-png/Saathi-Alexa#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/akshatinnovate-png/Saathi-Alexa.git"
+  },
+  "bugs": {
+    "url": "https://github.com/akshatinnovate-png/Saathi-Alexa/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
@@ -82,9 +105,6 @@
     "rxjs": "^7.8.2"
   },
   "type": "module",
-  "engines": {
-    "node": ">=20"
-  },
   "overrides": {
     "minimatch": "11.0.4"
   }
