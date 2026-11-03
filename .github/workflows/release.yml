@@ -59,14 +59,14 @@ jobs:
           echo "name=$image" >> "$GITHUB_OUTPUT"
           echo "digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$image:$PLAIN" | cut -d@ -f2)" >> "$GITHUB_OUTPUT"
       - name: Prove where the source archive came from
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
         with:
           subject-path: |
             saathi-${{ env.PLAIN }}.tar.gz
             saathi-${{ env.PLAIN }}.cdx.json
             saathi-${{ env.PLAIN }}.spdx.json
       - name: Prove where the Docker image came from
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
         with:
           subject-name: ${{ steps.image.outputs.name }}
           subject-digest: ${{ steps.image.outputs.digest }}
