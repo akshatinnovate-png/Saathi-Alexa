@@ -1,6 +1,9 @@
 # Changelog
 
+
 ## [Unreleased]
+
+- **Sahay has moved to its own repository**, [akshatinnovate-png/Sahay](https://github.com/akshatinnovate-png/Sahay): its source, datasets, Android app and releases live there now. Saathi's Windows installer still includes Sahay, downloading the latest `Sahay.exe` from that repository when it is built.
 
 ## [1.3.0] - 2026-11-01
 

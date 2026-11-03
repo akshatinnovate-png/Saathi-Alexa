@@ -1,0 +1,23 @@
+name: Remove Sahay releases (moved to akshatinnovate-png/Sahay)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  remove:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Delete only sahay-v* releases and their tags, after checking each exists in the Sahay repo
+        run: |
+          set -euo pipefail
+          for tag in $(gh release list -R "$GITHUB_REPOSITORY" --limit 200 --json tagName -q '.[].tagName' | grep '^sahay-v' || true); do
+            v="${tag#sahay-v}"
+            if gh release view "v$v" -R akshatinnovate-png/Sahay > /dev/null 2>&1; then
+              gh release delete "$tag" -R "$GITHUB_REPOSITORY" --cleanup-tag --yes
+              echo "removed $tag (kept as v$v in akshatinnovate-png/Sahay)"
+            else
+              echo "kept $tag: no copy found in akshatinnovate-png/Sahay"
+            fi
+          done

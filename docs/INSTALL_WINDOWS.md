@@ -48,15 +48,15 @@ At first Saathi works only on this computer. To use it from phones, from another
 
 Only signed-in family members and approved devices can use that address. To go back to this computer only, run **Reach Saathi from anywhere** again and choose **3**.
 
-## Sahay, the voice helper (optional)
+## Sahay, the helper (optional)
 
-Saathi comes with **Sahay**, a helper that can see and use this computer when you talk to it: "open YouTube and play Bella Ciao", "did Aaji take her tablets?", "fill this form with my address".
+Saathi comes with **Sahay**, a helper that does things on this computer for you: "play Bella Ciao on YouTube", "did Aaji take her tablets?", "fill this form with my address".
 
-1. Start menu → **Saathi → Sahay**. The first time, Google's free key page opens: sign in, click **Create API key**, copy it, paste it into Sahay.
-2. Allow the microphone if Windows asks. Talk.
-3. **Click the sphere** to stop it, click again to start. **Drag** it anywhere. **×** on hover closes it. **Right-click** for more (type a request, more keys, restart as administrator).
+1. Start menu → **Saathi → Sahay**. The first time, Groq's free key page opens (console.groq.com/keys): sign in, click **Create API Key**, copy it, paste it into Sahay.
+2. Type what you want in Sahay's chat, or press 🎤 to speak. Ctrl+Alt+S opens it from anywhere.
+3. **Click the sphere** to open the chat or stop Sahay. **Drag** it anywhere. **×** on hover closes it. **Right-click** for more (keys, voice, the local brain, datasets, restart as administrator).
 
-Sahay has full control of the computer while it is on, so stop it with one click when you are done.
+Sahay has full control of the computer while it works, so stop it with one click when you are done. Sahay is its own project: guides, datasets and new versions are at [github.com/akshatinnovate-png/Sahay](https://github.com/akshatinnovate-png/Sahay).
 
 ## Everyday things
 

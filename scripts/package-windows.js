@@ -13,7 +13,7 @@ const exe = (name) => join(ROOT, 'target', 'release', `${name}.exe`);
 const step = (text) => console.log(`\n> ${text}`);
 
 for (const bin of ['saathi', 'saathi-broker', 'sahay']) {
-  if (!existsSync(exe(bin))) throw new Error(`${exe(bin)} is missing. Build it first: cargo build --locked --release -p saathi-launcher -p saathi-broker -p sahay`);
+  if (!existsSync(exe(bin))) throw new Error(`${exe(bin)} is missing. Build it first: cargo build --locked --release -p saathi-launcher -p saathi-broker, and put Sahay.exe from https://github.com/akshatinnovate-png/Sahay/releases/latest at target/release/sahay.exe`);
 }
 
 step('Fresh stage');

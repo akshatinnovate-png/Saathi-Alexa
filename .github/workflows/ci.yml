@@ -133,7 +133,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: cargo build --locked --release -p saathi-broker -p saathi-launcher -p sahay
+      - run: cargo build --locked --release -p saathi-broker -p saathi-launcher
+      - name: Fetch Sahay from its own repository
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force target\release | Out-Null
+          Invoke-WebRequest -UseBasicParsing https://github.com/akshatinnovate-png/Sahay/releases/latest/download/Sahay.exe -OutFile target\release\sahay.exe
+          if ((Get-Item target\release\sahay.exe).Length -lt 100000) { throw 'Sahay.exe did not download' }
       - run: cargo test --locked -p saathi-launcher
       - run: node scripts/package-windows.js
       - name: Build the installer
@@ -197,40 +203,6 @@ jobs:
           path: |
             android/app/build/outputs/apk/debug/*.apk
             android/app/build/reports/lint-results-release.html
-          retention-days: 14
-  sahay:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          persist-credentials: false
-      - uses: dtolnay/rust-toolchain@f08ac54821369508305fcb9e0121ec6e30ae9ada
-        with:
-          components: clippy
-      - run: rustup component add clippy
-      - run: cargo clippy --locked -p sahay --all-targets -- -D warnings
-      - run: cargo test --locked -p sahay
-      - run: cargo build --locked --release -p sahay
-  sahay-android:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          persist-credentials: false
-      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
-        with:
-          distribution: temurin
-          java-version: '21'
-      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c
-        with:
-          gradle-version: '9.6.0'
-      - name: Build Sahay for Android
-        run: gradle --no-daemon -p sahay-android assembleDebug assembleRelease
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: always()
-        with:
-          name: sahay-android-test-build
-          path: sahay-android/app/build/outputs/apk/debug/*.apk
           retention-days: 14
   docker:
     runs-on: ubuntu-latest

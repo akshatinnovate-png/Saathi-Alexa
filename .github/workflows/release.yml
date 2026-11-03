@@ -102,7 +102,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: cargo build --locked --release -p saathi-broker -p saathi-launcher -p sahay
+      - run: cargo build --locked --release -p saathi-broker -p saathi-launcher
+      - name: Fetch Sahay from its own repository
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force target\release | Out-Null
+          Invoke-WebRequest -UseBasicParsing https://github.com/akshatinnovate-png/Sahay/releases/latest/download/Sahay.exe -OutFile target\release\sahay.exe
+          if ((Get-Item target\release\sahay.exe).Length -lt 100000) { throw 'Sahay.exe did not download' }
       - run: node scripts/package-windows.js
       - name: Build the installer
         shell: pwsh
