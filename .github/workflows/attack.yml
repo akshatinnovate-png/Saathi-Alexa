@@ -41,7 +41,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - run: pip install semgrep==1.183.0
+      - run: pip install --require-hashes --no-deps -r .github/semgrep-requirements.txt
       - name: Rules at a pinned commit
         run: |
           git init -q rules && cd rules

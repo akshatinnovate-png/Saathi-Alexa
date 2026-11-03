@@ -19,3 +19,4 @@ android/.gradle/
 android/local.properties
 *.jks
 *.keystore
+src/security/saathi-core.wasm

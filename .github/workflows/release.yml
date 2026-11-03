@@ -59,6 +59,7 @@ jobs:
           echo "name=$image" >> "$GITHUB_OUTPUT"
           echo "digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$image:$PLAIN" | cut -d@ -f2)" >> "$GITHUB_OUTPUT"
       - name: Prove where the source archive came from
+        id: provenance
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
         with:
           subject-path: |
@@ -82,8 +83,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          cp "${{ steps.provenance.outputs.bundle-path }}" "saathi-$PLAIN.intoto.jsonl"
+          cp "${{ steps.provenance.outputs.bundle-path }}" "saathi-$PLAIN.sigstore.json"
           gh release create "$TAG" --title "Saathi $TAG" --notes-file notes.md --target "$GITHUB_SHA" \
-            "saathi-$PLAIN.tar.gz" "saathi-$PLAIN.cdx.json" "saathi-$PLAIN.spdx.json" SHA256SUMS
+            "saathi-$PLAIN.tar.gz" "saathi-$PLAIN.cdx.json" "saathi-$PLAIN.spdx.json" SHA256SUMS "saathi-$PLAIN.intoto.jsonl" "saathi-$PLAIN.sigstore.json"
   windows:
     needs: release
     runs-on: windows-latest
@@ -109,6 +112,7 @@ jobs:
           New-Item -ItemType Directory -Force target\release | Out-Null
           Invoke-WebRequest -UseBasicParsing https://github.com/akshatinnovate-png/Sahay/releases/latest/download/Sahay.exe -OutFile target\release\sahay.exe
           if ((Get-Item target\release\sahay.exe).Length -lt 100000) { throw 'Sahay.exe did not download' }
+      - run: npm run build:core
       - run: node scripts/package-windows.js
       - name: Build the installer
         shell: pwsh
@@ -122,6 +126,7 @@ jobs:
           $file = "build\out\Saathi-Setup-$plain.exe"
           (Get-FileHash $file -Algorithm SHA256).Hash.ToLower() + "  Saathi-Setup-$plain.exe" | Out-File -Encoding ascii build\out\SHA256SUMS-windows
       - name: Prove where the installer came from
+        id: provenance
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
         with:
           subject-path: build/out/Saathi-Setup-${{ env.PLAIN }}.exe
@@ -129,7 +134,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
-        run: gh release upload "v$env:PLAIN" "build/out/Saathi-Setup-$env:PLAIN.exe" build/out/SHA256SUMS-windows --repo $env:GITHUB_REPOSITORY --clobber
+        run: |
+          Copy-Item "${{ steps.provenance.outputs.bundle-path }}" "build/out/Saathi-Setup-$env:PLAIN.exe.intoto.jsonl"
+          Copy-Item "${{ steps.provenance.outputs.bundle-path }}" "build/out/Saathi-Setup-$env:PLAIN.exe.sigstore.json"
+          gh release upload "v$env:PLAIN" "build/out/Saathi-Setup-$env:PLAIN.exe" build/out/SHA256SUMS-windows "build/out/Saathi-Setup-$env:PLAIN.exe.intoto.jsonl" "build/out/Saathi-Setup-$env:PLAIN.exe.sigstore.json" --repo $env:GITHUB_REPOSITORY --clobber
   android:
     needs: release
     runs-on: ubuntu-latest
@@ -182,9 +190,13 @@ jobs:
           sha256sum "$out" > SHA256SUMS-android
           rm -f "$RUNNER_TEMP/saathi.jks"
       - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
+        id: provenance
         with:
           subject-path: Saathi-${{ env.PLAIN }}.apk
       - name: Attach the APK to the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "v$PLAIN" "Saathi-$PLAIN.apk" SHA256SUMS-android apk-signature.txt --repo "$GITHUB_REPOSITORY" --clobber
+        run: |
+          cp "${{ steps.provenance.outputs.bundle-path }}" "Saathi-$PLAIN.apk.intoto.jsonl"
+          cp "${{ steps.provenance.outputs.bundle-path }}" "Saathi-$PLAIN.apk.sigstore.json"
+          gh release upload "v$PLAIN" "Saathi-$PLAIN.apk" SHA256SUMS-android apk-signature.txt "Saathi-$PLAIN.apk.intoto.jsonl" "Saathi-$PLAIN.apk.sigstore.json" --repo "$GITHUB_REPOSITORY" --clobber

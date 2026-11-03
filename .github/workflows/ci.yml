@@ -141,6 +141,7 @@ jobs:
           Invoke-WebRequest -UseBasicParsing https://github.com/akshatinnovate-png/Sahay/releases/latest/download/Sahay.exe -OutFile target\release\sahay.exe
           if ((Get-Item target\release\sahay.exe).Length -lt 100000) { throw 'Sahay.exe did not download' }
       - run: cargo test --locked -p saathi-launcher
+      - run: npm run build:core
       - run: node scripts/package-windows.js
       - name: Build the installer
         shell: pwsh
