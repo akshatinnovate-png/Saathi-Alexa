@@ -39,6 +39,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run build:core
       - name: Property-based fuzzing of parsers, guards and the WebAssembly core
         run: node --test test/fuzz.test.js
         env:

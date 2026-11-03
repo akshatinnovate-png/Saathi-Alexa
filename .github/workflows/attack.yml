@@ -20,6 +20,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run build:core
       - name: Attack a fresh public-mode install
         run: node scripts/attack.js --report attack-report.md
       - if: always()
@@ -71,6 +72,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run build:core
       - name: Start a demo install
         run: |
           mkdir -p "$RUNNER_TEMP/zapdata"
