@@ -352,3 +352,7 @@ button.person:hover { background: rgb(255 255 255 / 90%); }
 
 .insight-list { margin: 8px 0 0; padding-left: 1.2em; line-height: 1.5; }
 .insight-list:empty { display: none; }
+.family-voice select { min-height: 40px; border-radius: 12px; border: 1px solid #d9cfbe; padding: 0 10px; background: #fff; font: inherit; }
+.fv-list { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 6px; }
+.fv-list:empty { display: none; }
+.fv-list audio { height: 32px; vertical-align: middle; max-width: 100%; }

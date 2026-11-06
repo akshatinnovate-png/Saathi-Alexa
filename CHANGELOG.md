@@ -3,6 +3,9 @@
 
 ## [Unreleased]
 
+- **Family Voice**: a family member records a short reminder in their own voice (for one tablet or any tablet) in the family app; the elder's device plays it before the tablet reminder. Recordings only, never voice imitation.
+- **Living Legacy**: the memory book as an illustrated family book (`legacy.html`): every story as a chapter in each family language, with the narration, ready to print or save as a PDF.
+
 - **Saathi Insight**: a weekly look at tablets taken (and evening ones missed), how the elder sounded in check-ins, how often they asked for the day or time, front-door activity and help requests, compared only with their own usual weeks, never diagnosing. Changes worth mentioning show on a new Insight card in the family app, and a printable **doctor report** (`doctor-report.html`) gathers four weeks on one page. Private check-ins are counted, never quoted.
 
 - **Scam Guard (Saathi side)**: Sahay on the elder's computer can report a scam it stopped, with a screenshot (private numbers blacked out on the computer), warning signs, a simple explanation and what it did. The family is alerted at once (critical if money may be at risk), sees it in the family app and on a new Scam Guard page, and decides whether to keep it blocked (24 hours more) or unblock it. Sahay checks the hold before allowing remote access again. Only a direct connection from the elder's computer can report incidents.

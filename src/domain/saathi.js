@@ -494,6 +494,17 @@ export function createSaathi(deps) {
     return (await store.list('stories')).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
+  async function legacyBook() {
+    const me = await elder();
+    const stories = (await store.list('stories')).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const circle = await store.list('circle');
+    return {
+      elder: { name: me.name, preferredName: me.preferredName, language: me.language, city: me.city },
+      languages: [...new Set([me.language, ...circle.map((p) => p.language)].filter(Boolean))],
+      chapters: await Promise.all(stories.map(async (s, i) => ({ number: i + 1, ...(await withPlayableAudio(s)) }))),
+    };
+  }
+
   async function withPlayableAudio(story) {
     const entries = await Promise.all(Object.entries(story.audio ?? {}).map(async ([l, ref]) => [l, await (media.playbackUrl?.(ref) ?? ref)]));
     return { ...story, audio: Object.fromEntries(entries) };
@@ -670,6 +681,46 @@ export function createSaathi(deps) {
     const ref = await media.save(`voice/${noteId}.${ext}`, audio, contentType);
     metrics.emit('VoiceNote', 1);
     return deliverToElder({ fromId, text: '🎤', language: sender.language, extra: { kind: 'voice', audio: ref, durationSec: durationSec ?? null } });
+  }
+
+  const AUDIO_EXT = { 'audio/webm': 'webm', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a', 'audio/mpeg': 'mp3', 'audio/wav': 'wav' };
+
+  async function saveReminderVoice({ fromId, audio, contentType = 'audio/webm', medicationId = null }) {
+    const member = (await store.list('circle')).find((p) => p.id === fromId);
+    if (!member) throw invalid(`Unknown family member ${fromId}`);
+    const medId = medicationId ? String(medicationId) : null;
+    if (medId && !(await store.get('medications', medId))) throw invalid('That medicine no longer exists.');
+    const type = String(contentType).split(';')[0];
+    if (!AUDIO_EXT[type]) throw invalid('Record the reminder as audio.');
+    const key = `${fromId}:${medId ?? 'any'}`;
+    const ref = await media.save(`voice/reminder-${fromId}-${medId ?? 'any'}-${Date.now().toString(36)}.${AUDIO_EXT[type]}`, audio, type);
+    const entry = { id: key, memberId: fromId, medicationId: medId, audio: ref, createdAt: clock().toISOString() };
+    await store.put('reminderVoices', entry);
+    await events.publish('ReminderVoiceSaved', { memberId: fromId, medicationId: medId });
+    return { id: key, memberId: fromId, medicationId: medId, createdAt: entry.createdAt };
+  }
+
+  async function removeReminderVoice({ fromId, medicationId = null }) {
+    return store.remove('reminderVoices', `${fromId}:${medicationId ?? 'any'}`);
+  }
+
+  async function reminderVoices() {
+    const circle = await store.list('circle');
+    return Promise.all((await store.list('reminderVoices')).map(async (v) => ({
+      id: v.id, memberId: v.memberId, from: circle.find((p) => p.id === v.memberId)?.name ?? v.memberId, medicationId: v.medicationId, createdAt: v.createdAt,
+      url: await (media.playbackUrl?.(v.audio) ?? v.audio),
+    })));
+  }
+
+  async function reminderVoiceFor(medicationIds, date) {
+    const voices = await store.list('reminderVoices');
+    const pick = voices.filter((v) => v.medicationId && medicationIds.includes(v.medicationId));
+    const pool = pick.length ? pick : voices.filter((v) => !v.medicationId);
+    if (!pool.length) return null;
+    const day = Number(String(date).replaceAll('-', '')) || 0;
+    const v = pool.sort((a, b) => a.id.localeCompare(b.id))[day % pool.length];
+    const circle = await store.list('circle');
+    return { from: circle.find((p) => p.id === v.memberId)?.name ?? v.memberId, url: await (media.playbackUrl?.(v.audio) ?? v.audio) };
   }
 
   async function weeklyLetters({ send = true, save = send } = {}) {
@@ -900,7 +951,8 @@ export function createSaathi(deps) {
     }
     if (fresh.length) {
       const say = t(lang, 'medsDue', { list: fresh.map((m) => localized(m, 'phrase', lang)).join(t(lang, 'medsDueJoin')), withFood: fresh.some((m) => m.withFood) });
-      await events.publish('TabletReminder', { say, sayLanguage: lang, medications: fresh.map((m) => m.slotId) });
+      const familyVoice = await reminderVoiceFor(fresh.map((m) => m.id), now.date);
+      await events.publish('TabletReminder', { say, sayLanguage: lang, medications: fresh.map((m) => m.slotId), ...(familyVoice ? { voice: familyVoice } : {}) });
       sent.push(...fresh.map((m) => m.slotId));
     }
     const soon = (await upcomingAppointments({ language: lang, days: 0 })).appointments
@@ -1095,7 +1147,7 @@ export function createSaathi(deps) {
     sweepSupplies, sweepWeeklyLetter, sweepReminders, recordRefill, upcomingAppointments, sweepAppointments, claimEscort, addVoiceNote, weeklyLetters,
     addMember, removeMember, updateProfile, saveMedication, removeMedication, saveAppointment, removeAppointment, saveRoutine, careSetup, subscribeMember, setAvatar, media, householdId: deps.householdId ?? DEFAULT_HOUSEHOLD,
     messages, doorActivity, homeMap, saveRooms, placeItem, removeItem, whereIs,
-    checkIn, requestHelp, acknowledgeAlert, reportSuspiciousCall, recordScamIncident, scamIncidents, scamHold, decideScamHold, insight,
+    checkIn, requestHelp, acknowledgeAlert, reportSuspiciousCall, recordScamIncident, scamIncidents, scamHold, decideScamHold, insight, saveReminderVoice, removeReminderVoice, reminderVoices, legacyBook,
     familyMessages, sendToFamily, messageFromFamily,
     saveStory, listStories, familySummary,
     circle: () => store.list('circle'),

@@ -17,7 +17,7 @@ import { seedData } from '../domain/seed.js';
 import { DEFAULT_HOUSEHOLD } from '../households/scope.js';
 import { createReplayGuard, verifySignature, normaliseRingEvent, SIGNATURE_HEADER, TIMESTAMP_HEADER } from '../ring/webhook.js';
 
-const PROTECTED_PAGES = ['/doctor-report.html', '/scam-guard.html', '/family.html', '/alexa.html', '/welcome.html', '/scan.html', '/medical-id.html'];
+const PROTECTED_PAGES = ['/legacy.html', '/doctor-report.html', '/scam-guard.html', '/family.html', '/alexa.html', '/welcome.html', '/scan.html', '/medical-id.html'];
 
 export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null, sahayQueue = null, guide = null }) {
   const { localBus, store } = services;
@@ -433,6 +433,25 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     const from = req.memberId ?? req.query.from;
     if (!from || !Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'from and an audio body are required' });
     res.json(await req.saathi.addVoiceNote({ fromId: String(from), audio: req.body, contentType: req.get('content-type'), durationSec: Number(req.query.duration) || undefined, e2e: e2eOf(req) }));
+  }));
+
+  api.post('/family/reminder-voice', express.raw({ type: ['audio/*'], limit: '4mb' }), wrap(async (req, res) => {
+    const from = req.memberId ?? req.query.from;
+    if (!from || !Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'from and an audio body are required' });
+    res.json(await req.saathi.saveReminderVoice({ fromId: String(from), audio: req.body, contentType: req.get('content-type'), medicationId: req.query.medication || null }));
+  }));
+
+  api.get('/family/legacy', wrap(async (req, res) => {
+    res.json(await req.saathi.legacyBook());
+  }));
+
+  api.get('/family/reminder-voices', wrap(async (req, res) => {
+    res.json({ voices: await req.saathi.reminderVoices() });
+  }));
+
+  api.delete('/family/reminder-voice', wrap(async (req, res) => {
+    const from = req.memberId ?? req.query.from;
+    res.json({ removed: Boolean(await req.saathi.removeReminderVoice({ fromId: String(from), medicationId: req.query.medication || null })) });
   }));
 
   api.post('/family/avatar', express.raw({ type: ['image/png', 'image/jpeg', 'image/webp', 'application/vnd.saathi.e2e'], limit: '4mb' }), wrap(async (req, res) => {

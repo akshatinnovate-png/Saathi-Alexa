@@ -899,3 +899,47 @@ async function loadInsight() {
   }
 }
 loadInsight();
+
+let fvRecorder;
+async function loadFamilyVoice() {
+  const select = document.getElementById('fv-med');
+  if (!select) return;
+  try {
+    const [care, voices] = await Promise.all([fetch('/api/care').then((r) => (r.ok ? r.json() : { medications: [] })), fetch('/api/family/reminder-voices').then((r) => (r.ok ? r.json() : { voices: [] }))]);
+    const keep = select.value;
+    select.replaceChildren(el('option', { value: '' }, 'Any tablet reminder'), ...care.medications.map((m) => el('option', { value: m.id }, `${m.name} (${m.purpose})`)));
+    select.value = keep;
+    const name = (id) => care.medications.find((m) => m.id === id)?.name ?? 'any tablet';
+    document.getElementById('fv-list').replaceChildren(...voices.voices.map((v) => el('li', {}, `${v.from}: ${name(v.medicationId)} `, el('audio', { controls: '', preload: 'none', src: v.url }))));
+  } catch { }
+}
+document.getElementById('fv-record')?.addEventListener('click', async () => {
+  const button = document.getElementById('fv-record');
+  const status = document.getElementById('fv-status');
+  if (fvRecorder?.state === 'recording') { fvRecorder.stop(); return; }
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { status.textContent = 'This browser cannot record audio.'; return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const parts = [];
+    fvRecorder = new MediaRecorder(stream);
+    fvRecorder.ondataavailable = (e) => e.data.size && parts.push(e.data);
+    fvRecorder.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      button.setAttribute('aria-pressed', 'false');
+      button.textContent = '🌼 Record a reminder in your voice';
+      const blob = new Blob(parts, { type: fvRecorder.mimeType || 'audio/webm' });
+      const med = document.getElementById('fv-med').value;
+      status.textContent = 'Saving…';
+      const res = await fetch(`/api/family/reminder-voice?from=${encodeURIComponent(meId())}${med ? `&medication=${encodeURIComponent(med)}` : ''}`, { method: 'POST', headers: { 'content-type': blob.type.split(';')[0] || 'audio/webm' }, body: blob });
+      status.textContent = res.ok ? `Saved. ${elderName} will hear your voice before ${med ? 'this tablet' : 'tablet reminders'}.` : 'Could not save the recording.';
+      loadFamilyVoice();
+    };
+    fvRecorder.start();
+    button.setAttribute('aria-pressed', 'true');
+    button.textContent = '⏹ Stop and save';
+    status.textContent = `Recording… for example: "${elderName}, time for your tablet. Love you!"`;
+  } catch {
+    status.textContent = 'Microphone permission was not given.';
+  }
+});
+loadFamilyVoice();
