@@ -34,5 +34,5 @@ export function askedSahay(language, { running = true } = {}) {
 }
 
 export function instructionFor(message) {
-  return `Someone at this computer asked: "${String(message).trim()}". Do it for them on this computer, step by step, and tell them simply what you did.`;
+  return `Someone at this computer asked: "${String(message).trim()}". Do it for them on this computer, step by step, and tell them simply what you did, in the language they asked in.`;
 }
