@@ -12,7 +12,10 @@
   color: var(--a-ink);
   background: linear-gradient(180deg, #f1f2f5 0%, #eceef2 48%, #dfe4ec 64%, #c3cde0 100%);
   box-shadow: 0 30px 70px rgb(60 70 110 / 18%);
+  min-width: 0;
+  max-width: 100%;
 }
+.assistant h3, .assistant .a-msg { overflow-wrap: anywhere; }
 .assistant::before {
   content: "";
   position: absolute;

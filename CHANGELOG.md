@@ -3,6 +3,8 @@
 
 ## [Unreleased]
 
+- **A warmer look that carries the intro through the app**: cream paper with the intro's halftone texture, serif headings, and original line-art florals (jasmine vines, a jasmine sprig on the hero card, marigold and lotus marks) on the family app, sign-in pages, device pairing and Medical ID. Decoration is hidden in high-contrast mode and for printing, and stays still with reduced motion. The family app and its assistant no longer overflow on narrow phones.
+
 - **Try Saathi in any MCP client in one line**: `npx -y saathi-alexa` runs the MCP server over stdio with a fictional demo family, in memory, with every outside connection refused. Listed for the official MCP Registry in `server.json`; published to npm with provenance by the new **Publish to npm** workflow.
 - **[PRIVACY.md](PRIVACY.md)**: what Saathi stores, where it goes and what it never does.
 - **Project governance for the OpenSSF Best Practices silver and gold levels**: [GOVERNANCE.md](GOVERNANCE.md), [MAINTAINERS.md](MAINTAINERS.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [ROADMAP.md](ROADMAP.md), [docs/BUILD.md](docs/BUILD.md), [docs/ASSURANCE_CASE.md](docs/ASSURANCE_CASE.md), DCO sign-off and code review rules in CONTRIBUTING.md, and per-file licensing in [REUSE.toml](REUSE.toml).
