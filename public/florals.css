@@ -1,0 +1,105 @@
+:root {
+  --paper-cream: #f7f1e6;
+  --paper-warm: #f3e9d8;
+  --sepia: #8a6436;
+  --saffron: #e98a1f;
+  --halftone: radial-gradient(circle at 1px 1px, rgb(138 100 54 / 9%) 1px, transparent 1.6px) 0 0 / 14px 14px;
+}
+
+.bloom { position: relative; isolation: isolate; }
+
+.bloom::before,
+.bloom::after {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  pointer-events: none;
+  background: url("assets/florals/corner-vine.svg") no-repeat center / contain;
+  width: clamp(200px, 30vw, 420px);
+  aspect-ratio: 420 / 340;
+  opacity: .62;
+}
+
+.bloom::before { top: -6px; right: -10px; transform-origin: 100% 0; }
+.bloom::after { bottom: -6px; left: -10px; transform: rotate(180deg); opacity: .48; }
+
+.bloom-cream {
+  background:
+    radial-gradient(900px 600px at 0% 0%, rgb(255 235 205 / 70%) 0%, transparent 60%),
+    radial-gradient(800px 600px at 100% 100%, rgb(222 232 210 / 55%) 0%, transparent 60%),
+    var(--halftone),
+    linear-gradient(160deg, var(--paper-cream) 0%, var(--paper-warm) 100%);
+  background-attachment: fixed;
+}
+
+.bloom-dark::before,
+.bloom-dark::after { opacity: .3; filter: invert(1) sepia(1) saturate(2.2) hue-rotate(-12deg) brightness(.95); }
+
+.serif-head, .bloom .serif-head { font-family: var(--serif); font-weight: 400; letter-spacing: -0.01em; }
+
+.sprig { position: relative; }
+.sprig::before {
+  content: "";
+  position: absolute;
+  top: -18px;
+  right: -12px;
+  width: 132px;
+  aspect-ratio: 170 / 120;
+  background: url("assets/florals/jasmine-sprig.svg") no-repeat center / contain;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.marigold-mark::before {
+  content: "";
+  display: inline-block;
+  width: 1.4em;
+  height: 1.5em;
+  margin-right: .35em;
+  vertical-align: -.3em;
+  background: url("assets/florals/marigold.svg") no-repeat center / contain;
+}
+
+.lotus-mark::before {
+  content: "";
+  display: block;
+  width: 72px;
+  aspect-ratio: 120 / 100;
+  margin: 0 auto 6px;
+  background: url("assets/florals/lotus.svg") no-repeat center / contain;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .bloom::before { animation: sway 9s ease-in-out infinite alternate; }
+  @keyframes sway { from { transform: rotate(0deg); } to { transform: rotate(-1.6deg); } }
+}
+
+@media (max-width: 640px) {
+  .bloom::before, .bloom::after { width: 190px; opacity: .4; }
+  .sprig::before { width: 96px; top: -14px; right: -6px; }
+}
+
+:root[data-contrast="high"] .bloom::before,
+:root[data-contrast="high"] .bloom::after,
+:root[data-contrast="high"] .sprig::before,
+:root[data-contrast="high"] .marigold-mark::before,
+:root[data-contrast="high"] .lotus-mark::before { display: none; }
+
+:root[data-contrast="high"] .bloom-cream { background: #fff; }
+
+@media print {
+  .bloom::before, .bloom::after, .sprig::before { display: none; }
+}
+
+.bloom .hero {
+  background:
+    radial-gradient(420px 300px at 85% 105%, rgb(255 255 255 / 55%) 0%, transparent 70%),
+    linear-gradient(165deg, #f0a24e 0%, #f5c17e 28%, #f4dcbd 60%, #f1e7d8 100%);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 60%) inset, 0 20px 50px rgb(138 100 54 / 18%);
+}
+.bloom .hero::after { width: 46%; bottom: 35%; background: var(--halftone); background-size: 10px 10px; opacity: .9; }
+.bloom .hero.sprig::before { top: 12px; right: 10px; width: 150px; }
+:root[data-contrast="high"] .bloom .hero { background: #fff; }
+.bloom .assistant { background: linear-gradient(180deg, #fbf7ef 0%, #f5ede0 52%, #ecdcc2 100%); box-shadow: 0 30px 70px rgb(138 100 54 / 16%); }
+.bloom .days li:not(:last-child) { background: #f3eadb; }
+:root[data-contrast="high"] .bloom .assistant { background: #fff; }
