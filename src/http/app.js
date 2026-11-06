@@ -19,7 +19,7 @@ import { createReplayGuard, verifySignature, normaliseRingEvent, SIGNATURE_HEADE
 
 const PROTECTED_PAGES = ['/legacy.html', '/doctor-report.html', '/scam-guard.html', '/family.html', '/alexa.html', '/welcome.html', '/scan.html', '/medical-id.html'];
 
-export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null, sahayQueue = null, guide = null, scamNetwork = null }) {
+export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null, sahayQueue = null, guide = null, scamNetwork = null, billing = null }) {
   const { localBus, store } = services;
   const app = express();
   app.set('trust proxy', config.web?.trustProxy ?? 'loopback');
@@ -120,6 +120,14 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
       if (err.status === 400) return res.status(400).json({ error: err.message });
       next(err);
     }
+  });
+
+  app.post('/billing/razorpay/webhook', async (req, res, next) => {
+    try {
+      if (!billing?.enabled) return res.status(404).json({ error: 'Not found.' });
+      if (!billing.verify(req.rawBody, req.get('x-razorpay-signature'))) return res.status(400).json({ error: 'Bad signature.' });
+      res.json(await billing.webhook(req.body));
+    } catch (err) { next(err); }
   });
 
   const guard = apiGuard({ requireLogin, defaultHousehold: DEFAULT_HOUSEHOLD, services, audit });
@@ -389,7 +397,41 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     res.json(await req.saathi.scamNetworkView(scamNetwork?.warnings ?? []));
   }));
 
-  api.get('/insight', wrap(async (req, res) => {
+  const paidExtra = (feature, label) => async (req, res, next) => {
+    try {
+      if (!billing || (await billing.entitled(req.householdId, feature))) return next();
+      res.status(402).json({ error: `${label} is part of the Family plan. You can see the plans in Settings, Plan.`, code: 'plan' });
+    } catch (err) { next(err); }
+  };
+
+  api.get('/plan', wrap(async (req, res) => {
+    res.json(billing ? await billing.status(req.householdId) : { enabled: false, paidExtras: 'all' });
+  }));
+
+  api.post('/plan/checkout', wrap(async (req, res) => {
+    if (!billing) return res.status(400).json({ error: 'Payments are not set up on this Saathi; everything is already included.' });
+    try {
+      const out = await billing.checkout(req.householdId, { plan: req.body?.plan, email: req.user?.email });
+      record(req, 'plan-checkout', { plan: req.body?.plan });
+      res.json(out);
+    } catch (err) {
+      if (!err.status) throw err;
+      res.status(err.status).json({ error: err.message });
+    }
+  }));
+
+  api.post('/plan/cancel', wrap(async (req, res) => {
+    try {
+      const out = billing ? await billing.cancel(req.householdId) : { plan: 'free', status: 'cancelled' };
+      record(req, 'plan-cancel', {});
+      res.json(out);
+    } catch (err) {
+      if (!err.status) throw err;
+      res.status(err.status).json({ error: err.message });
+    }
+  }));
+
+  api.get('/insight', paidExtra('insight', 'Saathi Insight'), wrap(async (req, res) => {
     res.json(await req.saathi.insight({ weeks: req.query.weeks }));
   }));
 
@@ -446,7 +488,7 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     res.json(await req.saathi.addVoiceNote({ fromId: String(from), audio: req.body, contentType: req.get('content-type'), durationSec: Number(req.query.duration) || undefined, e2e: e2eOf(req) }));
   }));
 
-  api.post('/family/reminder-voice', express.raw({ type: ['audio/*'], limit: '4mb' }), wrap(async (req, res) => {
+  api.post('/family/reminder-voice', paidExtra('family-voice', 'Family Voice'), express.raw({ type: ['audio/*'], limit: '4mb' }), wrap(async (req, res) => {
     const from = req.memberId ?? req.query.from;
     if (!from || !Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'from and an audio body are required' });
     res.json(await req.saathi.saveReminderVoice({ fromId: String(from), audio: req.body, contentType: req.get('content-type'), medicationId: req.query.medication || null }));
