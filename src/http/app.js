@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import express from 'express';
+import { rateLimit } from 'express-rate-limit';
 import QRCode from 'qrcode';
 import { securityHeaders } from '../security/headers.js';
 import { crossSiteGuard, createRateLimiter, RATE_RULES, safeJsonReviver, errorHandler } from '../security/guards.js';
@@ -122,7 +123,8 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     }
   });
 
-  app.post('/billing/razorpay/webhook', async (req, res, next) => {
+  const webhookLimit = rateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: 'draft-7', legacyHeaders: false });
+  app.post('/billing/razorpay/webhook', webhookLimit, async (req, res, next) => {
     try {
       if (!billing?.enabled) return res.status(404).json({ error: 'Not found.' });
       if (!billing.verify(req.rawBody, req.get('x-razorpay-signature'))) return res.status(400).json({ error: 'Bad signature.' });
