@@ -82,6 +82,13 @@
 .a-msg.bot { align-self: flex-start; border-radius: 22px 22px 22px 8px; }
 .a-msg.bot.thinking { color: var(--a-ink-2); font-style: italic; }
 .a-msg small { display: block; margin-top: 6px; font-size: 0.75rem; color: var(--a-ink-2); }
+.a-card { align-self: flex-start; max-width: 92%; padding: 14px 16px; border-radius: 18px; display: grid; gap: 10px; }
+.a-card-text { margin: 0; font-weight: 600; line-height: 1.4; }
+.a-card-status { margin: 0; font-size: .95rem; color: var(--a-ink); }
+.a-card-status:empty { display: none; }
+.a-sahay { align-self: flex-start; padding: 8px 14px; border-radius: 999px; background: rgb(255 255 255 / 80%); color: var(--a-ink); font-size: .95rem; }
+.a-sahay[data-status="done"] { background: #d8f1e1; color: #0b4d28; }
+.a-sahay[data-status="failed"] { background: #fde4e1; color: #7a1a12; }
 .a-confirm { display: flex; gap: 10px; align-self: flex-start; }
 .a-confirm button { min-height: 52px; padding: 0 20px; border-radius: 18px; border: 0; font: 600 1.05rem var(--sans); cursor: pointer; }
 .a-confirm .yes { background: #1c2233; color: #fff; }

@@ -3,6 +3,11 @@
 
 ## [Unreleased]
 
+- **The assistant acts, not just answers.** In the family app it proposes changes (medicines, doctor visits, refills, escorts, alerts, messages to the elder) as confirmation cards; nothing changes until the family member taps Confirm, and every action is checked against the same Rust permission rules and written to the audit log.
+- **Tech help goes to Sahay.** A how-to question about WhatsApp, video calls, printing or settings, in English, Hindi, Hinglish or Marathi, is handed to Sahay on the elder's computer with a single reply ("I've asked Sahay to do it for you"), with live progress in the chat. Only a direct connection from that computer can hand out or update Sahay's tasks.
+- **Groq support**: set `GROQ_API_KEY` to run the assistants on Groq's free tier (`openai/gpt-oss-120b` by default).
+- **The landing page answers in place**, grounded in Saathi's own documents with links, and lets visitors talk to the demo family.
+
 - **Try Saathi in any MCP client in one line**: `npx -y saathi-alexa` runs the MCP server over stdio with a fictional demo family, in memory, with every outside connection refused. Listed for the official MCP Registry in `server.json`; published to npm with provenance by the new **Publish to npm** workflow.
 - **[PRIVACY.md](PRIVACY.md)**: what Saathi stores, where it goes and what it never does.
 - **Project governance for the OpenSSF Best Practices silver and gold levels**: [GOVERNANCE.md](GOVERNANCE.md), [MAINTAINERS.md](MAINTAINERS.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [ROADMAP.md](ROADMAP.md), [docs/BUILD.md](docs/BUILD.md), [docs/ASSURANCE_CASE.md](docs/ASSURANCE_CASE.md), DCO sign-off and code review rules in CONTRIBUTING.md, and per-file licensing in [REUSE.toml](REUSE.toml).
