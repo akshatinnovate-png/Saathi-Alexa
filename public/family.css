@@ -349,3 +349,6 @@ button.person:hover { background: rgb(255 255 255 / 90%); }
   #private-dialog { position: static; box-shadow: none; width: auto; }
   #private-dialog .sheet-actions, #private-dialog form, #private-dialog .form-error { display: none; }
 }
+
+.insight-list { margin: 8px 0 0; padding-left: 1.2em; line-height: 1.5; }
+.insight-list:empty { display: none; }

@@ -2,6 +2,7 @@ import { assessConcerns, assessScam } from './safety.js';
 import { DEFAULT_HOUSEHOLD, collectionFor } from '../households/scope.js';
 import { languageName, LANGUAGES } from './languages.js';
 import { t, spokenLanguage, partOfDayName, joinNames, localized, localDigits } from './i18n.js';
+import { computeInsight } from './insight.js';
 import { pronounsOf, emergencyNumberFor, isTimeZone, PRONOUNS, COUNTRIES } from './people.js';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -68,6 +69,7 @@ export function createSaathi(deps) {
 
   async function orientation({ language } = {}) {
     const { me, lang } = await voice(language);
+    await store.put('orientations', { id: id('orient'), at: clock().toISOString() });
     const now = localParts();
     const upcoming = (await schedule(now.dayIndex))
       .filter((r) => (!r.days || r.days.includes(now.dayIndex)) && toMinutes(r.time) >= now.minutes)
@@ -302,6 +304,13 @@ export function createSaathi(deps) {
     await store.update('alerts', `alert-${incidentId}`, { acknowledged: true, acknowledgedBy: by, acknowledgedAt: at.toISOString() });
     await events.publish('ScamHoldDecided', { incidentId, decision });
     return updated;
+  }
+
+  async function insight({ weeks = 4 } = {}) {
+    const me = await elder();
+    const [medications, doses, checkins, door, orientations, alerts] = await Promise.all(['medications', 'doses', 'checkins', 'door', 'orientations', 'alerts'].map((c) => store.list(c)));
+    const out = computeInsight({ now: clock().getTime(), timeZone: tz, name: me.preferredName, medications, doses, checkins, door, orientations, alerts, weeks: Math.min(Math.max(Number(weeks) || 4, 2), 12) });
+    return { ...out, elder: { name: me.name, preferredName: me.preferredName, language: me.language, city: me.city }, medications: medications.map((m) => ({ id: m.id, name: m.name, purpose: m.purpose, times: Array.isArray(m.times) && m.times.length ? m.times : [m.time], withFood: Boolean(m.withFood), adherence: out.current.perMedication[m.id] ?? null })) };
   }
 
   async function openHelpAlert(withinMs = 10 * 60 * 1000) {
@@ -1086,7 +1095,7 @@ export function createSaathi(deps) {
     sweepSupplies, sweepWeeklyLetter, sweepReminders, recordRefill, upcomingAppointments, sweepAppointments, claimEscort, addVoiceNote, weeklyLetters,
     addMember, removeMember, updateProfile, saveMedication, removeMedication, saveAppointment, removeAppointment, saveRoutine, careSetup, subscribeMember, setAvatar, media, householdId: deps.householdId ?? DEFAULT_HOUSEHOLD,
     messages, doorActivity, homeMap, saveRooms, placeItem, removeItem, whereIs,
-    checkIn, requestHelp, acknowledgeAlert, reportSuspiciousCall, recordScamIncident, scamIncidents, scamHold, decideScamHold,
+    checkIn, requestHelp, acknowledgeAlert, reportSuspiciousCall, recordScamIncident, scamIncidents, scamHold, decideScamHold, insight,
     familyMessages, sendToFamily, messageFromFamily,
     saveStory, listStories, familySummary,
     circle: () => store.list('circle'),

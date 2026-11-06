@@ -1,0 +1,18 @@
+.dr-body { background: #f7f1e6; color: #16181d; }
+.dr-tools { max-width: 820px; margin: 0 auto; padding: 18px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.dr-link { color: #1f5fbf; font-weight: 600; }
+.dr-print { min-height: 46px; padding: 0 20px; border-radius: 14px; border: 0; background: #16181d; color: #fff; font: 600 1rem var(--sans); cursor: pointer; }
+.dr-page { max-width: 820px; margin: 0 auto 40px; background: #fff; border-radius: 18px; padding: 28px 32px; box-shadow: 0 10px 30px rgb(138 100 54 / 12%); }
+.dr-page h1 { font: 400 1.9rem var(--serif); margin: 0; }
+.dr-page h2 { font-size: 1.05rem; margin: 22px 0 8px; text-transform: uppercase; letter-spacing: .04em; color: #4a4f5c; }
+.dr-meta { color: #4a4f5c; margin: 4px 0 0; }
+.dr-summary { background: #fbf3e4; border-radius: 12px; padding: 12px 14px; margin-top: 16px; }
+.dr-page table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+.dr-page th, .dr-page td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #e8e1d4; }
+.dr-page th { font-weight: 600; color: #3a3f4c; }
+.dr-note { color: #4a4f5c; font-size: .9rem; margin-top: 22px; }
+@media print {
+  .dr-tools { display: none; }
+  .dr-body { background: #fff; }
+  .dr-page { box-shadow: none; margin: 0; padding: 0; max-width: none; }
+}

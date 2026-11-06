@@ -884,3 +884,18 @@ onEvents((event) => {
 });
 setInterval(() => { greet(); if (document.visibilityState === 'visible') refresh(); }, 30000);
 init().then(() => show(location.hash.slice(1) || 'overview'));
+
+async function loadInsight() {
+  const summary = document.getElementById('insight-summary');
+  if (!summary) return;
+  try {
+    const res = await fetch('/api/insight');
+    if (!res.ok) { summary.closest('article').hidden = true; return; }
+    const out = await res.json();
+    summary.textContent = out.summary;
+    document.getElementById('insight-changes').replaceChildren(...out.changes.map((c) => el('li', {}, c.text)));
+  } catch {
+    summary.textContent = 'Insight is not available right now.';
+  }
+}
+loadInsight();

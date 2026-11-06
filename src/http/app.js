@@ -17,7 +17,7 @@ import { seedData } from '../domain/seed.js';
 import { DEFAULT_HOUSEHOLD } from '../households/scope.js';
 import { createReplayGuard, verifySignature, normaliseRingEvent, SIGNATURE_HEADER, TIMESTAMP_HEADER } from '../ring/webhook.js';
 
-const PROTECTED_PAGES = ['/scam-guard.html', '/family.html', '/alexa.html', '/welcome.html', '/scan.html', '/medical-id.html'];
+const PROTECTED_PAGES = ['/doctor-report.html', '/scam-guard.html', '/family.html', '/alexa.html', '/welcome.html', '/scan.html', '/medical-id.html'];
 
 export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null, sahayQueue = null, guide = null }) {
   const { localBus, store } = services;
@@ -376,6 +376,10 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
 
   api.post('/assistant/dismiss', wrap(async (req, res) => {
     res.json({ dismissed: (await assistantFor(req.householdId)).dismiss(req.body?.id) });
+  }));
+
+  api.get('/insight', wrap(async (req, res) => {
+    res.json(await req.saathi.insight({ weeks: req.query.weeks }));
   }));
 
   api.get('/scam-guard/incidents', wrap(async (req, res) => {

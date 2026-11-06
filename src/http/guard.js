@@ -21,6 +21,7 @@ export const API_ROUTES = [
   ['POST', /^\/assistant\/(confirm|dismiss)$/, 'assistant'],
   ['GET', /^\/sahay\/tasks$/, 'assistant'],
   ['GET', /^\/scam-guard\/incidents$/, 'summary'],
+  ['GET', /^\/insight$/, 'care.read'],
   ['POST', /^\/scam-guard\/incidents\/[^/]+\/decide$/, 'alerts.ack'],
   ['POST', /^\/speak$/, 'speak'],
   ['POST', /^\/demo\/(reset|sweep)$/, 'demo.reset'],
