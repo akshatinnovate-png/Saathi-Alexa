@@ -107,13 +107,45 @@ function playIntro() {
 }
 
 function setupAsk() {
-  const go = (q) => { location.href = `/family.html?ask=${encodeURIComponent(q)}#assistant`; };
+  const log = $('guide-log');
+  const add = (kind, text, links = []) => {
+    const node = document.createElement('div');
+    node.className = `guide-msg ${kind}`;
+    node.textContent = text;
+    for (const href of links) {
+      const a = document.createElement('a');
+      a.href = href;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.textContent = 'Read more';
+      node.append(' ', a);
+    }
+    log.append(node);
+    log.hidden = false;
+    log.scrollTop = log.scrollHeight;
+    return node;
+  };
+  const ask = async (q) => {
+    add('me', q);
+    const thinking = add('bot thinking', '…');
+    try {
+      const res = await fetch('/guide', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message: q }) });
+      const out = await res.json().catch(() => ({}));
+      thinking.remove();
+      add('bot', res.ok ? out.reply : out.error ?? 'Please try again in a moment.', res.ok ? out.links ?? [] : []);
+    } catch {
+      thinking.remove();
+      add('bot', 'Saathi could not be reached. Please try again.');
+    }
+  };
   $('ask').addEventListener('submit', (e) => {
     e.preventDefault();
     const q = $('ask-input').value.trim();
-    if (q) go(q);
+    if (!q) return;
+    $('ask-input').value = '';
+    ask(q);
   });
-  document.querySelectorAll('.ask-chips button').forEach((b) => b.addEventListener('click', () => go(b.dataset.q)));
+  document.querySelectorAll('.ask-chips button').forEach((b) => b.addEventListener('click', () => ask(b.dataset.q)));
 }
 
 async function setupSession() {

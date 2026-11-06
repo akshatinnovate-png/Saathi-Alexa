@@ -18,6 +18,8 @@ export const API_ROUTES = [
   ['GET', /^\/events$/, 'events'],
   ['POST', /^\/alexa\/(turn|answer|reset)$/, 'alexa.turn'],
   ['POST', /^\/assistant$/, 'assistant'],
+  ['POST', /^\/assistant\/(confirm|dismiss)$/, 'assistant'],
+  ['GET', /^\/sahay\/tasks$/, 'assistant'],
   ['POST', /^\/speak$/, 'speak'],
   ['POST', /^\/demo\/(reset|sweep)$/, 'demo.reset'],
   ['POST', /^\/ring\/simulate$/, 'ring.simulate'],
@@ -120,9 +122,16 @@ export function apiGuard({ requireLogin, defaultHousehold, services, audit = nul
       }
       req.action = route.action;
       req.role = principal.role ?? null;
+      req.principal = principal;
       next();
     } catch (err) {
       next(err);
     }
   };
+}
+
+export function mayDo(req, action) {
+  const principal = req.principal ?? { kind: 'anonymous' };
+  const verdict = decide({ principal, action, household: principal.household ?? '' });
+  return verdict.ok ? null : { status: verdict.status, error: MESSAGES[verdict.code] ?? 'Not allowed.', code: verdict.code };
 }

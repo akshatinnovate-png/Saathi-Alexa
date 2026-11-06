@@ -10,6 +10,12 @@ const ELDER_COPY = {
   mr: { sub: 'मी तुमची काय मदत करू?', placeholder: 'काहीही विचारा…', suggestions: ['आज कोणता दिवस आहे?', 'मला आता कोणती गोळी घ्यायची आहे?', 'माझा चष्मा कुठे आहे?', 'घरच्यांचा काही निरोप आला का?'], yes: 'हो, पाठवा', no: 'नको' },
 };
 
+const SAHAY_COPY = {
+  en: { queued: 'Waiting for Sahay on this computer…', sent: 'Sahay is starting…', working: 'Sahay is doing it now…', done: 'Sahay finished.', failed: "Sahay couldn't finish this.", confirm: 'Confirm', skip: 'Not now', confirmed: 'Done.', skipped: 'Okay, I left it.' },
+  hi: { queued: 'इस कंप्यूटर पर सहाय का इंतज़ार…', sent: 'सहाय शुरू कर रहा है…', working: 'सहाय अभी कर रहा है…', done: 'सहाय ने कर दिया।', failed: 'सहाय यह पूरा नहीं कर पाया।', confirm: 'हाँ, करो', skip: 'अभी नहीं', confirmed: 'हो गया।', skipped: 'ठीक है, छोड़ दिया।' },
+  mr: { queued: 'या संगणकावर सहायची वाट पाहत आहे…', sent: 'सहाय सुरू करत आहे…', working: 'सहाय आता करत आहे…', done: 'सहायने केलं.', failed: 'सहाय हे पूर्ण करू शकला नाही.', confirm: 'हो, करा', skip: 'नको', confirmed: 'झालं.', skipped: 'ठीक आहे, राहू दिलं.' },
+};
+
 const ELDER_HELLO = { en: 'Namaste, ', hi: 'नमस्ते, ', mr: 'नमस्कार, ' };
 const TILE_COPY = { en: { tablets: 'My tablets today', visit: 'Doctor' }, hi: { tablets: 'आज की दवा', visit: 'डॉक्टर' }, mr: { tablets: 'आजच्या गोळ्या', visit: 'डॉक्टर' } };
 
@@ -110,6 +116,55 @@ export function mountAssistant(root, { audience = 'family', name = 'there', elde
     });
   }
 
+  const sahayCopy = SAHAY_COPY[elder ? language : 'en'] ?? SAHAY_COPY.en;
+
+  function watchSahay(taskId) {
+    const line = el('div', { class: 'a-sahay', role: 'status' }, sahayCopy.queued);
+    convo.append(line);
+    convo.scrollTop = convo.scrollHeight;
+    const started = Date.now();
+    const tick = async () => {
+      try {
+        const { tasks } = await (await fetch('/api/sahay/tasks')).json();
+        const task = tasks.find((t) => t.id === taskId);
+        if (task) {
+          line.textContent = task.note && ['done', 'failed'].includes(task.status) ? `${sahayCopy[task.status]} ${task.note}` : sahayCopy[task.status] ?? sahayCopy.queued;
+          line.dataset.status = task.status;
+          if (['done', 'failed'].includes(task.status)) { loadTiles(); return; }
+        }
+      } catch { }
+      if (Date.now() - started < 10 * 60 * 1000) setTimeout(tick, 3000);
+    };
+    setTimeout(tick, 1500);
+  }
+
+  function proposalCard(p) {
+    const status = el('p', { class: 'a-card-status', role: 'status' });
+    const card = el('div', { class: 'a-card a-glass' },
+      el('p', { class: 'a-card-text' }, p.summary),
+      el('div', { class: 'a-confirm' },
+        el('button', { class: 'yes', type: 'button', onclick: async () => {
+          card.querySelector('.a-confirm').remove();
+          status.textContent = '…';
+          try {
+            const out = await postJson('/api/assistant/confirm', { id: p.id });
+            status.textContent = sahayCopy.confirmed;
+            if (out.sahayTask) watchSahay(out.sahayTask.id);
+            loadTiles();
+          } catch (err) {
+            status.textContent = err.message;
+          }
+        } }, sahayCopy.confirm),
+        el('button', { class: 'no', type: 'button', onclick: () => {
+          card.querySelector('.a-confirm').remove();
+          status.textContent = sahayCopy.skipped;
+          postJson('/api/assistant/dismiss', { id: p.id }).catch(() => {});
+        } }, sahayCopy.skip)),
+      status);
+    convo.append(card);
+    convo.scrollTop = convo.scrollHeight;
+  }
+
   async function ask(text) {
     const message = String(text ?? '').trim();
     if (!message) return;
@@ -120,6 +175,7 @@ export function mountAssistant(root, { audience = 'family', name = 'there', elde
     try {
       let reply;
       let detail = '';
+      let after = null;
       if (elder) {
         let result = await postJson('/api/alexa/turn', { text: message, language, sessionId: `assistant-${conversationId}` });
         while (result.elicitation) {
@@ -128,13 +184,17 @@ export function mountAssistant(root, { audience = 'family', name = 'there', elde
           result = await postJson('/api/alexa/answer', { id: result.elicitation.id, accept });
         }
         reply = result.reply;
+        after = result;
       } else {
         const result = await postJson('/api/assistant', { message, conversationId });
         reply = result.reply;
         detail = result.trace?.length ? `Checked: ${result.trace.map((t) => t.tool.replaceAll('_', ' ')).join(', ')}` : '';
+        after = result;
       }
       thinking.remove();
       bubble('bot', reply, detail ? el('small', {}, detail) : '');
+      for (const p of after?.proposals ?? []) proposalCard(p);
+      if (after?.sahayTask) watchSahay(after.sahayTask.id);
       speak?.(reply);
       loadTiles();
     } catch (err) {

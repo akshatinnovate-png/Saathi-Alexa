@@ -90,6 +90,12 @@
 .ask-go svg { width: 22px; height: 22px; }
 .ask:focus-within { outline: 3px solid var(--cream); outline-offset: 3px; }
 
+.guide-log { margin: 14px auto 0; width: min(640px, 100%); max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; text-align: left; }
+.guide-msg { padding: 12px 16px; border-radius: 18px; line-height: 1.45; max-width: 88%; font: 400 1rem var(--sans); }
+.guide-msg.me { align-self: flex-end; background: var(--ink); color: #fff; }
+.guide-msg.bot { align-self: flex-start; background: rgb(255 255 255 / 92%); color: var(--ink); box-shadow: var(--shadow); }
+.guide-msg.thinking { opacity: .7; }
+.guide-msg a { color: var(--blue); font-weight: 600; }
 .ask-chips { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 0; margin: 16px 0 0; }
 .ask-chips button {
   font: 500 0.9rem var(--sans); color: #fff; background: rgb(15 18 22 / 45%); border: 1px solid rgb(243 235 221 / 40%);

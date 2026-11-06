@@ -7,6 +7,9 @@ import { createApp } from './http/app.js';
 import { createLlm } from './agent/llm.js';
 import { createAlexaSimulator } from './agent/alexaSimulator.js';
 import { createFamilyAssistant } from './agent/familyAssistant.js';
+import { createSahayQueue } from './agent/sahayQueue.js';
+import { DEFAULT_HOUSEHOLD } from './households/scope.js';
+import { createGuide } from './agent/guide.js';
 import { createVerifier, createHouseholdVerifier } from './auth/verifier.js';
 import { createRingSimulator } from './ring/webhook.js';
 import { createAccounts } from './accounts/accounts.js';
@@ -120,9 +123,10 @@ async function simulatorFor(householdId) {
 }
 
 const assistants = new Map();
+const sahayQueue = createSahayQueue();
 async function assistantFor(householdId) {
   if (!assistants.has(householdId)) {
-    assistants.set(householdId, createFamilyAssistant({ mcpUrl: `${baseUrl}/mcp`, headers: await headersFor(householdId), llm }));
+    assistants.set(householdId, createFamilyAssistant({ mcpUrl: `${baseUrl}/mcp`, headers: await headersFor(householdId), llm, householdId, sahay: { queue: sahayQueue } }));
   }
   return assistants.get(householdId);
 }
@@ -134,7 +138,14 @@ const allowedHosts = configuredHosts.length || config.auth.publicUrl
   : checks.exposed ? undefined : ['localhost', '127.0.0.1', '[::1]'];
 config.web.canonicalLocalhost = true;
 const familyVault = createFamilyVault({ store: services.store, audit });
-const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit, keyring, vault: familyVault });
+const guide = createGuide({
+  llm,
+  demoAsk: config.demo ? async (text) => {
+    const out = await (await assistantFor(DEFAULT_HOUSEHOLD)).ask({ message: text, memberId: 'riya', onSahayPc: false });
+    return out.proposals?.length || out.sahayTask ? 'In the family app, I can do that for you after you sign in.' : out.reply;
+  } : null,
+});
+const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit, keyring, vault: familyVault, sahayQueue, guide });
 
 doorbell.startAll().catch((err) => console.error('Ring listeners failed to start:', err.message));
 
