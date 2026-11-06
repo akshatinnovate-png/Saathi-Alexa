@@ -966,3 +966,34 @@ async function loadScamNetwork(change) {
 document.getElementById('ssn-receive')?.addEventListener('change', () => loadScamNetwork(true));
 document.getElementById('ssn-share')?.addEventListener('change', () => loadScamNetwork(true));
 loadScamNetwork(false);
+
+async function loadPlan() {
+  const card = document.getElementById('plan-card');
+  if (!card) return;
+  try {
+    const res = await fetch('/api/plan');
+    const plan = await res.json();
+    if (!res.ok || !plan.enabled) { card.hidden = true; return; }
+    card.hidden = false;
+    document.getElementById('plan-now').textContent = `${plan.planName}${plan.renewsAt ? `, renews ${new Date(plan.renewsAt).toLocaleDateString()}` : ''}${plan.graceUntil ? `. The last payment did not go through; extras pause on ${new Date(plan.graceUntil).toLocaleDateString()}.` : '.'}`;
+    const status = document.getElementById('plan-status');
+    const choose = async (id) => {
+      status.textContent = '…';
+      const r = await fetch('/api/plan/checkout', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ plan: id }) });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok) { status.textContent = out.error ?? 'That did not work.'; return; }
+      location.href = out.url;
+    };
+    const cancel = async () => {
+      const r = await fetch('/api/plan/cancel', { method: 'POST' });
+      status.textContent = r.ok ? 'Cancelled. You are on Saathi Free; nothing that keeps them safe has changed.' : 'That did not work.';
+      loadPlan();
+    };
+    document.getElementById('plan-list').replaceChildren(
+      ...plan.plans.filter((p) => p.available && p.id !== plan.plan && p.id !== 'free').map((p) => el('li', {}, `${p.name}: ${p.price} `, el('button', { class: 'text-action', type: 'button', onclick: () => choose(p.id) }, 'Choose'))),
+      ...(plan.plan !== 'free' ? [el('li', {}, el('button', { class: 'text-action', type: 'button', onclick: cancel }, 'Cancel my plan'))] : []));
+  } catch {
+    card.hidden = true;
+  }
+}
+loadPlan();
