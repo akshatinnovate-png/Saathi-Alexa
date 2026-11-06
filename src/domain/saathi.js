@@ -3,6 +3,7 @@ import { DEFAULT_HOUSEHOLD, collectionFor } from '../households/scope.js';
 import { languageName, LANGUAGES } from './languages.js';
 import { t, spokenLanguage, partOfDayName, joinNames, localized, localDigits } from './i18n.js';
 import { computeInsight } from './insight.js';
+import { activeWarnings, shareLink } from './scamNetwork.js';
 import { pronounsOf, emergencyNumberFor, isTimeZone, PRONOUNS, COUNTRIES } from './people.js';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -311,6 +312,35 @@ export function createSaathi(deps) {
     const [medications, doses, checkins, door, orientations, alerts] = await Promise.all(['medications', 'doses', 'checkins', 'door', 'orientations', 'alerts'].map((c) => store.list(c)));
     const out = computeInsight({ now: clock().getTime(), timeZone: tz, name: me.preferredName, medications, doses, checkins, door, orientations, alerts, weeks: Math.min(Math.max(Number(weeks) || 4, 2), 12) });
     return { ...out, elder: { name: me.name, preferredName: me.preferredName, language: me.language, city: me.city }, medications: medications.map((m) => ({ id: m.id, name: m.name, purpose: m.purpose, times: Array.isArray(m.times) && m.times.length ? m.times : [m.time], withFood: Boolean(m.withFood), adherence: out.current.perMedication[m.id] ?? null })) };
+  }
+
+  async function scamNetworkView(warnings = []) {
+    const me = await elder();
+    const settings = { receive: Boolean(me.scamNetwork?.receive), share: Boolean(me.scamNetwork?.share) };
+    const active = settings.receive ? activeWarnings(warnings, { country: me.country, today: localParts().date }) : [];
+    const since = clock().getTime() - 30 * 24 * 3600 * 1000;
+    const kinds = new Set();
+    for (const a of await store.list('alerts')) if (a.type === 'scam' && Date.parse(a.createdAt) >= since) for (const k of a.kinds ?? []) kinds.add(k);
+    for (const i of await store.list('scamIncidents')) if (Date.parse(i.createdAt) >= since) kinds.add(i.kind);
+    return {
+      settings, country: me.country ?? null,
+      warnings: active.map((w) => ({ id: w.id, title: w.title.en, say: w.say.en, until: w.until })),
+      share: settings.share && kinds.size ? shareLink({ kinds: [...kinds], country: me.country, language: me.language }) : null,
+    };
+  }
+
+  async function sweepScamWarnings(warnings = []) {
+    const me = await elder();
+    if (!me.scamNetwork?.receive) return [];
+    const { lang } = await voice();
+    const told = [];
+    for (const w of activeWarnings(warnings, { country: me.country, today: localParts().date })) {
+      if (await store.get('scamWarningsTold', w.id)) continue;
+      await store.put('scamWarningsTold', { id: w.id, at: clock().toISOString() });
+      await events.publish('ScamWarning', { id: w.id, say: w.say[lang] ?? w.say.en, sayLanguage: w.say[lang] ? spokenLanguage(lang) : 'en', title: w.title[lang] ?? w.title.en });
+      told.push(w.id);
+    }
+    return told;
   }
 
   async function openHelpAlert(withinMs = 10 * 60 * 1000) {
@@ -909,6 +939,7 @@ export function createSaathi(deps) {
     if ('country' in patch) { if (patch.country && !COUNTRIES[patch.country]) throw invalid('Choose a country from the list.'); next.country = patch.country || null; }
     if ('emergencyNumber' in patch) { const n = text(patch.emergencyNumber, 15).replace(/[^\d+]/g, ''); next.emergencyNumber = n || null; }
     if ('pronoun' in patch) { if (!PRONOUNS.includes(patch.pronoun)) throw invalid('Choose she, he or they.'); next.pronoun = patch.pronoun; }
+    if ('scamNetwork' in patch) next.scamNetwork = { receive: Boolean(patch.scamNetwork?.receive), share: Boolean(patch.scamNetwork?.share) };
     if ('pharmacy' in patch) next.pharmacy = text(patch.pharmacy?.name) ? { name: text(patch.pharmacy.name), phone: text(patch.pharmacy.phone, 30) } : null;
     if ('accessibility' in patch) {
       const a = patch.accessibility ?? {};
@@ -1147,7 +1178,7 @@ export function createSaathi(deps) {
     sweepSupplies, sweepWeeklyLetter, sweepReminders, recordRefill, upcomingAppointments, sweepAppointments, claimEscort, addVoiceNote, weeklyLetters,
     addMember, removeMember, updateProfile, saveMedication, removeMedication, saveAppointment, removeAppointment, saveRoutine, careSetup, subscribeMember, setAvatar, media, householdId: deps.householdId ?? DEFAULT_HOUSEHOLD,
     messages, doorActivity, homeMap, saveRooms, placeItem, removeItem, whereIs,
-    checkIn, requestHelp, acknowledgeAlert, reportSuspiciousCall, recordScamIncident, scamIncidents, scamHold, decideScamHold, insight, saveReminderVoice, removeReminderVoice, reminderVoices, legacyBook,
+    checkIn, requestHelp, acknowledgeAlert, reportSuspiciousCall, recordScamIncident, scamIncidents, scamHold, decideScamHold, insight, saveReminderVoice, removeReminderVoice, reminderVoices, legacyBook, scamNetworkView, sweepScamWarnings,
     familyMessages, sendToFamily, messageFromFamily,
     saveStory, listStories, familySummary,
     circle: () => store.list('circle'),

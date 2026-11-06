@@ -943,3 +943,57 @@ document.getElementById('fv-record')?.addEventListener('click', async () => {
   }
 });
 loadFamilyVoice();
+
+async function loadScamNetwork(change) {
+  const receive = document.getElementById('ssn-receive');
+  if (!receive) return;
+  const share = document.getElementById('ssn-share');
+  const status = document.getElementById('ssn-status');
+  try {
+    const res = change
+      ? await fetch('/api/scam-network', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ receive: receive.checked, share: share.checked }) })
+      : await fetch('/api/scam-network');
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) { status.textContent = out.error ?? 'Could not load.'; return; }
+    receive.checked = out.settings.receive;
+    share.checked = out.settings.share;
+    document.getElementById('ssn-warnings').replaceChildren(...out.warnings.map((w) => el('li', {}, el('strong', {}, w.title), ` ${w.say}`)));
+    status.replaceChildren(...(out.share ? [el('a', { href: out.share.url, target: '_blank', rel: 'noopener' }, 'Share the kinds of scams seen here (opens a prefilled, anonymous report)')] : [out.settings.receive && !out.warnings.length ? 'No new warnings for your area.' : '']));
+  } catch {
+    status.textContent = 'Scam warnings are not available right now.';
+  }
+}
+document.getElementById('ssn-receive')?.addEventListener('change', () => loadScamNetwork(true));
+document.getElementById('ssn-share')?.addEventListener('change', () => loadScamNetwork(true));
+loadScamNetwork(false);
+
+async function loadPlan() {
+  const card = document.getElementById('plan-card');
+  if (!card) return;
+  try {
+    const res = await fetch('/api/plan');
+    const plan = await res.json();
+    if (!res.ok || !plan.enabled) { card.hidden = true; return; }
+    card.hidden = false;
+    document.getElementById('plan-now').textContent = `${plan.planName}${plan.renewsAt ? `, renews ${new Date(plan.renewsAt).toLocaleDateString()}` : ''}${plan.graceUntil ? `. The last payment did not go through; extras pause on ${new Date(plan.graceUntil).toLocaleDateString()}.` : '.'}`;
+    const status = document.getElementById('plan-status');
+    const choose = async (id) => {
+      status.textContent = '…';
+      const r = await fetch('/api/plan/checkout', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ plan: id }) });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok) { status.textContent = out.error ?? 'That did not work.'; return; }
+      location.href = out.url;
+    };
+    const cancel = async () => {
+      const r = await fetch('/api/plan/cancel', { method: 'POST' });
+      status.textContent = r.ok ? 'Cancelled. You are on Saathi Free; nothing that keeps them safe has changed.' : 'That did not work.';
+      loadPlan();
+    };
+    document.getElementById('plan-list').replaceChildren(
+      ...plan.plans.filter((p) => p.available && p.id !== plan.plan && p.id !== 'free').map((p) => el('li', {}, `${p.name}: ${p.price} `, el('button', { class: 'text-action', type: 'button', onclick: () => choose(p.id) }, 'Choose'))),
+      ...(plan.plan !== 'free' ? [el('li', {}, el('button', { class: 'text-action', type: 'button', onclick: cancel }, 'Cancel my plan'))] : []));
+  } catch {
+    card.hidden = true;
+  }
+}
+loadPlan();
