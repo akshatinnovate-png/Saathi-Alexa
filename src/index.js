@@ -10,6 +10,7 @@ import { createFamilyAssistant } from './agent/familyAssistant.js';
 import { createSahayQueue } from './agent/sahayQueue.js';
 import { DEFAULT_HOUSEHOLD } from './households/scope.js';
 import { createGuide } from './agent/guide.js';
+import { createScamNetwork } from './domain/scamNetwork.js';
 import { createVerifier, createHouseholdVerifier } from './auth/verifier.js';
 import { createRingSimulator } from './ring/webhook.js';
 import { createAccounts } from './accounts/accounts.js';
@@ -138,6 +139,7 @@ const allowedHosts = configuredHosts.length || config.auth.publicUrl
   : checks.exposed ? undefined : ['localhost', '127.0.0.1', '[::1]'];
 config.web.canonicalLocalhost = true;
 const familyVault = createFamilyVault({ store: services.store, audit });
+const scamNetwork = createScamNetwork({ url: process.env.SAATHI_SCAM_FEED_URL || undefined });
 const guide = createGuide({
   llm,
   demoAsk: config.demo ? async (text) => {
@@ -145,7 +147,7 @@ const guide = createGuide({
     return out.proposals?.length || out.sahayTask ? 'In the family app, I can do that for you after you sign in.' : out.reply;
   } : null,
 });
-const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit, keyring, vault: familyVault, sahayQueue, guide });
+const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit, keyring, vault: familyVault, sahayQueue, guide, scamNetwork });
 
 doorbell.startAll().catch((err) => console.error('Ring listeners failed to start:', err.message));
 
@@ -169,6 +171,15 @@ app.listen(config.port, config.host, () => {
   }
 });
 
+const refreshScamFeed = async () => {
+  for (const householdId of await services.householdIds()) {
+    if ((await services.forHousehold(householdId).elder())?.scamNetwork?.receive) return scamNetwork.refresh();
+  }
+  return null;
+};
+refreshScamFeed().catch(() => {});
+setInterval(() => refreshScamFeed().catch(() => {}), 6 * 3600 * 1000).unref();
+
 setInterval(async () => {
   for (const householdId of await services.householdIds()) {
     try {
@@ -188,6 +199,7 @@ setInterval(async () => {
       await saathi.sweepSupplies();
       await saathi.sweepAppointments();
       await saathi.sweepWeeklyLetter();
+      await saathi.sweepScamWarnings(scamNetwork.warnings);
     } catch (err) {
       console.error(`sweep failed for ${householdId}`, err);
     }

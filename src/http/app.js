@@ -19,7 +19,7 @@ import { createReplayGuard, verifySignature, normaliseRingEvent, SIGNATURE_HEADE
 
 const PROTECTED_PAGES = ['/legacy.html', '/doctor-report.html', '/scam-guard.html', '/family.html', '/alexa.html', '/welcome.html', '/scan.html', '/medical-id.html'];
 
-export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null, sahayQueue = null, guide = null }) {
+export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null, sahayQueue = null, guide = null, scamNetwork = null }) {
   const { localBus, store } = services;
   const app = express();
   app.set('trust proxy', config.web?.trustProxy ?? 'loopback');
@@ -376,6 +376,17 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
 
   api.post('/assistant/dismiss', wrap(async (req, res) => {
     res.json({ dismissed: (await assistantFor(req.householdId)).dismiss(req.body?.id) });
+  }));
+
+  api.get('/scam-network', wrap(async (req, res) => {
+    res.json({ ...(await req.saathi.scamNetworkView(scamNetwork?.warnings ?? [])), fetchedAt: scamNetwork?.fetchedAt ?? null });
+  }));
+
+  api.put('/scam-network', wrap(async (req, res) => {
+    await req.saathi.updateProfile({ scamNetwork: { receive: req.body?.receive, share: req.body?.share } });
+    if (req.body?.receive && scamNetwork && !scamNetwork.fetchedAt) await scamNetwork.refresh();
+    record(req, 'scam-network', { receive: Boolean(req.body?.receive), share: Boolean(req.body?.share) });
+    res.json(await req.saathi.scamNetworkView(scamNetwork?.warnings ?? []));
   }));
 
   api.get('/insight', wrap(async (req, res) => {

@@ -943,3 +943,26 @@ document.getElementById('fv-record')?.addEventListener('click', async () => {
   }
 });
 loadFamilyVoice();
+
+async function loadScamNetwork(change) {
+  const receive = document.getElementById('ssn-receive');
+  if (!receive) return;
+  const share = document.getElementById('ssn-share');
+  const status = document.getElementById('ssn-status');
+  try {
+    const res = change
+      ? await fetch('/api/scam-network', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ receive: receive.checked, share: share.checked }) })
+      : await fetch('/api/scam-network');
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) { status.textContent = out.error ?? 'Could not load.'; return; }
+    receive.checked = out.settings.receive;
+    share.checked = out.settings.share;
+    document.getElementById('ssn-warnings').replaceChildren(...out.warnings.map((w) => el('li', {}, el('strong', {}, w.title), ` ${w.say}`)));
+    status.replaceChildren(...(out.share ? [el('a', { href: out.share.url, target: '_blank', rel: 'noopener' }, 'Share the kinds of scams seen here (opens a prefilled, anonymous report)')] : [out.settings.receive && !out.warnings.length ? 'No new warnings for your area.' : '']));
+  } catch {
+    status.textContent = 'Scam warnings are not available right now.';
+  }
+}
+document.getElementById('ssn-receive')?.addEventListener('change', () => loadScamNetwork(true));
+document.getElementById('ssn-share')?.addEventListener('change', () => loadScamNetwork(true));
+loadScamNetwork(false);

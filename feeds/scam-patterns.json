@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "about": "Scam patterns checked by a person before they reach every Saathi. Propose one by opening an issue labelled scam-pattern; it is added here in a reviewed pull request. No names, numbers or conversations are ever stored here.",
+  "warnings": [
+    {
+      "id": "in-electricity-bill-2026",
+      "countries": ["IN"],
+      "kinds": ["bank", "code", "threat"],
+      "from": "2026-01-01",
+      "until": "2027-12-31",
+      "title": { "en": "Fake electricity bill calls", "hi": "बिजली बिल के नकली कॉल", "mr": "वीज बिलाचे खोटे कॉल" },
+      "say": {
+        "en": "A fake call about an unpaid electricity bill is going around. They say the power will be cut tonight. Never share an OTP or install an app. Hang up and tell your family.",
+        "hi": "बिजली के बिल के बारे में एक नकली कॉल आ रहा है। वे कहते हैं कि आज रात बिजली कट जाएगी। कभी भी OTP न बताएं और कोई ऐप न डालें। फ़ोन रख दें और परिवार को बताएं।",
+        "mr": "न भरलेल्या वीज बिलाबद्दल एक खोटा कॉल येत आहे. ते म्हणतात की आज रात्री वीज कापली जाईल. कधीही OTP सांगू नका आणि कोणतेही ॲप टाकू नका. फोन ठेवा आणि घरच्यांना सांगा."
+      }
+    },
+    {
+      "id": "in-courier-digital-arrest-2026",
+      "countries": ["IN"],
+      "kinds": ["threat", "money", "digital-arrest"],
+      "from": "2026-01-01",
+      "until": "2027-12-31",
+      "title": { "en": "Fake courier and \"digital arrest\" calls", "hi": "नकली कूरियर और \"डिजिटल अरेस्ट\" कॉल", "mr": "खोटे कुरिअर आणि \"डिजिटल अरेस्ट\" कॉल" },
+      "say": {
+        "en": "Callers are saying a parcel in your name had drugs, then pretending to be police on a video call. Real police never arrest anyone on a video call or ask for money. Hang up and tell your family.",
+        "hi": "लोग कह रहे हैं कि आपके नाम के पार्सल में नशे का सामान है, फिर वीडियो कॉल पर पुलिस बनकर डराते हैं। असली पुलिस कभी वीडियो कॉल पर गिरफ़्तार नहीं करती और न पैसे मांगती है। फ़ोन रख दें और परिवार को बताएं।",
+        "mr": "लोक सांगत आहेत की तुमच्या नावाच्या पार्सलमध्ये अमली पदार्थ आहेत, मग व्हिडिओ कॉलवर पोलीस असल्याचं भासवतात. खरे पोलीस व्हिडिओ कॉलवर कधीच अटक करत नाहीत आणि पैसे मागत नाहीत. फोन ठेवा आणि घरच्यांना सांगा."
+      }
+    },
+    {
+      "id": "in-kyc-update-sms-2026",
+      "countries": ["IN"],
+      "kinds": ["bank", "code"],
+      "from": "2026-01-01",
+      "until": "2027-12-31",
+      "title": { "en": "\"Update your KYC\" messages", "hi": "\"KYC अपडेट करें\" वाले संदेश", "mr": "\"KYC अपडेट करा\" असे संदेश" },
+      "say": {
+        "en": "Messages saying your bank account will be blocked unless you update KYC are going around. Banks never send a link for this. Do not open the link or share an OTP.",
+        "hi": "ऐसे संदेश आ रहे हैं कि KYC अपडेट न करने पर बैंक खाता बंद हो जाएगा। बैंक इसके लिए कभी लिंक नहीं भेजता। लिंक न खोलें और OTP न बताएं।",
+        "mr": "KYC अपडेट केलं नाही तर बँक खातं बंद होईल असे संदेश येत आहेत. बँक यासाठी कधीही लिंक पाठवत नाही. लिंक उघडू नका आणि OTP सांगू नका."
+      }
+    },
+    {
+      "id": "in-fake-helpline-2026",
+      "countries": ["IN"],
+      "kinds": ["remote", "remote-access", "tech-support"],
+      "from": "2026-01-01",
+      "until": "2027-12-31",
+      "title": { "en": "Fake customer care numbers", "hi": "नकली कस्टमर केयर नंबर", "mr": "खोटे कस्टमर केअर नंबर" },
+      "say": {
+        "en": "Fake customer care numbers found on the internet ask you to install AnyDesk or a similar app to help you. A real helpline never needs to control your phone or computer.",
+        "hi": "इंटरनेट पर मिले नकली कस्टमर केयर नंबर मदद के नाम पर AnyDesk जैसा ऐप डलवाते हैं। असली हेल्पलाइन को कभी आपका फ़ोन या कंप्यूटर चलाने की ज़रूरत नहीं होती।",
+        "mr": "इंटरनेटवर सापडणारे खोटे कस्टमर केअर नंबर मदतीच्या नावाखाली AnyDesk सारखं ॲप टाकायला सांगतात. खऱ्या हेल्पलाइनला कधीही तुमचा फोन किंवा संगणक चालवण्याची गरज नसते."
+      }
+    },
+    {
+      "id": "in-lottery-prize-2026",
+      "countries": ["IN"],
+      "kinds": ["prize", "money", "gift-card"],
+      "from": "2026-01-01",
+      "until": "2027-12-31",
+      "title": { "en": "\"You have won a prize\" calls", "hi": "\"आपने इनाम जीता है\" वाले कॉल", "mr": "\"तुम्ही बक्षीस जिंकलं आहे\" असे कॉल" },
+      "say": {
+        "en": "Calls saying you have won a lottery or a car, and must first pay a small fee, are scams. You never pay to receive a real prize.",
+        "hi": "ऐसे कॉल कि आपने लॉटरी या गाड़ी जीती है और पहले थोड़ी फ़ीस भरनी होगी, धोखा हैं। असली इनाम के लिए कभी पैसे नहीं भरने पड़ते।",
+        "mr": "तुम्ही लॉटरी किंवा गाडी जिंकली आहे आणि आधी थोडी फी भरावी लागेल असे कॉल फसवे आहेत. खरं बक्षीस मिळवण्यासाठी कधीच पैसे भरावे लागत नाहीत."
+      }
+    }
+  ]
+}

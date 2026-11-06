@@ -3,7 +3,7 @@ import dns from 'node:dns';
 
 export const DEFAULT_ALLOW = [
   '.googleapis.com', 'accounts.google.com', 'smtp.gmail.com', 'android.clients.google.com', 'mtalk.google.com',
-  'api.anthropic.com', 'api.groq.com',
+  'api.anthropic.com', 'api.groq.com', 'raw.githubusercontent.com',
   '.amazonaws.com', '.amazoncognito.com',
   'api.pwnedpasswords.com',
   '.ring.com',

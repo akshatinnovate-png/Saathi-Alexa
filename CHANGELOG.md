@@ -3,6 +3,8 @@
 
 ## [Unreleased]
 
+- **Scam Shield Network**: a human-reviewed public feed of scam warnings (`feeds/scam-patterns.json`, in English, Hindi and Marathi). Households opt in from the new *Scams near you* card: Saathi then fetches the feed (only `raw.githubusercontent.com` is added to the egress allowlist), tells the elder about each new warning for their country once, in their language, and shows the warnings to the family. Households can also opt in to share: Saathi prepares an anonymous report with only the kinds of scams seen, the country and the language, never the words, names or numbers, which the family submits as a GitHub issue for review.
+
 - **Family Voice**: a family member records a short reminder in their own voice (for one tablet or any tablet) in the family app; the elder's device plays it before the tablet reminder. Recordings only, never voice imitation.
 - **Living Legacy**: the memory book as an illustrated family book (`legacy.html`): every story as a chapter in each family language, with the narration, ready to print or save as a PDF.
 
