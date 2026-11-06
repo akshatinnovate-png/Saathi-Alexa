@@ -17,7 +17,7 @@ import { seedData } from '../domain/seed.js';
 import { DEFAULT_HOUSEHOLD } from '../households/scope.js';
 import { createReplayGuard, verifySignature, normaliseRingEvent, SIGNATURE_HEADER, TIMESTAMP_HEADER } from '../ring/webhook.js';
 
-const PROTECTED_PAGES = ['/family.html', '/alexa.html', '/welcome.html', '/scan.html', '/medical-id.html'];
+const PROTECTED_PAGES = ['/scam-guard.html', '/family.html', '/alexa.html', '/welcome.html', '/scan.html', '/medical-id.html'];
 
 export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null, sahayQueue = null, guide = null }) {
   const { localBus, store } = services;
@@ -85,6 +85,22 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     const task = sahayQueue.next();
     if (!task) return res.status(204).end();
     res.json(task);
+  });
+  const sahayHousehold = async () => (await services.householdIds()).find((id) => id !== DEFAULT_HOUSEHOLD) ?? DEFAULT_HOUSEHOLD;
+  app.post('/sahay/incidents', sahayLocal, async (req, res, next) => {
+    try {
+      const householdId = await sahayHousehold();
+      const out = await services.forHousehold(householdId).recordScamIncident(req.body ?? {});
+      audit?.append({ householdId, actor: 'sahay', action: 'scam-stopped', detail: { id: out.id, kind: req.body?.kind ?? null } }).catch(() => {});
+      res.json(out);
+    } catch (err) { next(err); }
+  });
+  app.get('/sahay/holds/:id', sahayLocal, async (req, res, next) => {
+    try {
+      const hold = await services.forHousehold(await sahayHousehold()).scamHold(req.params.id);
+      if (!hold) return res.status(404).json({ error: 'No such incident.' });
+      res.json(hold);
+    } catch (err) { next(err); }
   });
   app.post('/sahay/tasks/:id', sahayLocal, (req, res) => {
     try {
@@ -360,6 +376,17 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
 
   api.post('/assistant/dismiss', wrap(async (req, res) => {
     res.json({ dismissed: (await assistantFor(req.householdId)).dismiss(req.body?.id) });
+  }));
+
+  api.get('/scam-guard/incidents', wrap(async (req, res) => {
+    res.json({ incidents: await req.saathi.scamIncidents() });
+  }));
+
+  api.post('/scam-guard/incidents/:id/decide', wrap(async (req, res) => {
+    const out = await req.saathi.decideScamHold({ incidentId: req.params.id, decision: req.body?.decision, by: memberOf(req) });
+    if (!out) return res.status(404).json({ error: 'No such incident.' });
+    record(req, 'scam-hold', { id: req.params.id, decision: req.body?.decision });
+    res.json(out);
   }));
 
   api.get('/sahay/tasks', wrap(async (req, res) => {

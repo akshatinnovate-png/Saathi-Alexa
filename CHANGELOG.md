@@ -3,6 +3,8 @@
 
 ## [Unreleased]
 
+- **Scam Guard (Saathi side)**: Sahay on the elder's computer can report a scam it stopped, with a screenshot (private numbers blacked out on the computer), warning signs, a simple explanation and what it did. The family is alerted at once (critical if money may be at risk), sees it in the family app and on a new Scam Guard page, and decides whether to keep it blocked (24 hours more) or unblock it. Sahay checks the hold before allowing remote access again. Only a direct connection from the elder's computer can report incidents.
+
 - **The assistant acts, not just answers.** In the family app it proposes changes (medicines, doctor visits, refills, escorts, alerts, messages to the elder) as confirmation cards; nothing changes until the family member taps Confirm, and every action is checked against the same Rust permission rules and written to the audit log.
 - **Tech help goes to Sahay.** A how-to question about WhatsApp, video calls, printing or settings, in English, Hindi, Hinglish or Marathi, is handed to Sahay on the elder's computer with a single reply ("I've asked Sahay to do it for you"), with live progress in the chat. Only a direct connection from that computer can hand out or update Sahay's tasks.
 - **Groq support**: set `GROQ_API_KEY` to run the assistants on Groq's free tier (`openai/gpt-oss-120b` by default).

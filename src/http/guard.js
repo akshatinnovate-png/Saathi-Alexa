@@ -20,6 +20,8 @@ export const API_ROUTES = [
   ['POST', /^\/assistant$/, 'assistant'],
   ['POST', /^\/assistant\/(confirm|dismiss)$/, 'assistant'],
   ['GET', /^\/sahay\/tasks$/, 'assistant'],
+  ['GET', /^\/scam-guard\/incidents$/, 'summary'],
+  ['POST', /^\/scam-guard\/incidents\/[^/]+\/decide$/, 'alerts.ack'],
   ['POST', /^\/speak$/, 'speak'],
   ['POST', /^\/demo\/(reset|sweep)$/, 'demo.reset'],
   ['POST', /^\/ring\/simulate$/, 'ring.simulate'],

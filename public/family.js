@@ -47,6 +47,7 @@ function renderAlerts(alerts) {
   const open = alerts.filter((a) => a.type === 'help' && (!a.acknowledged || Date.now() - new Date(a.acknowledgedAt) < 10 * 60e3));
   const nudges = alerts.filter((a) => ['dose-missed', 'quiet-day', 'refill', 'appointment-escort'].includes(a.type) && !a.acknowledged);
   const scams = alerts.filter((a) => a.type === 'scam' && !a.acknowledged);
+  const guarded = alerts.filter((a) => a.type === 'scam-guard' && !a.acknowledged);
   const NUDGE = {
     'dose-missed': ['💊', `I'll remind ${pr.object}`, (a) => ack(a.id)],
     'quiet-day': ['🌤', `I'll call ${pr.object}`, (a) => ack(a.id)],
@@ -69,13 +70,18 @@ function renderAlerts(alerts) {
       el('div', { class: 'muted' }, `“${a.words}” · ${timeOf(a.createdAt)}`),
       el('p', {}, `Saathi told ${pr.object} not to share codes, PINs or bank details, send money or install apps. Call ${pr.object} now. If anything was already shared, call the bank to freeze the account and the cyber-crime helpline (1930 in India, or cybercrime.gov.in).`),
       el('button', { class: 'btn-danger', type: 'button', onclick: () => ack(a.id) }, `I've called ${pr.object}`))),
+    ...guarded.map((a) => el('div', { class: 'alert scam', role: 'alert' },
+      el('h3', {}, `🛡️ ${a.summary}`),
+      el('div', { class: 'muted' }, timeOf(a.createdAt)),
+      el('p', {}, a.severity === 'critical' ? `Money or bank details may be at risk. Call ${pr.object} now, and if anything was shared, call the bank and 1930.` : `Call ${pr.object}, then look at what Sahay saw and decide whether to keep it blocked.`),
+      el('a', { class: 'btn-danger', href: `/scam-guard.html#${encodeURIComponent(a.incidentId)}` }, 'See what happened'))),
     ...nudges.map((a) => {
       const [emoji, label, act] = NUDGE[a.type];
       return el('div', { class: 'nudge' }, el('span', { 'aria-hidden': 'true' }, emoji), el('span', {}, a.summary), el('button', { class: 'pill-action', type: 'button', onclick: () => act(a) }, label));
     }),
   );
   const badge = $('alert-badge');
-  badge.hidden = !(open.some((a) => !a.acknowledged) || nudges.length || scams.length);
+  badge.hidden = !(open.some((a) => !a.acknowledged) || nudges.length || scams.length || guarded.length);
 }
 
 async function ack(id) {

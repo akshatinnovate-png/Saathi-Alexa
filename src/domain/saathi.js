@@ -249,6 +249,61 @@ export function createSaathi(deps) {
     return { alertId, kinds, deduplicated: Boolean(open), sayLanguage: spokenLanguage(lang), say: t(lang, 'scamWarning') };
   }
 
+  const GUARD_HOLD_MS = 30 * 60 * 1000;
+  const GUARD_KINDS = new Set(['remote-access', 'remote-payment', 'otp-page', 'tech-support', 'gift-card', 'digital-arrest', 'tamper', 'other']);
+  const lines = (v, n, max = 200) => (Array.isArray(v) ? v : []).map((x) => String(x ?? '').trim().slice(0, max)).filter(Boolean).slice(0, n);
+
+  async function recordScamIncident(input = {}) {
+    const me = await elder();
+    const kind = GUARD_KINDS.has(input.kind) ? input.kind : 'other';
+    const title = String(input.title ?? '').trim().slice(0, 140) || 'A possible scam';
+    const screenshot = typeof input.screenshot === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(input.screenshot) && input.screenshot.length <= 900_000 ? input.screenshot : null;
+    const at = clock();
+    const moneyAtRisk = Boolean(input.moneyAtRisk);
+    const severity = moneyAtRisk ? 'critical' : 'high';
+    const incident = {
+      id: id('guard'), kind, title, severity, moneyAtRisk,
+      why: lines(input.why, 6), explain: String(input.explain ?? '').trim().slice(0, 600), how: lines(input.how, 4, 240), actions: lines(input.actions, 6),
+      screenshot, createdAt: at.toISOString(),
+      hold: { until: new Date(at.getTime() + GUARD_HOLD_MS).toISOString(), decision: null, by: null, at: null },
+    };
+    await store.put('scamIncidents', incident);
+    const alertId = `alert-${incident.id}`;
+    await store.put('alerts', { id: alertId, type: 'scam-guard', severity, incidentId: incident.id, createdAt: incident.createdAt, acknowledged: false, summary: `Sahay stopped a possible scam on ${me.preferredName}'s computer: ${title}.` });
+    await events.publish('ScamStopped', { incidentId: incident.id, kind, moneyAtRisk });
+    metrics.emit('ScamStopped', 1, { kind });
+    const p = pronounsOf(me);
+    await notifyCircle({
+      audience: 'family', severity,
+      subject: `Sahay stopped a possible scam on ${me.preferredName}'s computer`,
+      english: `${title}. Sahay ${incident.actions.length ? incident.actions.join('; ').toLowerCase() : 'paused the computer'} and explained it to ${p.object}. ${moneyAtRisk ? `Money or bank details may be at risk: call ${p.object} now, and if anything was shared call the bank and the cyber-crime helpline (1930 in India) straight away. ` : `Please call ${p.object}. `}Open Saathi to see the screenshot and decide whether to keep it blocked.`,
+    });
+    return { id: incident.id, alertId, holdUntil: incident.hold.until };
+  }
+
+  async function scamIncidents({ limit = 20 } = {}) {
+    return (await store.list('scamIncidents')).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit);
+  }
+
+  async function scamHold(incidentId) {
+    const incident = await store.get('scamIncidents', incidentId);
+    if (!incident) return null;
+    const approved = incident.hold.decision === 'approve';
+    return { active: !approved && clock().getTime() < Date.parse(incident.hold.until), approved, until: incident.hold.until, decision: incident.hold.decision };
+  }
+
+  async function decideScamHold({ incidentId, decision, by }) {
+    if (!['approve', 'keep'].includes(decision)) throw Object.assign(new Error('Choose approve or keep.'), { status: 400 });
+    const incident = await store.get('scamIncidents', incidentId);
+    if (!incident) return null;
+    const at = clock();
+    const until = decision === 'keep' ? new Date(Math.max(Date.parse(incident.hold.until), at.getTime()) + 24 * 3600 * 1000).toISOString() : at.toISOString();
+    const updated = await store.update('scamIncidents', incidentId, { hold: { until, decision, by, at: at.toISOString() } });
+    await store.update('alerts', `alert-${incidentId}`, { acknowledged: true, acknowledgedBy: by, acknowledgedAt: at.toISOString() });
+    await events.publish('ScamHoldDecided', { incidentId, decision });
+    return updated;
+  }
+
   async function openHelpAlert(withinMs = 10 * 60 * 1000) {
     const now = clock().getTime();
     return (await store.list('alerts')).find((a) => a.type === 'help' && !a.acknowledged && now - new Date(a.createdAt).getTime() < withinMs) ?? null;
@@ -1031,7 +1086,7 @@ export function createSaathi(deps) {
     sweepSupplies, sweepWeeklyLetter, sweepReminders, recordRefill, upcomingAppointments, sweepAppointments, claimEscort, addVoiceNote, weeklyLetters,
     addMember, removeMember, updateProfile, saveMedication, removeMedication, saveAppointment, removeAppointment, saveRoutine, careSetup, subscribeMember, setAvatar, media, householdId: deps.householdId ?? DEFAULT_HOUSEHOLD,
     messages, doorActivity, homeMap, saveRooms, placeItem, removeItem, whereIs,
-    checkIn, requestHelp, acknowledgeAlert, reportSuspiciousCall,
+    checkIn, requestHelp, acknowledgeAlert, reportSuspiciousCall, recordScamIncident, scamIncidents, scamHold, decideScamHold,
     familyMessages, sendToFamily, messageFromFamily,
     saveStory, listStories, familySummary,
     circle: () => store.list('circle'),

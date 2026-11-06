@@ -1,0 +1,20 @@
+.sg-body { background: #f7f1e6; color: #1d2230; min-height: 100svh; }
+.sg-top { max-width: 860px; margin: 0 auto; padding: 28px 18px 8px; }
+.sg-back { color: #1f5fbf; font-weight: 600; }
+.sg-title { font: 400 2.4rem var(--serif); margin: 14px 0 4px; }
+.sg-sub, .sg-muted { color: #4a4f5c; margin: 0; }
+.sg-list { max-width: 860px; margin: 0 auto; padding: 16px 18px 48px; display: grid; gap: 18px; }
+.sg-card { background: #fff; border-radius: 22px; padding: 20px; box-shadow: 0 10px 30px rgb(138 100 54 / 14%); display: grid; gap: 12px; }
+.sg-card:target { outline: 3px solid #e98a1f; outline-offset: 3px; }
+.sg-card h2 { margin: 0; font-size: 1.35rem; }
+.sg-badge { justify-self: start; padding: 4px 12px; border-radius: 999px; font-weight: 600; font-size: .9rem; background: #fde4e1; color: #7a1a12; }
+.sg-badge.high { background: #fbe7cf; color: #7a3e06; }
+.sg-shot { width: 100%; border-radius: 14px; border: 1px solid #e3d8c6; }
+.sg-card h3 { margin: 6px 0 0; font-size: 1rem; }
+.sg-card ul, .sg-card ol { margin: 0; padding-left: 1.3em; line-height: 1.5; }
+.sg-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.sg-actions button { min-height: 48px; padding: 0 20px; border-radius: 16px; border: 0; font: 600 1rem var(--sans); cursor: pointer; }
+.sg-keep { background: #1d2230; color: #fff; }
+.sg-safe { background: #f3eadb; color: #1d2230; }
+.sg-status { font-weight: 600; margin: 0; }
+:root[data-contrast="high"] .sg-body, :root[data-contrast="high"] .sg-card { background: #fff; color: #000; }
