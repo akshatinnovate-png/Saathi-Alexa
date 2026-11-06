@@ -98,11 +98,16 @@ if (mail === 1) {
 }
 
 const brain = await choose('Translation (so a message in English reaches them in their language)?', [
-  current.ANTHROPIC_API_KEY ? 'Keep my Claude key' : 'Not now (messages stay in the language they were written in)',
+  current.ANTHROPIC_API_KEY || current.GROQ_API_KEY ? 'Keep my current key' : 'Not now (messages stay in the language they were written in)',
   'Claude API key',
   'Amazon Web Services (Translate, Polly, Comprehend, Claude on Bedrock)',
+  'Groq API key (free tier)',
 ]);
-if (brain === 2) {
+if (brain === 4) {
+  console.log('\n  Get a free key at https://console.groq.com/keys\n');
+  const key = await ask('Groq API key (hidden)', { secret: true });
+  if (key) values.GROQ_API_KEY = key;
+} else if (brain === 2) {
   console.log('\n  Get a key at https://console.anthropic.com/settings/keys\n');
   const key = await ask('Claude API key (hidden)', { secret: true });
   if (key) values.ANTHROPIC_API_KEY = key;

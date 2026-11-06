@@ -8,7 +8,9 @@ import { COUNTRIES, PRONOUNS } from '../domain/people.js';
 import { hostHeaderValidation, localhostHostValidation } from '@modelcontextprotocol/sdk/server/middleware/hostHeaderValidation.js';
 import { mountMcp } from './mcpRoute.js';
 import { mountAuth } from './authRoutes.js';
-import { apiGuard } from './guard.js';
+import { apiGuard, mayDo } from './guard.js';
+import { onThisComputer } from '../agent/sahayQueue.js';
+import { isTechHelp, languageOf, askedSahay, instructionFor } from '../agent/techHelp.js';
 import { AuthError } from '../accounts/cognito.js';
 import { LANGUAGES } from '../domain/languages.js';
 import { seedData } from '../domain/seed.js';
@@ -17,7 +19,7 @@ import { createReplayGuard, verifySignature, normaliseRingEvent, SIGNATURE_HEADE
 
 const PROTECTED_PAGES = ['/family.html', '/alexa.html', '/welcome.html', '/scan.html', '/medical-id.html'];
 
-export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null }) {
+export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null, sahayQueue = null, guide = null }) {
   const { localBus, store } = services;
   const app = express();
   app.set('trust proxy', config.web?.trustProxy ?? 'loopback');
@@ -67,6 +69,37 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
       const result = await doorbell.handleHook(req.params.token, { ...req.query, ...(typeof req.body === 'object' ? req.body : {}) });
       if (!result) return res.status(404).json({ error: 'This doorbell link is not valid any more. Make a new one in Saathi settings.' });
       res.json({ ok: true, kind: result.event.kind });
+    } catch (err) {
+      if (err.status === 400) return res.status(400).json({ error: err.message });
+      next(err);
+    }
+  });
+
+  const exposed = Boolean(config.web?.exposed);
+  const sahayLocal = (req, res, next) => {
+    if (!sahayQueue) return res.status(404).json({ error: 'Not found.' });
+    if (!onThisComputer(req, { exposed }) || req.get('x-sahay') !== '1' || req.get('origin')) return res.status(403).json({ error: 'Only Sahay on this computer can do that.' });
+    next();
+  };
+  app.get('/sahay/next', sahayLocal, (_req, res) => {
+    const task = sahayQueue.next();
+    if (!task) return res.status(204).end();
+    res.json(task);
+  });
+  app.post('/sahay/tasks/:id', sahayLocal, (req, res) => {
+    try {
+      const task = sahayQueue.update(req.params.id, { status: req.body?.status, note: req.body?.note });
+      if (!task) return res.status(404).json({ error: 'No such task.' });
+      res.json(task);
+    } catch (err) {
+      res.status(err.status ?? 400).json({ error: err.message });
+    }
+  });
+
+  app.post('/guide', async (req, res, next) => {
+    try {
+      if (!guide) return res.status(404).json({ error: 'Not found.' });
+      res.json(await guide.ask({ message: req.body?.message }));
     } catch (err) {
       if (err.status === 400) return res.status(400).json({ error: err.message });
       next(err);
@@ -268,6 +301,17 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     });
   }));
 
+  api.post('/alexa/turn', (req, res, next) => {
+    const text = String(req.body?.text ?? '');
+    if (sahayQueue && isTechHelp(text) && onThisComputer(req, { exposed })) {
+      const language = languageOf(text, req.body?.language ?? 'en');
+      const task = sahayQueue.enqueue({ householdId: req.householdId, instruction: instructionFor(text), original: text, language, requestedBy: 'elder' });
+      record(req, 'sahay-task', { id: task.id, via: 'elder' });
+      return res.json({ reply: askedSahay(language, { running: sahayQueue.alive() }), sahayTask: task, trace: [] });
+    }
+    return next();
+  });
+
   api.post('/alexa/turn', wrap(async (req, res) => {
     const { text, language = 'en', sessionId = 'device-1' } = req.body ?? {};
     if (!text?.trim()) return res.status(400).json({ error: 'text is required' });
@@ -288,7 +332,38 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
   api.post('/assistant', wrap(async (req, res) => {
     const { message, audience = 'family', language, conversationId } = req.body ?? {};
     if (!message?.trim()) return res.status(400).json({ error: 'message is required' });
-    res.json(await (await assistantFor(req.householdId)).ask({ message: message.trim(), audience, language, memberId: memberOf(req), conversationId }));
+    const result = await (await assistantFor(req.householdId)).ask({ message: message.trim(), audience, language, memberId: memberOf(req), conversationId, onSahayPc: onThisComputer(req, { exposed }) });
+    if (result.sahayTask) record(req, 'sahay-task', { id: result.sahayTask.id, via: 'assistant' });
+    res.json(result);
+  }));
+
+  const ACTION_POLICY = {
+    add_medicine: 'care.edit', change_medicine: 'care.edit', stop_medicine: 'care.edit', add_doctor_visit: 'care.edit',
+    record_refill: 'care.refill', escort_doctor_visit: 'care.escort', acknowledge_alert: 'alerts.ack',
+    send_message_to_elder: 'messages.send', ask_sahay: 'care.edit',
+  };
+
+  api.post('/assistant/confirm', wrap(async (req, res) => {
+    const assistant = await assistantFor(req.householdId);
+    const pending = assistant.peek?.(req.body?.id);
+    const denied = pending ? mayDo(req, ACTION_POLICY[pending.name] ?? 'care.edit') : null;
+    if (denied) return res.status(denied.status).json({ error: denied.error, code: denied.code });
+    try {
+      const out = await assistant.confirm({ id: req.body?.id, memberId: memberOf(req), saathi: req.saathi });
+      record(req, 'assistant-action', { action: pending?.name ?? null, summary: out.summary });
+      res.json(out);
+    } catch (err) {
+      if (!err.status) throw err;
+      res.status(err.status).json({ error: err.message });
+    }
+  }));
+
+  api.post('/assistant/dismiss', wrap(async (req, res) => {
+    res.json({ dismissed: (await assistantFor(req.householdId)).dismiss(req.body?.id) });
+  }));
+
+  api.get('/sahay/tasks', wrap(async (req, res) => {
+    res.json({ running: Boolean(sahayQueue?.alive()), tasks: sahayQueue ? sahayQueue.list(req.householdId) : [] });
   }));
 
   api.post('/speak', wrap(async (req, res) => {

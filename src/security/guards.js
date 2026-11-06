@@ -51,6 +51,7 @@ export function createRateLimiter({ now = () => Date.now() } = {}) {
 
 export const RATE_RULES = [
   { prefix: '/auth/', capacity: 30, perMinute: 20 },
+  { prefix: '/guide', capacity: 12, perMinute: 8 },
   { prefix: '/hooks/', capacity: 20, perMinute: 30 },
   { prefix: '/ring/', capacity: 20, perMinute: 30 },
   { prefix: '/mcp', capacity: 300, perMinute: 300 },
