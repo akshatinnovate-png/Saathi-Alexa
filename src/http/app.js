@@ -20,7 +20,7 @@ import { createReplayGuard, verifySignature, normaliseRingEvent, SIGNATURE_HEADE
 
 const PROTECTED_PAGES = ['/legacy.html', '/doctor-report.html', '/scam-guard.html', '/family.html', '/alexa.html', '/welcome.html', '/scan.html', '/medical-id.html'];
 
-export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null, sahayQueue = null, guide = null, scamNetwork = null, billing = null }) {
+export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null, sahayQueue = null, guide = null, scamNetwork = null, billing = null, calls = null }) {
   const { localBus, store } = services;
   const app = express();
   app.set('trust proxy', config.web?.trustProxy ?? 'loopback');
@@ -121,6 +121,17 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
       if (err.status === 400) return res.status(400).json({ error: err.message });
       next(err);
     }
+  });
+
+  const callsLimit = rateLimit({ windowMs: 60 * 1000, limit: 120, standardHeaders: 'draft-7', legacyHeaders: false });
+  app.post('/calls/:step', callsLimit, express.urlencoded({ extended: false, limit: '64kb' }), async (req, res, next) => {
+    try {
+      if (!calls?.enabled) return res.status(404).json({ error: 'Not found.' });
+      const fullUrl = `${config.auth.publicUrl}${req.originalUrl}`;
+      if (!calls.verify(fullUrl, req.body ?? {}, req.get('x-twilio-signature'))) return res.status(403).json({ error: 'Bad signature.' });
+      if (req.params.step === 'status') return res.json(await calls.status(req.query.t, req.body ?? {}));
+      res.type('text/xml').send(await calls.step(req.params.step, req.query.t, req.body ?? {}));
+    } catch (err) { next(err); }
   });
 
   const webhookLimit = rateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: 'draft-7', legacyHeaders: false });
@@ -405,6 +416,29 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
       res.status(402).json({ error: `${label} is part of the Family plan. You can see the plans in Settings, Plan.`, code: 'plan' });
     } catch (err) { next(err); }
   };
+
+  api.get('/calls', wrap(async (req, res) => {
+    const me = await req.saathi.elder();
+    res.json({ enabled: Boolean(calls?.enabled), settings: me?.calls ?? { enabled: false, phone: null, time: '10:00', summaryTo: [] } });
+  }));
+
+  api.put('/calls', wrap(async (req, res) => {
+    await req.saathi.updateProfile({ calls: req.body ?? {} });
+    record(req, 'calls-settings', { enabled: Boolean(req.body?.enabled) });
+    res.json({ enabled: Boolean(calls?.enabled), settings: (await req.saathi.elder()).calls });
+  }));
+
+  api.post('/calls/now', paidExtra('saathi-calls', 'Saathi Calls'), wrap(async (req, res) => {
+    if (!calls?.enabled) return res.status(400).json({ error: 'Saathi Calls are not set up on this Saathi.' });
+    try {
+      const out = await calls.place(req.householdId);
+      record(req, 'call-now', { sid: out.sid });
+      res.json(out);
+    } catch (err) {
+      if (!err.status) throw err;
+      res.status(err.status).json({ error: err.message });
+    }
+  }));
 
   api.get('/plan', wrap(async (req, res) => {
     res.json(billing ? await billing.status(req.householdId) : { enabled: false, paidExtras: 'all' });

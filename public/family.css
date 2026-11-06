@@ -357,3 +357,8 @@ button.person:hover { background: rgb(255 255 255 / 90%); }
 .fv-list:empty { display: none; }
 .fv-list audio { height: 32px; vertical-align: middle; max-width: 100%; }
 .plan-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
+.calls-form { display: grid; gap: 8px; margin-top: 8px; }
+.calls-form label { display: grid; gap: 4px; font-size: .95rem; }
+.calls-form .inline-check { display: flex; }
+.calls-form input[type=tel], .calls-form input[type=text], .calls-form input[type=time] { min-height: 40px; border-radius: 12px; border: 1px solid #d9cfbe; padding: 0 10px; font: inherit; }
+.calls-actions { display: flex; gap: 8px; flex-wrap: wrap; }

@@ -314,6 +314,26 @@ export function createSaathi(deps) {
     return { ...out, elder: { name: me.name, preferredName: me.preferredName, language: me.language, city: me.city }, medications: medications.map((m) => ({ id: m.id, name: m.name, purpose: m.purpose, times: Array.isArray(m.times) && m.times.length ? m.times : [m.time], withFood: Boolean(m.withFood), adherence: out.current.perMedication[m.id] ?? null })) };
   }
 
+  async function localNow() {
+    await elder();
+    const p = localParts();
+    return { date: p.date, time: p.time };
+  }
+
+  async function recordCall({ outcome, summary }) {
+    const me = await elder();
+    const p = pronounsOf(me);
+    if (outcome === 'missed') {
+      const alertId = id('call');
+      await store.put('alerts', { id: alertId, type: 'call-missed', severity: 'high', createdAt: clock().toISOString(), acknowledged: false, summary: `${me.preferredName} did not answer Saathi's call (${summary})` });
+      await notifyCircle({ audience: 'family', severity: 'high', subject: `${me.preferredName} did not answer Saathi's call`, english: `Saathi called ${me.preferredName} twice and nobody answered. Please call ${p.object} or ask someone nearby to check.` });
+      return { alertId };
+    }
+    await store.put('calls', { id: id('call'), at: clock().toISOString(), summary });
+    await notifyCircle({ audience: 'family', severity: 'info', subject: `${me.preferredName} talked with Saathi today`, english: summary });
+    return { recorded: true };
+  }
+
   async function scamNetworkView(warnings = []) {
     const me = await elder();
     const settings = { receive: Boolean(me.scamNetwork?.receive), share: Boolean(me.scamNetwork?.share) };
@@ -939,6 +959,14 @@ export function createSaathi(deps) {
     if ('country' in patch) { if (patch.country && !COUNTRIES[patch.country]) throw invalid('Choose a country from the list.'); next.country = patch.country || null; }
     if ('emergencyNumber' in patch) { const n = text(patch.emergencyNumber, 15).replace(/[^\d+]/g, ''); next.emergencyNumber = n || null; }
     if ('pronoun' in patch) { if (!PRONOUNS.includes(patch.pronoun)) throw invalid('Choose she, he or they.'); next.pronoun = patch.pronoun; }
+    if ('calls' in patch) {
+      const c = patch.calls ?? {};
+      const phone = text(c.phone, 20).replace(/[^\d+]/g, '');
+      if (c.enabled && !/^\+\d{8,15}$/.test(phone)) throw invalid('Add their phone number with the country code, like +919812345678.');
+      if (c.time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(c.time)) throw invalid('Choose a time like 10:00.');
+      const summaryTo = (Array.isArray(c.summaryTo) ? c.summaryTo : []).map((n) => text(n, 20).replace(/[^\d+]/g, '')).filter((n) => /^\+\d{8,15}$/.test(n)).slice(0, 6);
+      next.calls = { enabled: Boolean(c.enabled), phone: phone || null, time: c.time || '10:00', summaryTo };
+    }
     if ('scamNetwork' in patch) next.scamNetwork = { receive: Boolean(patch.scamNetwork?.receive), share: Boolean(patch.scamNetwork?.share) };
     if ('pharmacy' in patch) next.pharmacy = text(patch.pharmacy?.name) ? { name: text(patch.pharmacy.name), phone: text(patch.pharmacy.phone, 30) } : null;
     if ('accessibility' in patch) {
@@ -1178,7 +1206,7 @@ export function createSaathi(deps) {
     sweepSupplies, sweepWeeklyLetter, sweepReminders, recordRefill, upcomingAppointments, sweepAppointments, claimEscort, addVoiceNote, weeklyLetters,
     addMember, removeMember, updateProfile, saveMedication, removeMedication, saveAppointment, removeAppointment, saveRoutine, careSetup, subscribeMember, setAvatar, media, householdId: deps.householdId ?? DEFAULT_HOUSEHOLD,
     messages, doorActivity, homeMap, saveRooms, placeItem, removeItem, whereIs,
-    checkIn, requestHelp, acknowledgeAlert, reportSuspiciousCall, recordScamIncident, scamIncidents, scamHold, decideScamHold, insight, saveReminderVoice, removeReminderVoice, reminderVoices, legacyBook, scamNetworkView, sweepScamWarnings,
+    checkIn, requestHelp, acknowledgeAlert, reportSuspiciousCall, recordScamIncident, scamIncidents, scamHold, decideScamHold, insight, saveReminderVoice, removeReminderVoice, reminderVoices, legacyBook, scamNetworkView, sweepScamWarnings, localNow, recordCall,
     familyMessages, sendToFamily, messageFromFamily,
     saveStory, listStories, familySummary,
     circle: () => store.list('circle'),

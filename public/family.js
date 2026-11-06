@@ -997,3 +997,39 @@ async function loadPlan() {
   }
 }
 loadPlan();
+
+async function loadCalls() {
+  const card = document.getElementById('calls-card');
+  if (!card) return;
+  try {
+    const res = await fetch('/api/calls');
+    const out = await res.json();
+    if (!res.ok || !out.enabled) { card.hidden = true; return; }
+    card.hidden = false;
+    document.getElementById('calls-enabled').checked = out.settings.enabled;
+    document.getElementById('calls-phone').value = out.settings.phone ?? '';
+    document.getElementById('calls-time').value = out.settings.time ?? '10:00';
+    document.getElementById('calls-summary').value = (out.settings.summaryTo ?? []).join(', ');
+  } catch {
+    card.hidden = true;
+  }
+}
+document.getElementById('calls-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const status = document.getElementById('calls-status');
+  const body = {
+    enabled: document.getElementById('calls-enabled').checked,
+    phone: document.getElementById('calls-phone').value,
+    time: document.getElementById('calls-time').value,
+    summaryTo: document.getElementById('calls-summary').value.split(',').map((x) => x.trim()).filter(Boolean),
+  };
+  const res = await fetch('/api/calls', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  status.textContent = res.ok ? (body.enabled ? `Saved. Saathi will call every day at ${body.time}.` : 'Saved. Daily calls are off.') : (await res.json().catch(() => ({}))).error ?? 'Could not save.';
+});
+document.getElementById('calls-now')?.addEventListener('click', async () => {
+  const status = document.getElementById('calls-status');
+  status.textContent = 'Calling…';
+  const res = await fetch('/api/calls/now', { method: 'POST' });
+  status.textContent = res.ok ? 'Calling now. You will get a summary after the call.' : (await res.json().catch(() => ({}))).error ?? 'Could not call.';
+});
+loadCalls();
