@@ -7,6 +7,7 @@
 | Login illustration (watercolour) | `public/assets/login-watercolor.webp` | Supplied by the project author | Confirm with the original source before commercial use |
 | Saathi logo (two companions and a diya flame) | `public/assets/logo*.svg` | Made for this project | MIT, with the code |
 | Icons | `public/icons.js` | Drawn for this project | MIT, with the code |
+| Florals: jasmine vine and sprig, marigold, lotus | `public/assets/florals/*.svg` | Drawn for this project | MIT, with the code |
 | three.js | served from `node_modules/three` at `/vendor/three` | https://threejs.org | MIT |
 | Inter, Newsreader, Noto Sans Devanagari, Atkinson Hyperlegible | Google Fonts | Google Fonts | SIL Open Font License 1.1 |
 
