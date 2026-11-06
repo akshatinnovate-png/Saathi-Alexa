@@ -3,6 +3,7 @@
 
 ## [Unreleased]
 
+- **A warmer look that carries the intro through the app**: cream paper with the intro's halftone texture, serif headings, and original line-art florals (jasmine vines, a jasmine sprig on the hero card, marigold and lotus marks) on the family app, sign-in pages, device pairing and Medical ID. Decoration is hidden in high-contrast mode and for printing, and stays still with reduced motion. The family app and its assistant no longer overflow on narrow phones.
 - **The assistant acts, not just answers.** In the family app it proposes changes (medicines, doctor visits, refills, escorts, alerts, messages to the elder) as confirmation cards; nothing changes until the family member taps Confirm, and every action is checked against the same Rust permission rules and written to the audit log.
 - **Tech help goes to Sahay.** A how-to question about WhatsApp, video calls, printing or settings, in English, Hindi, Hinglish or Marathi, is handed to Sahay on the elder's computer with a single reply ("I've asked Sahay to do it for you"), with live progress in the chat. Only a direct connection from that computer can hand out or update Sahay's tasks.
 - **Groq support**: set `GROQ_API_KEY` to run the assistants on Groq's free tier (`openai/gpt-oss-120b` by default).

@@ -252,7 +252,7 @@ button.person:hover { background: rgb(255 255 255 / 90%); }
   .hero { min-height: 0; }
 }
 @media (max-width: 760px) {
-  .fam-shell { grid-template-columns: 1fr; padding-bottom: 96px; }
+  .fam-shell { grid-template-columns: minmax(0, 1fr); padding-bottom: 96px; }
   .rail {
     position: fixed; left: 0; right: 0; bottom: 0; top: auto; min-height: 0; flex-direction: row; justify-content: center; gap: 6px;
     padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); background: rgb(255 255 255 / 70%); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); z-index: 20;
