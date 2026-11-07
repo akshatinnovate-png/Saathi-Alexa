@@ -3,23 +3,38 @@
 
 ## [Unreleased]
 
-- **Plans for hosted Saathi (off by default)**: Razorpay subscriptions for the Family, Family Plus, Care Agency and Clinic plans, switched on only when the host sets `SAATHI_BILLING=razorpay` and its keys. Self-hosted Saathi has no billing at all and every feature included. When billing is on: help alerts, scam protection, medicine reminders and the family app are never gated; Insight and Family Voice recording are paid extras; a failed payment sends the payer one quiet email and keeps extras working for a 7-day grace period; cancelling is one tap; the elder never sees a price. Webhooks are verified with HMAC-SHA256.
+## [1.4.0] - 2026-11-07
 
+Saathi now **stops scams on the computer**, **notices changes early**, **calls every day**, and its assistant **does things for you**, all in a warmer, floral look.
+
+### Get started
+- **Windows:** download **Saathi-Setup-1.4.0.exe** below. Guide: [docs/INSTALL_WINDOWS.md](docs/INSTALL_WINDOWS.md). It includes Sahay 2.10 with Scam Guard.
+- **Android:** **Saathi-1.4.0.apk** below. **Docker:** `ghcr.io/akshatinnovate-png/saathi-alexa:1.4.0`
+- **Try it in any MCP client:** `npx -y saathi-alexa`
+
+### Safety
+- **Scam Guard (Saathi side)**: Sahay on the elder's computer can report a scam it stopped, with a screenshot (private numbers blacked out on the computer), warning signs, a simple explanation and what it did. The family is alerted at once (critical if money may be at risk), sees it in the family app and on a new Scam Guard page, and decides whether to keep it blocked (24 hours more) or unblock it. Sahay checks the hold before allowing remote access again. Only a direct connection from the elder's computer can report incidents.
 - **Scam Shield Network**: a human-reviewed public feed of scam warnings (`feeds/scam-patterns.json`, in English, Hindi and Marathi). Households opt in from the new *Scams near you* card: Saathi then fetches the feed (only `raw.githubusercontent.com` is added to the egress allowlist), tells the elder about each new warning for their country once, in their language, and shows the warnings to the family. Households can also opt in to share: Saathi prepares an anonymous report with only the kinds of scams seen, the country and the language, never the words, names or numbers, which the family submits as a GitHub issue for review.
 
+### Care and family
+- **Saathi Insight**: a weekly look at tablets taken (and evening ones missed), how the elder sounded in check-ins, how often they asked for the day or time, front-door activity and help requests, compared only with their own usual weeks, never diagnosing. Changes worth mentioning show on a new Insight card in the family app, and a printable **doctor report** (`doctor-report.html`) gathers four weeks on one page. Private check-ins are counted, never quoted.
 - **Family Voice**: a family member records a short reminder in their own voice (for one tablet or any tablet) in the family app; the elder's device plays it before the tablet reminder. Recordings only, never voice imitation.
 - **Living Legacy**: the memory book as an illustrated family book (`legacy.html`): every story as a chapter in each family language, with the narration, ready to print or save as a PDF.
+- **Saathi Calls (off by default)**: with a Twilio account (`SAATHI_CALLS=twilio`), Saathi phones the elder every day at the family's chosen time on any phone, in English, Hindi or Marathi: today's tablets ("yes" confirms them), how they feel (a real check-in, with the same safety screen) and new family messages. The family gets a summary in the app, by email and optionally on WhatsApp. If nobody answers, Saathi tries once more after 10 minutes, then alerts the family. Twilio webhooks are signature-checked and rate-limited.
 
-- **Saathi Insight**: a weekly look at tablets taken (and evening ones missed), how the elder sounded in check-ins, how often they asked for the day or time, front-door activity and help requests, compared only with their own usual weeks, never diagnosing. Changes worth mentioning show on a new Insight card in the family app, and a printable **doctor report** (`doctor-report.html`) gathers four weeks on one page. Private check-ins are counted, never quoted.
-
-- **Scam Guard (Saathi side)**: Sahay on the elder's computer can report a scam it stopped, with a screenshot (private numbers blacked out on the computer), warning signs, a simple explanation and what it did. The family is alerted at once (critical if money may be at risk), sees it in the family app and on a new Scam Guard page, and decides whether to keep it blocked (24 hours more) or unblock it. Sahay checks the hold before allowing remote access again. Only a direct connection from the elder's computer can report incidents.
-
-- **A warmer look that carries the intro through the app**: cream paper with the intro's halftone texture, serif headings, and original line-art florals (jasmine vines, a jasmine sprig on the hero card, marigold and lotus marks) on the family app, sign-in pages, device pairing and Medical ID. Decoration is hidden in high-contrast mode and for printing, and stays still with reduced motion. The family app and its assistant no longer overflow on narrow phones.
+### An assistant that does things
 - **The assistant acts, not just answers.** In the family app it proposes changes (medicines, doctor visits, refills, escorts, alerts, messages to the elder) as confirmation cards; nothing changes until the family member taps Confirm, and every action is checked against the same Rust permission rules and written to the audit log.
 - **Tech help goes to Sahay.** A how-to question about WhatsApp, video calls, printing or settings, in English, Hindi, Hinglish or Marathi, is handed to Sahay on the elder's computer with a single reply ("I've asked Sahay to do it for you"), with live progress in the chat. Only a direct connection from that computer can hand out or update Sahay's tasks.
 - **Groq support**: set `GROQ_API_KEY` to run the assistants on Groq's free tier (`openai/gpt-oss-120b` by default).
 - **The landing page answers in place**, grounded in Saathi's own documents with links, and lets visitors talk to the demo family.
 
+### Look and feel
+- **A warmer look that carries the intro through the app**: cream paper with the intro's halftone texture, serif headings, and original line-art florals (jasmine vines, a jasmine sprig on the hero card, marigold and lotus marks) on the family app, sign-in pages, device pairing and Medical ID. Decoration is hidden in high-contrast mode and for printing, and stays still with reduced motion. The family app and its assistant no longer overflow on narrow phones.
+
+### Hosted Saathi
+- **Plans for hosted Saathi (off by default)**: Razorpay subscriptions for the Family, Family Plus, Care Agency and Clinic plans, switched on only when the host sets `SAATHI_BILLING=razorpay` and its keys. Self-hosted Saathi has no billing at all and every feature included. When billing is on: help alerts, scam protection, medicine reminders and the family app are never gated; Insight and Family Voice recording are paid extras; a failed payment sends the payer one quiet email and keeps extras working for a 7-day grace period; cancelling is one tap; the elder never sees a price. Webhooks are verified with HMAC-SHA256.
+
+### Project
 - **Try Saathi in any MCP client in one line**: `npx -y saathi-alexa` runs the MCP server over stdio with a fictional demo family, in memory, with every outside connection refused. Listed for the official MCP Registry in `server.json`; published to npm with provenance by the new **Publish to npm** workflow.
 - **[PRIVACY.md](PRIVACY.md)**: what Saathi stores, where it goes and what it never does.
 - **Project governance for the OpenSSF Best Practices silver and gold levels**: [GOVERNANCE.md](GOVERNANCE.md), [MAINTAINERS.md](MAINTAINERS.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [ROADMAP.md](ROADMAP.md), [docs/BUILD.md](docs/BUILD.md), [docs/ASSURANCE_CASE.md](docs/ASSURANCE_CASE.md), DCO sign-off and code review rules in CONTRIBUTING.md, and per-file licensing in [REUSE.toml](REUSE.toml).
