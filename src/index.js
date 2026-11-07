@@ -10,6 +10,9 @@ import { createFamilyAssistant } from './agent/familyAssistant.js';
 import { createSahayQueue } from './agent/sahayQueue.js';
 import { DEFAULT_HOUSEHOLD } from './households/scope.js';
 import { createGuide } from './agent/guide.js';
+import { createScamNetwork } from './domain/scamNetwork.js';
+import { createBilling } from './billing/billing.js';
+import { createCalls } from './calls/calls.js';
 import { createVerifier, createHouseholdVerifier } from './auth/verifier.js';
 import { createRingSimulator } from './ring/webhook.js';
 import { createAccounts } from './accounts/accounts.js';
@@ -40,7 +43,7 @@ config.web.exposed = checks.exposed;
 const smtpHost = (() => { try { return config.mail.smtpUrl ? new URL(config.mail.smtpUrl).hostname : null; } catch { return null; } })();
 const warned = new Set();
 const egress = process.env.SAATHI_EGRESS === 'off' ? null : installEgressGuard({
-  extra: [smtpHost, ...(process.env.SAATHI_EGRESS_ALLOW ?? '').split(',').map((h) => h.trim())],
+  extra: [smtpHost, process.env.SAATHI_BILLING === 'razorpay' ? 'api.razorpay.com' : null, process.env.SAATHI_CALLS === 'twilio' ? 'api.twilio.com' : null, ...(process.env.SAATHI_EGRESS_ALLOW ?? '').split(',').map((h) => h.trim())],
   onBlock: (host) => {
     if (warned.has(host)) return;
     warned.add(host);
@@ -138,6 +141,22 @@ const allowedHosts = configuredHosts.length || config.auth.publicUrl
   : checks.exposed ? undefined : ['localhost', '127.0.0.1', '[::1]'];
 config.web.canonicalLocalhost = true;
 const familyVault = createFamilyVault({ store: services.store, audit });
+const billing = createBilling({
+  provider: process.env.SAATHI_BILLING || null,
+  keyId: process.env.RAZORPAY_KEY_ID, keySecret: process.env.RAZORPAY_KEY_SECRET, webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET,
+  planIds: { family: process.env.SAATHI_RAZORPAY_PLAN_FAMILY, 'family-plus': process.env.SAATHI_RAZORPAY_PLAN_FAMILY_PLUS, agency: process.env.SAATHI_RAZORPAY_PLAN_AGENCY, clinic: process.env.SAATHI_RAZORPAY_PLAN_CLINIC },
+  store: services.store,
+  onNotice: async (householdId, text) => {
+    const owner = (await services.store.get('households', householdId))?.owner;
+    if (owner) await mailer.send({ to: owner, subject: 'Saathi: a payment did not go through', text, html: `<p>${text}</p>` }).catch((err) => console.error('payment notice failed:', err.message));
+  },
+});
+const calls = createCalls({
+  provider: process.env.SAATHI_CALLS || null, accountSid: process.env.TWILIO_ACCOUNT_SID, authToken: process.env.TWILIO_AUTH_TOKEN,
+  from: process.env.TWILIO_FROM, whatsappFrom: process.env.TWILIO_WHATSAPP_FROM || null, publicUrl: config.auth.publicUrl, services,
+});
+if (process.env.SAATHI_CALLS && !calls.enabled) console.warn('  Warning: Saathi Calls need TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM and SAATHI_PUBLIC_URL.');
+const scamNetwork = createScamNetwork({ url: process.env.SAATHI_SCAM_FEED_URL || undefined });
 const guide = createGuide({
   llm,
   demoAsk: config.demo ? async (text) => {
@@ -145,7 +164,7 @@ const guide = createGuide({
     return out.proposals?.length || out.sahayTask ? 'In the family app, I can do that for you after you sign in.' : out.reply;
   } : null,
 });
-const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit, keyring, vault: familyVault, sahayQueue, guide });
+const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit, keyring, vault: familyVault, sahayQueue, guide, scamNetwork, billing: billing.enabled ? billing : null, calls: calls.enabled ? calls : null });
 
 doorbell.startAll().catch((err) => console.error('Ring listeners failed to start:', err.message));
 
@@ -169,6 +188,15 @@ app.listen(config.port, config.host, () => {
   }
 });
 
+const refreshScamFeed = async () => {
+  for (const householdId of await services.householdIds()) {
+    if ((await services.forHousehold(householdId).elder())?.scamNetwork?.receive) return scamNetwork.refresh();
+  }
+  return null;
+};
+refreshScamFeed().catch(() => {});
+setInterval(() => refreshScamFeed().catch(() => {}), 6 * 3600 * 1000).unref();
+
 setInterval(async () => {
   for (const householdId of await services.householdIds()) {
     try {
@@ -177,6 +205,7 @@ setInterval(async () => {
       console.error(`reminders failed for ${householdId}`, err);
     }
   }
+  await calls.sweep(await services.householdIds()).catch((err) => console.error('calls sweep failed', err));
 }, 60 * 1000).unref();
 
 setInterval(async () => {
@@ -188,6 +217,7 @@ setInterval(async () => {
       await saathi.sweepSupplies();
       await saathi.sweepAppointments();
       await saathi.sweepWeeklyLetter();
+      await saathi.sweepScamWarnings(scamNetwork.warnings);
     } catch (err) {
       console.error(`sweep failed for ${householdId}`, err);
     }

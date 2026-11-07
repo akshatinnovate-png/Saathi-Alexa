@@ -1,0 +1,23 @@
+.lg-tools { max-width: 760px; margin: 0 auto; padding: 18px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.lg-link { color: #1f5fbf; font-weight: 600; }
+.lg-lang select { min-height: 40px; border-radius: 12px; border: 1px solid #d9cfbe; padding: 0 10px; font: inherit; background: #fff; margin-left: 6px; }
+.lg-print { min-height: 44px; padding: 0 18px; border-radius: 14px; border: 0; background: #16181d; color: #fff; font: 600 1rem var(--sans); cursor: pointer; }
+.lg-book { max-width: 760px; margin: 0 auto 60px; padding: 0 18px; }
+.lg-cover { text-align: center; padding: 48px 20px 36px; background: #fffaf2; border-radius: 22px; box-shadow: 0 10px 30px rgb(138 100 54 / 12%); }
+.lg-cover::before { content: ""; display: block; width: 220px; aspect-ratio: 170 / 120; margin: 0 auto 10px; background: url("assets/florals/jasmine-sprig.svg") no-repeat center / contain; }
+.lg-cover h1 { font: 400 2.6rem var(--serif); margin: 0; }
+.lg-cover p { color: #4a4f5c; }
+.lg-chapter { margin-top: 26px; padding: 28px; background: #fff; border-radius: 22px; box-shadow: 0 10px 30px rgb(138 100 54 / 10%); break-inside: avoid; }
+.lg-chapter .lg-num { color: #8a6436; letter-spacing: .08em; text-transform: uppercase; font-size: .85rem; font-weight: 600; margin: 0; }
+.lg-chapter h2 { font: 400 1.8rem var(--serif); margin: 6px 0 12px; }
+.lg-chapter p.lg-text { font: 400 1.2rem/1.7 var(--serif); margin: 0 0 14px; white-space: pre-line; }
+.lg-chapter .lg-mark { width: 64px; height: 70px; margin: 0 0 6px; background: url("assets/florals/marigold.svg") no-repeat left center / contain; }
+.lg-chapter:nth-child(3n) .lg-mark { background-image: url("assets/florals/lotus.svg"); }
+.lg-chapter audio { width: 100%; }
+.lg-empty { text-align: center; color: #4a4f5c; margin-top: 30px; }
+@media print {
+  .lg-tools, .lg-chapter audio { display: none; }
+  .lg-cover, .lg-chapter { box-shadow: none; }
+  .lg-chapter { page-break-before: always; }
+}
+:root[data-contrast="high"] .lg-cover::before, :root[data-contrast="high"] .lg-mark { display: none; }

@@ -352,3 +352,13 @@ button.person:hover { background: rgb(255 255 255 / 90%); }
 
 .insight-list { margin: 8px 0 0; padding-left: 1.2em; line-height: 1.5; }
 .insight-list:empty { display: none; }
+.family-voice select { min-height: 40px; border-radius: 12px; border: 1px solid #d9cfbe; padding: 0 10px; background: #fff; font: inherit; }
+.fv-list { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 6px; }
+.fv-list:empty { display: none; }
+.fv-list audio { height: 32px; vertical-align: middle; max-width: 100%; }
+.plan-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
+.calls-form { display: grid; gap: 8px; margin-top: 8px; }
+.calls-form label { display: grid; gap: 4px; font-size: .95rem; }
+.calls-form .inline-check { display: flex; }
+.calls-form input[type=tel], .calls-form input[type=text], .calls-form input[type=time] { min-height: 40px; border-radius: 12px; border: 1px solid #d9cfbe; padding: 0 10px; font: inherit; }
+.calls-actions { display: flex; gap: 8px; flex-wrap: wrap; }

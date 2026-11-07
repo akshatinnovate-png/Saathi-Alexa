@@ -3,6 +3,7 @@ import { DEFAULT_HOUSEHOLD, collectionFor } from '../households/scope.js';
 import { languageName, LANGUAGES } from './languages.js';
 import { t, spokenLanguage, partOfDayName, joinNames, localized, localDigits } from './i18n.js';
 import { computeInsight } from './insight.js';
+import { activeWarnings, shareLink } from './scamNetwork.js';
 import { pronounsOf, emergencyNumberFor, isTimeZone, PRONOUNS, COUNTRIES } from './people.js';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -313,6 +314,55 @@ export function createSaathi(deps) {
     return { ...out, elder: { name: me.name, preferredName: me.preferredName, language: me.language, city: me.city }, medications: medications.map((m) => ({ id: m.id, name: m.name, purpose: m.purpose, times: Array.isArray(m.times) && m.times.length ? m.times : [m.time], withFood: Boolean(m.withFood), adherence: out.current.perMedication[m.id] ?? null })) };
   }
 
+  async function localNow() {
+    await elder();
+    const p = localParts();
+    return { date: p.date, time: p.time };
+  }
+
+  async function recordCall({ outcome, summary }) {
+    const me = await elder();
+    const p = pronounsOf(me);
+    if (outcome === 'missed') {
+      const alertId = id('call');
+      await store.put('alerts', { id: alertId, type: 'call-missed', severity: 'high', createdAt: clock().toISOString(), acknowledged: false, summary: `${me.preferredName} did not answer Saathi's call (${summary})` });
+      await notifyCircle({ audience: 'family', severity: 'high', subject: `${me.preferredName} did not answer Saathi's call`, english: `Saathi called ${me.preferredName} twice and nobody answered. Please call ${p.object} or ask someone nearby to check.` });
+      return { alertId };
+    }
+    await store.put('calls', { id: id('call'), at: clock().toISOString(), summary });
+    await notifyCircle({ audience: 'family', severity: 'info', subject: `${me.preferredName} talked with Saathi today`, english: summary });
+    return { recorded: true };
+  }
+
+  async function scamNetworkView(warnings = []) {
+    const me = await elder();
+    const settings = { receive: Boolean(me.scamNetwork?.receive), share: Boolean(me.scamNetwork?.share) };
+    const active = settings.receive ? activeWarnings(warnings, { country: me.country, today: localParts().date }) : [];
+    const since = clock().getTime() - 30 * 24 * 3600 * 1000;
+    const kinds = new Set();
+    for (const a of await store.list('alerts')) if (a.type === 'scam' && Date.parse(a.createdAt) >= since) for (const k of a.kinds ?? []) kinds.add(k);
+    for (const i of await store.list('scamIncidents')) if (Date.parse(i.createdAt) >= since) kinds.add(i.kind);
+    return {
+      settings, country: me.country ?? null,
+      warnings: active.map((w) => ({ id: w.id, title: w.title.en, say: w.say.en, until: w.until })),
+      share: settings.share && kinds.size ? shareLink({ kinds: [...kinds], country: me.country, language: me.language }) : null,
+    };
+  }
+
+  async function sweepScamWarnings(warnings = []) {
+    const me = await elder();
+    if (!me.scamNetwork?.receive) return [];
+    const { lang } = await voice();
+    const told = [];
+    for (const w of activeWarnings(warnings, { country: me.country, today: localParts().date })) {
+      if (await store.get('scamWarningsTold', w.id)) continue;
+      await store.put('scamWarningsTold', { id: w.id, at: clock().toISOString() });
+      await events.publish('ScamWarning', { id: w.id, say: w.say[lang] ?? w.say.en, sayLanguage: w.say[lang] ? spokenLanguage(lang) : 'en', title: w.title[lang] ?? w.title.en });
+      told.push(w.id);
+    }
+    return told;
+  }
+
   async function openHelpAlert(withinMs = 10 * 60 * 1000) {
     const now = clock().getTime();
     return (await store.list('alerts')).find((a) => a.type === 'help' && !a.acknowledged && now - new Date(a.createdAt).getTime() < withinMs) ?? null;
@@ -494,6 +544,17 @@ export function createSaathi(deps) {
     return (await store.list('stories')).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
+  async function legacyBook() {
+    const me = await elder();
+    const stories = (await store.list('stories')).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const circle = await store.list('circle');
+    return {
+      elder: { name: me.name, preferredName: me.preferredName, language: me.language, city: me.city },
+      languages: [...new Set([me.language, ...circle.map((p) => p.language)].filter(Boolean))],
+      chapters: await Promise.all(stories.map(async (s, i) => ({ number: i + 1, ...(await withPlayableAudio(s)) }))),
+    };
+  }
+
   async function withPlayableAudio(story) {
     const entries = await Promise.all(Object.entries(story.audio ?? {}).map(async ([l, ref]) => [l, await (media.playbackUrl?.(ref) ?? ref)]));
     return { ...story, audio: Object.fromEntries(entries) };
@@ -670,6 +731,46 @@ export function createSaathi(deps) {
     const ref = await media.save(`voice/${noteId}.${ext}`, audio, contentType);
     metrics.emit('VoiceNote', 1);
     return deliverToElder({ fromId, text: '🎤', language: sender.language, extra: { kind: 'voice', audio: ref, durationSec: durationSec ?? null } });
+  }
+
+  const AUDIO_EXT = { 'audio/webm': 'webm', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a', 'audio/mpeg': 'mp3', 'audio/wav': 'wav' };
+
+  async function saveReminderVoice({ fromId, audio, contentType = 'audio/webm', medicationId = null }) {
+    const member = (await store.list('circle')).find((p) => p.id === fromId);
+    if (!member) throw invalid(`Unknown family member ${fromId}`);
+    const medId = medicationId ? String(medicationId) : null;
+    if (medId && !(await store.get('medications', medId))) throw invalid('That medicine no longer exists.');
+    const type = String(contentType).split(';')[0];
+    if (!AUDIO_EXT[type]) throw invalid('Record the reminder as audio.');
+    const key = `${fromId}:${medId ?? 'any'}`;
+    const ref = await media.save(`voice/reminder-${fromId}-${medId ?? 'any'}-${Date.now().toString(36)}.${AUDIO_EXT[type]}`, audio, type);
+    const entry = { id: key, memberId: fromId, medicationId: medId, audio: ref, createdAt: clock().toISOString() };
+    await store.put('reminderVoices', entry);
+    await events.publish('ReminderVoiceSaved', { memberId: fromId, medicationId: medId });
+    return { id: key, memberId: fromId, medicationId: medId, createdAt: entry.createdAt };
+  }
+
+  async function removeReminderVoice({ fromId, medicationId = null }) {
+    return store.remove('reminderVoices', `${fromId}:${medicationId ?? 'any'}`);
+  }
+
+  async function reminderVoices() {
+    const circle = await store.list('circle');
+    return Promise.all((await store.list('reminderVoices')).map(async (v) => ({
+      id: v.id, memberId: v.memberId, from: circle.find((p) => p.id === v.memberId)?.name ?? v.memberId, medicationId: v.medicationId, createdAt: v.createdAt,
+      url: await (media.playbackUrl?.(v.audio) ?? v.audio),
+    })));
+  }
+
+  async function reminderVoiceFor(medicationIds, date) {
+    const voices = await store.list('reminderVoices');
+    const pick = voices.filter((v) => v.medicationId && medicationIds.includes(v.medicationId));
+    const pool = pick.length ? pick : voices.filter((v) => !v.medicationId);
+    if (!pool.length) return null;
+    const day = Number(String(date).replaceAll('-', '')) || 0;
+    const v = pool.sort((a, b) => a.id.localeCompare(b.id))[day % pool.length];
+    const circle = await store.list('circle');
+    return { from: circle.find((p) => p.id === v.memberId)?.name ?? v.memberId, url: await (media.playbackUrl?.(v.audio) ?? v.audio) };
   }
 
   async function weeklyLetters({ send = true, save = send } = {}) {
@@ -858,6 +959,15 @@ export function createSaathi(deps) {
     if ('country' in patch) { if (patch.country && !COUNTRIES[patch.country]) throw invalid('Choose a country from the list.'); next.country = patch.country || null; }
     if ('emergencyNumber' in patch) { const n = text(patch.emergencyNumber, 15).replace(/[^\d+]/g, ''); next.emergencyNumber = n || null; }
     if ('pronoun' in patch) { if (!PRONOUNS.includes(patch.pronoun)) throw invalid('Choose she, he or they.'); next.pronoun = patch.pronoun; }
+    if ('calls' in patch) {
+      const c = patch.calls ?? {};
+      const phone = text(c.phone, 20).replace(/[^\d+]/g, '');
+      if (c.enabled && !/^\+\d{8,15}$/.test(phone)) throw invalid('Add their phone number with the country code, like +919812345678.');
+      if (c.time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(c.time)) throw invalid('Choose a time like 10:00.');
+      const summaryTo = (Array.isArray(c.summaryTo) ? c.summaryTo : []).map((n) => text(n, 20).replace(/[^\d+]/g, '')).filter((n) => /^\+\d{8,15}$/.test(n)).slice(0, 6);
+      next.calls = { enabled: Boolean(c.enabled), phone: phone || null, time: c.time || '10:00', summaryTo };
+    }
+    if ('scamNetwork' in patch) next.scamNetwork = { receive: Boolean(patch.scamNetwork?.receive), share: Boolean(patch.scamNetwork?.share) };
     if ('pharmacy' in patch) next.pharmacy = text(patch.pharmacy?.name) ? { name: text(patch.pharmacy.name), phone: text(patch.pharmacy.phone, 30) } : null;
     if ('accessibility' in patch) {
       const a = patch.accessibility ?? {};
@@ -900,7 +1010,8 @@ export function createSaathi(deps) {
     }
     if (fresh.length) {
       const say = t(lang, 'medsDue', { list: fresh.map((m) => localized(m, 'phrase', lang)).join(t(lang, 'medsDueJoin')), withFood: fresh.some((m) => m.withFood) });
-      await events.publish('TabletReminder', { say, sayLanguage: lang, medications: fresh.map((m) => m.slotId) });
+      const familyVoice = await reminderVoiceFor(fresh.map((m) => m.id), now.date);
+      await events.publish('TabletReminder', { say, sayLanguage: lang, medications: fresh.map((m) => m.slotId), ...(familyVoice ? { voice: familyVoice } : {}) });
       sent.push(...fresh.map((m) => m.slotId));
     }
     const soon = (await upcomingAppointments({ language: lang, days: 0 })).appointments
@@ -1095,7 +1206,7 @@ export function createSaathi(deps) {
     sweepSupplies, sweepWeeklyLetter, sweepReminders, recordRefill, upcomingAppointments, sweepAppointments, claimEscort, addVoiceNote, weeklyLetters,
     addMember, removeMember, updateProfile, saveMedication, removeMedication, saveAppointment, removeAppointment, saveRoutine, careSetup, subscribeMember, setAvatar, media, householdId: deps.householdId ?? DEFAULT_HOUSEHOLD,
     messages, doorActivity, homeMap, saveRooms, placeItem, removeItem, whereIs,
-    checkIn, requestHelp, acknowledgeAlert, reportSuspiciousCall, recordScamIncident, scamIncidents, scamHold, decideScamHold, insight,
+    checkIn, requestHelp, acknowledgeAlert, reportSuspiciousCall, recordScamIncident, scamIncidents, scamHold, decideScamHold, insight, saveReminderVoice, removeReminderVoice, reminderVoices, legacyBook, scamNetworkView, sweepScamWarnings, localNow, recordCall,
     familyMessages, sendToFamily, messageFromFamily,
     saveStory, listStories, familySummary,
     circle: () => store.list('circle'),

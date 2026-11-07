@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import express from 'express';
+import { rateLimit } from 'express-rate-limit';
 import QRCode from 'qrcode';
 import { securityHeaders } from '../security/headers.js';
 import { crossSiteGuard, createRateLimiter, RATE_RULES, safeJsonReviver, errorHandler } from '../security/guards.js';
@@ -17,9 +18,9 @@ import { seedData } from '../domain/seed.js';
 import { DEFAULT_HOUSEHOLD } from '../households/scope.js';
 import { createReplayGuard, verifySignature, normaliseRingEvent, SIGNATURE_HEADER, TIMESTAMP_HEADER } from '../ring/webhook.js';
 
-const PROTECTED_PAGES = ['/doctor-report.html', '/scam-guard.html', '/family.html', '/alexa.html', '/welcome.html', '/scan.html', '/medical-id.html'];
+const PROTECTED_PAGES = ['/legacy.html', '/doctor-report.html', '/scam-guard.html', '/family.html', '/alexa.html', '/welcome.html', '/scan.html', '/medical-id.html'];
 
-export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null, sahayQueue = null, guide = null }) {
+export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null, sahayQueue = null, guide = null, scamNetwork = null, billing = null, calls = null }) {
   const { localBus, store } = services;
   const app = express();
   app.set('trust proxy', config.web?.trustProxy ?? 'loopback');
@@ -120,6 +121,26 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
       if (err.status === 400) return res.status(400).json({ error: err.message });
       next(err);
     }
+  });
+
+  const callsLimit = rateLimit({ windowMs: 60 * 1000, limit: 120, standardHeaders: 'draft-7', legacyHeaders: false });
+  app.post('/calls/:step', callsLimit, express.urlencoded({ extended: false, limit: '64kb' }), async (req, res, next) => {
+    try {
+      if (!calls?.enabled) return res.status(404).json({ error: 'Not found.' });
+      const fullUrl = `${config.auth.publicUrl}${req.originalUrl}`;
+      if (!calls.verify(fullUrl, req.body ?? {}, req.get('x-twilio-signature'))) return res.status(403).json({ error: 'Bad signature.' });
+      if (req.params.step === 'status') return res.json(await calls.status(req.query.t, req.body ?? {}));
+      res.type('text/xml').send(await calls.step(req.params.step, req.query.t, req.body ?? {}));
+    } catch (err) { next(err); }
+  });
+
+  const webhookLimit = rateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: 'draft-7', legacyHeaders: false });
+  app.post('/billing/razorpay/webhook', webhookLimit, async (req, res, next) => {
+    try {
+      if (!billing?.enabled) return res.status(404).json({ error: 'Not found.' });
+      if (!billing.verify(req.rawBody, req.get('x-razorpay-signature'))) return res.status(400).json({ error: 'Bad signature.' });
+      res.json(await billing.webhook(req.body));
+    } catch (err) { next(err); }
   });
 
   const guard = apiGuard({ requireLogin, defaultHousehold: DEFAULT_HOUSEHOLD, services, audit });
@@ -378,7 +399,75 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     res.json({ dismissed: (await assistantFor(req.householdId)).dismiss(req.body?.id) });
   }));
 
-  api.get('/insight', wrap(async (req, res) => {
+  api.get('/scam-network', wrap(async (req, res) => {
+    res.json({ ...(await req.saathi.scamNetworkView(scamNetwork?.warnings ?? [])), fetchedAt: scamNetwork?.fetchedAt ?? null });
+  }));
+
+  api.put('/scam-network', wrap(async (req, res) => {
+    await req.saathi.updateProfile({ scamNetwork: { receive: req.body?.receive, share: req.body?.share } });
+    if (req.body?.receive && scamNetwork && !scamNetwork.fetchedAt) await scamNetwork.refresh();
+    record(req, 'scam-network', { receive: Boolean(req.body?.receive), share: Boolean(req.body?.share) });
+    res.json(await req.saathi.scamNetworkView(scamNetwork?.warnings ?? []));
+  }));
+
+  const paidExtra = (feature, label) => async (req, res, next) => {
+    try {
+      if (!billing || (await billing.entitled(req.householdId, feature))) return next();
+      res.status(402).json({ error: `${label} is part of the Family plan. You can see the plans in Settings, Plan.`, code: 'plan' });
+    } catch (err) { next(err); }
+  };
+
+  api.get('/calls', wrap(async (req, res) => {
+    const me = await req.saathi.elder();
+    res.json({ enabled: Boolean(calls?.enabled), settings: me?.calls ?? { enabled: false, phone: null, time: '10:00', summaryTo: [] } });
+  }));
+
+  api.put('/calls', wrap(async (req, res) => {
+    await req.saathi.updateProfile({ calls: req.body ?? {} });
+    record(req, 'calls-settings', { enabled: Boolean(req.body?.enabled) });
+    res.json({ enabled: Boolean(calls?.enabled), settings: (await req.saathi.elder()).calls });
+  }));
+
+  api.post('/calls/now', paidExtra('saathi-calls', 'Saathi Calls'), wrap(async (req, res) => {
+    if (!calls?.enabled) return res.status(400).json({ error: 'Saathi Calls are not set up on this Saathi.' });
+    try {
+      const out = await calls.place(req.householdId);
+      record(req, 'call-now', { sid: out.sid });
+      res.json(out);
+    } catch (err) {
+      if (!err.status) throw err;
+      res.status(err.status).json({ error: err.message });
+    }
+  }));
+
+  api.get('/plan', wrap(async (req, res) => {
+    res.json(billing ? await billing.status(req.householdId) : { enabled: false, paidExtras: 'all' });
+  }));
+
+  api.post('/plan/checkout', wrap(async (req, res) => {
+    if (!billing) return res.status(400).json({ error: 'Payments are not set up on this Saathi; everything is already included.' });
+    try {
+      const out = await billing.checkout(req.householdId, { plan: req.body?.plan, email: req.user?.email });
+      record(req, 'plan-checkout', { plan: req.body?.plan });
+      res.json(out);
+    } catch (err) {
+      if (!err.status) throw err;
+      res.status(err.status).json({ error: err.message });
+    }
+  }));
+
+  api.post('/plan/cancel', wrap(async (req, res) => {
+    try {
+      const out = billing ? await billing.cancel(req.householdId) : { plan: 'free', status: 'cancelled' };
+      record(req, 'plan-cancel', {});
+      res.json(out);
+    } catch (err) {
+      if (!err.status) throw err;
+      res.status(err.status).json({ error: err.message });
+    }
+  }));
+
+  api.get('/insight', paidExtra('insight', 'Saathi Insight'), wrap(async (req, res) => {
     res.json(await req.saathi.insight({ weeks: req.query.weeks }));
   }));
 
@@ -433,6 +522,25 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     const from = req.memberId ?? req.query.from;
     if (!from || !Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'from and an audio body are required' });
     res.json(await req.saathi.addVoiceNote({ fromId: String(from), audio: req.body, contentType: req.get('content-type'), durationSec: Number(req.query.duration) || undefined, e2e: e2eOf(req) }));
+  }));
+
+  api.post('/family/reminder-voice', paidExtra('family-voice', 'Family Voice'), express.raw({ type: ['audio/*'], limit: '4mb' }), wrap(async (req, res) => {
+    const from = req.memberId ?? req.query.from;
+    if (!from || !Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'from and an audio body are required' });
+    res.json(await req.saathi.saveReminderVoice({ fromId: String(from), audio: req.body, contentType: req.get('content-type'), medicationId: req.query.medication || null }));
+  }));
+
+  api.get('/family/legacy', wrap(async (req, res) => {
+    res.json(await req.saathi.legacyBook());
+  }));
+
+  api.get('/family/reminder-voices', wrap(async (req, res) => {
+    res.json({ voices: await req.saathi.reminderVoices() });
+  }));
+
+  api.delete('/family/reminder-voice', wrap(async (req, res) => {
+    const from = req.memberId ?? req.query.from;
+    res.json({ removed: Boolean(await req.saathi.removeReminderVoice({ fromId: String(from), medicationId: req.query.medication || null })) });
   }));
 
   api.post('/family/avatar', express.raw({ type: ['image/png', 'image/jpeg', 'image/webp', 'application/vnd.saathi.e2e'], limit: '4mb' }), wrap(async (req, res) => {

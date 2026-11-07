@@ -3,6 +3,13 @@
 
 ## [Unreleased]
 
+- **Plans for hosted Saathi (off by default)**: Razorpay subscriptions for the Family, Family Plus, Care Agency and Clinic plans, switched on only when the host sets `SAATHI_BILLING=razorpay` and its keys. Self-hosted Saathi has no billing at all and every feature included. When billing is on: help alerts, scam protection, medicine reminders and the family app are never gated; Insight and Family Voice recording are paid extras; a failed payment sends the payer one quiet email and keeps extras working for a 7-day grace period; cancelling is one tap; the elder never sees a price. Webhooks are verified with HMAC-SHA256.
+
+- **Scam Shield Network**: a human-reviewed public feed of scam warnings (`feeds/scam-patterns.json`, in English, Hindi and Marathi). Households opt in from the new *Scams near you* card: Saathi then fetches the feed (only `raw.githubusercontent.com` is added to the egress allowlist), tells the elder about each new warning for their country once, in their language, and shows the warnings to the family. Households can also opt in to share: Saathi prepares an anonymous report with only the kinds of scams seen, the country and the language, never the words, names or numbers, which the family submits as a GitHub issue for review.
+
+- **Family Voice**: a family member records a short reminder in their own voice (for one tablet or any tablet) in the family app; the elder's device plays it before the tablet reminder. Recordings only, never voice imitation.
+- **Living Legacy**: the memory book as an illustrated family book (`legacy.html`): every story as a chapter in each family language, with the narration, ready to print or save as a PDF.
+
 - **Saathi Insight**: a weekly look at tablets taken (and evening ones missed), how the elder sounded in check-ins, how often they asked for the day or time, front-door activity and help requests, compared only with their own usual weeks, never diagnosing. Changes worth mentioning show on a new Insight card in the family app, and a printable **doctor report** (`doctor-report.html`) gathers four weeks on one page. Private check-ins are counted, never quoted.
 
 - **Scam Guard (Saathi side)**: Sahay on the elder's computer can report a scam it stopped, with a screenshot (private numbers blacked out on the computer), warning signs, a simple explanation and what it did. The family is alerted at once (critical if money may be at risk), sees it in the family app and on a new Scam Guard page, and decides whether to keep it blocked (24 hours more) or unblock it. Sahay checks the hold before allowing remote access again. Only a direct connection from the elder's computer can report incidents.

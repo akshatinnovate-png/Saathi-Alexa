@@ -899,3 +899,137 @@ async function loadInsight() {
   }
 }
 loadInsight();
+
+let fvRecorder;
+async function loadFamilyVoice() {
+  const select = document.getElementById('fv-med');
+  if (!select) return;
+  try {
+    const [care, voices] = await Promise.all([fetch('/api/care').then((r) => (r.ok ? r.json() : { medications: [] })), fetch('/api/family/reminder-voices').then((r) => (r.ok ? r.json() : { voices: [] }))]);
+    const keep = select.value;
+    select.replaceChildren(el('option', { value: '' }, 'Any tablet reminder'), ...care.medications.map((m) => el('option', { value: m.id }, `${m.name} (${m.purpose})`)));
+    select.value = keep;
+    const name = (id) => care.medications.find((m) => m.id === id)?.name ?? 'any tablet';
+    document.getElementById('fv-list').replaceChildren(...voices.voices.map((v) => el('li', {}, `${v.from}: ${name(v.medicationId)} `, el('audio', { controls: '', preload: 'none', src: v.url }))));
+  } catch { }
+}
+document.getElementById('fv-record')?.addEventListener('click', async () => {
+  const button = document.getElementById('fv-record');
+  const status = document.getElementById('fv-status');
+  if (fvRecorder?.state === 'recording') { fvRecorder.stop(); return; }
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { status.textContent = 'This browser cannot record audio.'; return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const parts = [];
+    fvRecorder = new MediaRecorder(stream);
+    fvRecorder.ondataavailable = (e) => e.data.size && parts.push(e.data);
+    fvRecorder.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      button.setAttribute('aria-pressed', 'false');
+      button.textContent = '🌼 Record a reminder in your voice';
+      const blob = new Blob(parts, { type: fvRecorder.mimeType || 'audio/webm' });
+      const med = document.getElementById('fv-med').value;
+      status.textContent = 'Saving…';
+      const res = await fetch(`/api/family/reminder-voice?from=${encodeURIComponent(meId())}${med ? `&medication=${encodeURIComponent(med)}` : ''}`, { method: 'POST', headers: { 'content-type': blob.type.split(';')[0] || 'audio/webm' }, body: blob });
+      status.textContent = res.ok ? `Saved. ${elderName} will hear your voice before ${med ? 'this tablet' : 'tablet reminders'}.` : 'Could not save the recording.';
+      loadFamilyVoice();
+    };
+    fvRecorder.start();
+    button.setAttribute('aria-pressed', 'true');
+    button.textContent = '⏹ Stop and save';
+    status.textContent = `Recording… for example: "${elderName}, time for your tablet. Love you!"`;
+  } catch {
+    status.textContent = 'Microphone permission was not given.';
+  }
+});
+loadFamilyVoice();
+
+async function loadScamNetwork(change) {
+  const receive = document.getElementById('ssn-receive');
+  if (!receive) return;
+  const share = document.getElementById('ssn-share');
+  const status = document.getElementById('ssn-status');
+  try {
+    const res = change
+      ? await fetch('/api/scam-network', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ receive: receive.checked, share: share.checked }) })
+      : await fetch('/api/scam-network');
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) { status.textContent = out.error ?? 'Could not load.'; return; }
+    receive.checked = out.settings.receive;
+    share.checked = out.settings.share;
+    document.getElementById('ssn-warnings').replaceChildren(...out.warnings.map((w) => el('li', {}, el('strong', {}, w.title), ` ${w.say}`)));
+    status.replaceChildren(...(out.share ? [el('a', { href: out.share.url, target: '_blank', rel: 'noopener' }, 'Share the kinds of scams seen here (opens a prefilled, anonymous report)')] : [out.settings.receive && !out.warnings.length ? 'No new warnings for your area.' : '']));
+  } catch {
+    status.textContent = 'Scam warnings are not available right now.';
+  }
+}
+document.getElementById('ssn-receive')?.addEventListener('change', () => loadScamNetwork(true));
+document.getElementById('ssn-share')?.addEventListener('change', () => loadScamNetwork(true));
+loadScamNetwork(false);
+
+async function loadPlan() {
+  const card = document.getElementById('plan-card');
+  if (!card) return;
+  try {
+    const res = await fetch('/api/plan');
+    const plan = await res.json();
+    if (!res.ok || !plan.enabled) { card.hidden = true; return; }
+    card.hidden = false;
+    document.getElementById('plan-now').textContent = `${plan.planName}${plan.renewsAt ? `, renews ${new Date(plan.renewsAt).toLocaleDateString()}` : ''}${plan.graceUntil ? `. The last payment did not go through; extras pause on ${new Date(plan.graceUntil).toLocaleDateString()}.` : '.'}`;
+    const status = document.getElementById('plan-status');
+    const choose = async (id) => {
+      status.textContent = '…';
+      const r = await fetch('/api/plan/checkout', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ plan: id }) });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok) { status.textContent = out.error ?? 'That did not work.'; return; }
+      location.href = out.url;
+    };
+    const cancel = async () => {
+      const r = await fetch('/api/plan/cancel', { method: 'POST' });
+      status.textContent = r.ok ? 'Cancelled. You are on Saathi Free; nothing that keeps them safe has changed.' : 'That did not work.';
+      loadPlan();
+    };
+    document.getElementById('plan-list').replaceChildren(
+      ...plan.plans.filter((p) => p.available && p.id !== plan.plan && p.id !== 'free').map((p) => el('li', {}, `${p.name}: ${p.price} `, el('button', { class: 'text-action', type: 'button', onclick: () => choose(p.id) }, 'Choose'))),
+      ...(plan.plan !== 'free' ? [el('li', {}, el('button', { class: 'text-action', type: 'button', onclick: cancel }, 'Cancel my plan'))] : []));
+  } catch {
+    card.hidden = true;
+  }
+}
+loadPlan();
+
+async function loadCalls() {
+  const card = document.getElementById('calls-card');
+  if (!card) return;
+  try {
+    const res = await fetch('/api/calls');
+    const out = await res.json();
+    if (!res.ok || !out.enabled) { card.hidden = true; return; }
+    card.hidden = false;
+    document.getElementById('calls-enabled').checked = out.settings.enabled;
+    document.getElementById('calls-phone').value = out.settings.phone ?? '';
+    document.getElementById('calls-time').value = out.settings.time ?? '10:00';
+    document.getElementById('calls-summary').value = (out.settings.summaryTo ?? []).join(', ');
+  } catch {
+    card.hidden = true;
+  }
+}
+document.getElementById('calls-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const status = document.getElementById('calls-status');
+  const body = {
+    enabled: document.getElementById('calls-enabled').checked,
+    phone: document.getElementById('calls-phone').value,
+    time: document.getElementById('calls-time').value,
+    summaryTo: document.getElementById('calls-summary').value.split(',').map((x) => x.trim()).filter(Boolean),
+  };
+  const res = await fetch('/api/calls', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  status.textContent = res.ok ? (body.enabled ? `Saved. Saathi will call every day at ${body.time}.` : 'Saved. Daily calls are off.') : (await res.json().catch(() => ({}))).error ?? 'Could not save.';
+});
+document.getElementById('calls-now')?.addEventListener('click', async () => {
+  const status = document.getElementById('calls-status');
+  status.textContent = 'Calling…';
+  const res = await fetch('/api/calls/now', { method: 'POST' });
+  status.textContent = res.ok ? 'Calling now. You will get a summary after the call.' : (await res.json().catch(() => ({}))).error ?? 'Could not call.';
+});
+loadCalls();

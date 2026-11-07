@@ -244,10 +244,19 @@ async function announce(text) {
   refreshNext();
 }
 
+async function playThenAnnounce(url, text) {
+  try {
+    const audio = new Audio(url);
+    await new Promise((resolve) => { audio.onended = resolve; audio.onerror = resolve; audio.play().catch(resolve); });
+  } catch { }
+  return announce(text);
+}
+
 function react(event) {
   const type = event['detail-type'];
   const d = event.detail ?? {};
-  if ((type === 'TabletReminder' || type === 'VisitReminder') && d.say) announce(d.say);
+  if (type === 'TabletReminder' && d.voice?.url) playThenAnnounce(d.voice.url, d.say);
+  else if ((type === 'TabletReminder' || type === 'VisitReminder' || type === 'ScamWarning') && d.say) announce(d.say);
   if (type === 'MessageForElder' && !busy && Date.now() - lastRead > 5000) {
     lastRead = Date.now();
     setTimeout(() => say(phrases().messages), 1200);
