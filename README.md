@@ -63,6 +63,20 @@ Inclusion runs through the whole design, not a single feature. Saathi is built f
 
 ## Screenshots
 
+### New in 1.4
+
+| | |
+|---|---|
+| <img src="docs/screenshots/23-family-floral.webp" alt="The family app in its new cream and floral look"><br><sub>The family app's new look: cream paper, serif type and jasmine florals</sub> | <img src="docs/screenshots/26-assistant-actions.webp" alt="The assistant hands a WhatsApp question to Sahay and proposes a message to confirm"><br><sub>The assistant acts: a WhatsApp question goes to Sahay; a message waits for one tap</sub> |
+| <img src="docs/screenshots/27-scam-guard.webp" alt="Scam Guard: what Sahay stopped, with the private numbers blacked out"><br><sub>Scam Guard: what Sahay stopped and why, with private numbers blacked out</sub> | <img src="docs/screenshots/28-doctor-report.webp" alt="The printable doctor report from Saathi Insight"><br><sub>Saathi Insight's doctor report: four weeks on one page, never a diagnosis</sub> |
+| <img src="docs/screenshots/29-living-legacy.webp" alt="Living Legacy: Aaji's stories as an illustrated family book"><br><sub>Living Legacy: her stories as an illustrated family book</sub> | <img src="docs/screenshots/24-care-new-cards.webp" alt="Saathi Calls, Plan, Scams near you and Living Legacy cards"><br><sub>Saathi Calls, plans, Scams near you and Living Legacy</sub> |
+| <img src="docs/screenshots/25-scams-and-insight.webp" alt="Reviewed scam warnings and Saathi Insight's changes worth mentioning"><br><sub>Scams near you (reviewed warnings) and Insight's changes worth mentioning</sub> | <img src="docs/screenshots/22-landing-guide.webp" alt="The landing page answers questions in place"><br><sub>The landing page answers in place, with links to the source</sub> |
+
+<img src="docs/screenshots/30-phone-scam-guard.webp" alt="Scam Guard on a phone" width="260"><br><sub>Scam Guard on a phone</sub>
+
+### Everything else
+
+
 | | |
 |---|---|
 | <img src="docs/screenshots/01-intro.webp" alt="Intro: the forest video with the halftone dots and the Saathi logo"><br><sub>Intro: the forest video with the halftone dots and the Saathi logo</sub> | <img src="docs/screenshots/02-landing.webp" alt="Landing page with the photo slideshow and "Ask Saathi""><br><sub>Landing page with the photo slideshow and "Ask Saathi"</sub> |
