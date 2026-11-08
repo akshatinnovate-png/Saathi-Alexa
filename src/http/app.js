@@ -21,7 +21,7 @@ import { createReplayGuard, verifySignature, normaliseRingEvent, SIGNATURE_HEADE
 
 const PROTECTED_PAGES = ['/legacy.html', '/doctor-report.html', '/scam-guard.html', '/family.html', '/alexa.html', '/welcome.html', '/scan.html', '/medical-id.html'];
 
-export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null, sahayQueue = null, guide = null, scamNetwork = null, billing = null, calls = null, didis = null }) {
+export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null, sahayQueue = null, guide = null, scamNetwork = null, billing = null, calls = null, didis = null, impact = null }) {
   const { localBus, store } = services;
   const app = express();
   app.set('trust proxy', config.web?.trustProxy ?? 'loopback');
@@ -145,6 +145,14 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
   });
 
   if (didis) mountDidis(app, { didis, config });
+  const publicLimit = rateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: 'draft-7', legacyHeaders: false });
+  app.get('/web-config', publicLimit, (_req, res) => res.json({ firebase: null, vapidKey: null, push: false, live: false }));
+  app.get('/impact-api', publicLimit, async (_req, res, next) => {
+    try {
+      if (!impact) return res.status(404).json({ error: 'Not found.' });
+      res.set('Cache-Control', 'public, max-age=60').json(await impact.get());
+    } catch (err) { next(err); }
+  });
 
   const guard = apiGuard({ requireLogin, defaultHousehold: DEFAULT_HOUSEHOLD, services, audit });
   if (accounts && sessions) mountAuth(app, { config, accounts, sessions, security, google, familyMail, audit, guard });

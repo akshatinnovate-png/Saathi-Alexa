@@ -9,6 +9,7 @@ import { createFamilyAssistant } from '../src/agent/familyAssistant.js';
 import { createFileStore } from '../src/local/fileStore.js';
 import { seedData } from '../src/domain/seed.js';
 import { createDidis } from '../src/didis/didis.js';
+import { createImpact } from '../src/domain/impact.js';
 
 const require = createRequire(import.meta.url);
 const axeSource = readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
@@ -22,6 +23,7 @@ const app = createApp({
   config: appConfig,
   services,
   didis: createDidis({ store: services.store, services }),
+  impact: createImpact({ services, store: services.store, includeDemo: true }),
   simulatorFor: async () => ({ turn: (...a) => simulator.turn(...a), answer: (...a) => simulator.answer(...a), reset: () => {} }),
   assistantFor: async () => assistant,
 });
@@ -61,6 +63,8 @@ const scenarios = [
   { name: 'Family app, care view', path: '/family.html#care', wait: '#meds .row-item' },
   { name: 'Family app, medicines editor', path: '/family.html#care', wait: '#meds .row-item', click: '#manage-meds', after: '#edit-body form' },
   { name: 'Saathi Didi sign-up', path: '/didi.html', wait: '#join-title' },
+  { name: 'Impact dashboard', path: '/impact.html', wait: '.im-stat' },
+  { name: 'Impact dashboard, phone width', path: '/impact.html', width: 390, wait: '.im-stat' },
   { name: 'Saathi Didi sign-up, phone width', path: '/didi.html', width: 390, wait: '#join-title' },
   { name: 'Walk the house', path: '/scan.html' },
   { name: 'Walk the house, drawing by hand', path: '/scan.html', click: '#start-draw' },
