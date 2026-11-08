@@ -82,6 +82,7 @@ export const EVENT_LABELS = {
   DemoReset: 'Demo reset',
   DoorActivity: 'Front door (Ring)',
   QuietDay: 'Quiet morning',
+  DidiArrived: 'Saathi Didi arrived',
   McpProgress: 'MCP progress',
   McpLog: 'MCP log',
   McpResourceUpdated: 'MCP resource updated',

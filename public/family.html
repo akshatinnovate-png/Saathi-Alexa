@@ -84,6 +84,20 @@
             </form>
             <p class="small" id="calls-status" aria-live="polite"></p>
           </article>
+          <article class="glass span-6" aria-labelledby="didis-h" id="didis-card"><div class="card-head"><h3 id="didis-h">Saathi Didis</h3><a class="text-action" href="/didi.html">Become a Didi</a></div>
+            <p class="muted small">Verified women from their neighbourhood, trained by Saathi and paid by you straight to UPI: a doctor escort, a visit, a tablet refill or help with the phone.</p>
+            <form class="calls-form" id="didi-form">
+              <label>What do you need? <select id="didi-kind"><option value="escort">Doctor escort</option><option value="visit">Company visit</option><option value="refill">Tablet refill</option><option value="tech">Help with phone and forms</option></select></label>
+              <label>When <input id="didi-at" type="datetime-local" required></label>
+              <label>Who <select id="didi-who"><option value="">Any verified Didi nearby</option></select></label>
+              <label>For the Didi (optional) <input id="didi-notes" type="text" maxlength="300" placeholder="She likes to sit by the window"></label>
+              <label class="inline-check"><input type="checkbox" id="didi-share-meds" checked> Share her tablets in the briefing</label>
+              <label class="inline-check"><input type="checkbox" id="didi-share-mood"> Share how she has been feeling</label>
+              <div class="calls-actions"><button class="pill-action" type="submit">Book</button></div>
+            </form>
+            <p class="small" id="didi-status" aria-live="polite"></p>
+            <ul class="didi-bookings" id="didi-bookings"></ul>
+          </article>
           <article class="glass span-6" aria-labelledby="plan-h" id="plan-card" hidden><div class="card-head"><h3 id="plan-h">Plan</h3></div>
             <p class="small" id="plan-now"></p>
             <p class="muted small">Help alerts, scam protection and medicine reminders are always included, whatever the plan.</p>

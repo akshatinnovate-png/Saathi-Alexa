@@ -256,7 +256,7 @@ function react(event) {
   const type = event['detail-type'];
   const d = event.detail ?? {};
   if (type === 'TabletReminder' && d.voice?.url) playThenAnnounce(d.voice.url, d.say);
-  else if ((type === 'TabletReminder' || type === 'VisitReminder' || type === 'ScamWarning') && d.say) announce(d.say);
+  else if ((type === 'TabletReminder' || type === 'VisitReminder' || type === 'ScamWarning' || type === 'DidiArrived') && d.say) announce(d.say);
   if (type === 'MessageForElder' && !busy && Date.now() - lastRead > 5000) {
     lastRead = Date.now();
     setTimeout(() => say(phrases().messages), 1200);

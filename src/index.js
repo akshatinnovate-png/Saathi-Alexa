@@ -13,6 +13,7 @@ import { createGuide } from './agent/guide.js';
 import { createScamNetwork } from './domain/scamNetwork.js';
 import { createBilling } from './billing/billing.js';
 import { createCalls } from './calls/calls.js';
+import { createDidis } from './didis/didis.js';
 import { createVerifier, createHouseholdVerifier } from './auth/verifier.js';
 import { createRingSimulator } from './ring/webhook.js';
 import { createAccounts } from './accounts/accounts.js';
@@ -164,7 +165,8 @@ const guide = createGuide({
     return out.proposals?.length || out.sahayTask ? 'In the family app, I can do that for you after you sign in.' : out.reply;
   } : null,
 });
-const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit, keyring, vault: familyVault, sahayQueue, guide, scamNetwork, billing: billing.enabled ? billing : null, calls: calls.enabled ? calls : null });
+const didis = createDidis({ store: services.store, services, translator: services.translator, llm, partnerCodes: (process.env.SAATHI_DIDI_PARTNER_CODES ?? '').split(',') });
+const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit, keyring, vault: familyVault, sahayQueue, guide, scamNetwork, billing: billing.enabled ? billing : null, calls: calls.enabled ? calls : null, didis });
 
 doorbell.startAll().catch((err) => console.error('Ring listeners failed to start:', err.message));
 

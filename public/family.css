@@ -362,3 +362,9 @@ button.person:hover { background: rgb(255 255 255 / 90%); }
 .calls-form .inline-check { display: flex; }
 .calls-form input[type=tel], .calls-form input[type=text], .calls-form input[type=time] { min-height: 40px; border-radius: 12px; border: 1px solid #d9cfbe; padding: 0 10px; font: inherit; }
 .calls-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.calls-form select, .calls-form input[type=datetime-local] { min-height: 40px; border-radius: 12px; border: 1px solid #d9cfbe; padding: 0 10px; font: inherit; background: #fff; color: inherit; }
+.didi-bookings { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 10px; }
+.didi-bookings:empty { display: none; }
+.didi-bookings li { background: rgb(255 255 255 / 70%); border-radius: 14px; padding: 10px 12px; display: grid; gap: 6px; font-size: .95rem; }
+.didi-bookings .calls-actions a { text-decoration: none; }
+.didi-bookings select { min-height: 36px; border-radius: 10px; border: 1px solid #d9cfbe; padding: 0 8px; font: inherit; background: #fff; color: inherit; }

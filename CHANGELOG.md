@@ -3,6 +3,13 @@
 
 ## [Unreleased]
 
+### Saathi Didis
+- **Paid care work for women in the elder's own neighbourhood.** A woman signs up at `/didi.html` (English, Hindi or Marathi) with the help she offers (doctor escort, company visit, tablet refill, help with phone and forms), her own fee for each, and her UPI ID. A partner code from her self-help group or NGO (`SAATHI_DIDI_PARTNER_CODES`) verifies her, and three short lessons (helping someone stand, tablets and missed doses, spotting a scam call) make her ready for bookings.
+- **Families book from the care view**: a chosen Didi or any verified Didi in the elder's city. The Didi accepts, reads a briefing in her language with only what the family chose to share (address, doctor visit, tablets, and optionally mood), checks in and writes a visit note when she leaves.
+- **Everyone is told**: the elder hears who is coming and when, and is told when the Didi arrives; the family is notified when she accepts, arrives and finishes, with her note translated into English.
+- **Paid straight to her**: the family pays with a UPI link (no fee taken by Saathi), marks it paid and rates the visit; the Didi sees her visits, earnings and rating for the month.
+- Didis sign in with a long random key in an HttpOnly, SameSite=Strict cookie (only its hash is stored), and can open their sign-in link on another phone. Didi routes are rate-limited and checked against cross-site requests; family routes go through the same Rust permission rules as the rest of the API.
+
 ## [1.4.0] - 2026-11-07
 
 Saathi now **stops scams on the computer**, **notices changes early**, **calls every day**, and its assistant **does things for you**, all in a warmer, floral look.

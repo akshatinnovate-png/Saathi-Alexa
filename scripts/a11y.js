@@ -8,6 +8,7 @@ import { createAlexaSimulator } from '../src/agent/alexaSimulator.js';
 import { createFamilyAssistant } from '../src/agent/familyAssistant.js';
 import { createFileStore } from '../src/local/fileStore.js';
 import { seedData } from '../src/domain/seed.js';
+import { createDidis } from '../src/didis/didis.js';
 
 const require = createRequire(import.meta.url);
 const axeSource = readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
@@ -20,6 +21,7 @@ const appConfig = { ...config, demo: true, host: '127.0.0.1', web: { ...config.w
 const app = createApp({
   config: appConfig,
   services,
+  didis: createDidis({ store: services.store, services }),
   simulatorFor: async () => ({ turn: (...a) => simulator.turn(...a), answer: (...a) => simulator.answer(...a), reset: () => {} }),
   assistantFor: async () => assistant,
 });
@@ -58,6 +60,8 @@ const scenarios = [
   { name: "Family app, set up Aaji's device", path: '/family.html', click: '#open-devices', after: '#pair-qr svg, #pair-error:not([hidden])' },
   { name: 'Family app, care view', path: '/family.html#care', wait: '#meds .row-item' },
   { name: 'Family app, medicines editor', path: '/family.html#care', wait: '#meds .row-item', click: '#manage-meds', after: '#edit-body form' },
+  { name: 'Saathi Didi sign-up', path: '/didi.html', wait: '#join-title' },
+  { name: 'Saathi Didi sign-up, phone width', path: '/didi.html', width: 390, wait: '#join-title' },
   { name: 'Walk the house', path: '/scan.html' },
   { name: 'Walk the house, drawing by hand', path: '/scan.html', click: '#start-draw' },
 ];
