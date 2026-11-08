@@ -74,6 +74,14 @@ Inclusion runs through the whole design, not a single feature. Saathi is built f
 
 <img src="docs/screenshots/30-phone-scam-guard.webp" alt="Scam Guard on a phone" width="260"><br><sub>Scam Guard on a phone</sub>
 
+### Saathi Didis
+
+Verified women from the elder's own neighbourhood, trained in three short lessons, booked by the family and paid straight to their UPI.
+
+| | | |
+|---|---|---|
+| <img src="docs/screenshots/31-didi-app.webp" alt="The Saathi Didi app in Marathi: requests, bookings and this month's earnings"><br><sub>The Didi app, in her language: requests near her, her bookings, her earnings</sub> | <img src="docs/screenshots/32-didi-briefing.webp" alt="A visit briefing: address, doctor, tablets, how to help, emergency number"><br><sub>The briefing: only what the family chose to share</sub> | <img src="docs/screenshots/33-family-didis.webp" alt="The family books a Didi, reads her visit note and pays with UPI"><br><sub>The family books, reads her visit note and pays with UPI</sub> |
+
 ### Everything else
 
 

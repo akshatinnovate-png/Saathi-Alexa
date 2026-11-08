@@ -1033,3 +1033,55 @@ document.getElementById('calls-now')?.addEventListener('click', async () => {
   status.textContent = res.ok ? 'Calling now. You will get a summary after the call.' : (await res.json().catch(() => ({}))).error ?? 'Could not call.';
 });
 loadCalls();
+
+const DIDI_STATUS = { open: 'Looking for a Didi', offered: 'Waiting for the Didi to accept', accepted: 'Accepted', 'in-progress': 'With her now', done: 'Done', cancelled: 'Cancelled' };
+async function loadDidis() {
+  const card = document.getElementById('didis-card');
+  if (!card) return;
+  const status = document.getElementById('didi-status');
+  try {
+    const [found, booked] = await Promise.all([fetch('/api/didis'), fetch('/api/didis/bookings')]);
+    if (!found.ok || !booked.ok) { card.hidden = true; return; }
+    const { didis } = await found.json();
+    const { bookings } = await booked.json();
+    card.hidden = false;
+    const who = document.getElementById('didi-who');
+    const chosen = who.value;
+    who.replaceChildren(el('option', { value: '' }, 'Any verified Didi nearby'),
+      ...didis.map((d) => el('option', { value: d.id }, `${d.name}${d.rating ? ` ★${d.rating}` : ''}${d.area ? ` · ${d.area}` : ''}${d.minutesAway != null ? ` · ${d.minutesAway} min away` : ''} · ${d.visits} visits · ${d.skills.map((k) => `₹${d.rates[k]}`).join('/')}`)));
+    who.value = chosen;
+    const act = (path, body) => async () => {
+      const r = await fetch(`/api/didis/bookings/${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body ?? {}) });
+      status.textContent = r.ok ? '' : (await r.json().catch(() => ({}))).error ?? 'That did not work.';
+      loadDidis();
+    };
+    document.getElementById('didi-bookings').replaceChildren(...bookings.slice(0, 6).map((b) => el('li', {},
+      el('strong', {}, `${b.kindName}, ${new Date(b.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`),
+      el('span', {}, [DIDI_STATUS[b.status] ?? b.status, b.didi?.name, b.fee ? `₹${b.fee}` : null, b.paidAt ? 'paid' : null].filter(Boolean).join(' · ')),
+      b.note ? el('span', { class: 'muted' }, `“${b.note.english ?? b.note.text}”`) : null,
+      el('div', { class: 'calls-actions' },
+        b.payLink ? el('a', { class: 'pill-action', href: b.payLink }, `Pay ₹${b.fee} with UPI`) : null,
+        b.status === 'done' && !b.paidAt ? el('button', { class: 'text-action', type: 'button', onclick: act(`${b.id}/paid`) }, 'I have paid') : null,
+        b.status === 'done' && !b.rating ? el('label', {}, 'Rate ', el('select', { onchange: (e) => e.target.value && act(`${b.id}/rate`, { stars: Number(e.target.value) })() },
+          el('option', { value: '' }, '–'), ...[5, 4, 3, 2, 1].map((n) => el('option', { value: String(n) }, '★'.repeat(n))))) : null,
+        b.rating ? el('span', {}, '★'.repeat(b.rating)) : null,
+        ['open', 'offered', 'accepted'].includes(b.status) ? el('button', { class: 'text-action', type: 'button', onclick: act(`${b.id}/cancel`) }, 'Cancel') : null))));
+    if (!didis.length && !bookings.length) status.textContent = 'No Didi is verified near them yet. You can still post a request; the first ready Didi nearby can accept it.';
+  } catch {
+    card.hidden = true;
+  }
+}
+document.getElementById('didi-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const status = document.getElementById('didi-status');
+  const body = {
+    kind: document.getElementById('didi-kind').value, at: document.getElementById('didi-at').value.slice(0, 16),
+    didiId: document.getElementById('didi-who').value || undefined, notes: document.getElementById('didi-notes').value,
+    share: { medicines: document.getElementById('didi-share-meds').checked, mood: document.getElementById('didi-share-mood').checked },
+  };
+  const res = await fetch('/api/didis/bookings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const out = await res.json().catch(() => ({}));
+  status.textContent = res.ok ? (out.didi ? `Sent to ${out.didi.name}. You will hear when she accepts.` : 'Posted. The first verified Didi nearby can accept it.') : out.error ?? 'Could not book.';
+  loadDidis();
+});
+loadDidis();

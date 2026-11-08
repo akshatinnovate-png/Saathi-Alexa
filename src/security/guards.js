@@ -8,7 +8,7 @@ export const safeJsonReviver = (key, value) => (POISON.has(key) ? undefined : va
 export function crossSiteGuard({ allowedOrigins = [] } = {}) {
   return (req, res, next) => {
     if (!UNSAFE.has(req.method)) return next();
-    if (!req.path.startsWith('/api/') && !req.path.startsWith('/auth/')) return next();
+    if (!req.path.startsWith('/api/') && !req.path.startsWith('/auth/') && !req.path.startsWith('/didi-api/')) return next();
     const site = req.get('sec-fetch-site');
     const origin = req.get('origin');
     const own = `${req.protocol}://${req.get('host')}`;

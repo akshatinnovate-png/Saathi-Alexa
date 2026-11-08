@@ -98,11 +98,17 @@ if (mail === 1) {
 }
 
 const brain = await choose('Translation (so a message in English reaches them in their language)?', [
-  current.ANTHROPIC_API_KEY || current.GROQ_API_KEY ? 'Keep my current key' : 'Not now (messages stay in the language they were written in)',
+  current.ANTHROPIC_API_KEY || current.GROQ_API_KEY || current.GEMINI_API_KEY ? 'Keep my current key' : 'Not now (messages stay in the language they were written in)',
   'Claude API key',
   'Amazon Web Services (Translate, Polly, Comprehend, Claude on Bedrock)',
   'Groq API key (free tier)',
+  'Gemini API key (free tier)',
 ]);
+if (brain === 5) {
+  console.log('\n  Get a free key at https://aistudio.google.com/apikey\n');
+  const key = await ask('Gemini API key (hidden)', { secret: true });
+  if (key) values.GEMINI_API_KEY = key;
+}
 if (brain === 4) {
   console.log('\n  Get a free key at https://console.groq.com/keys\n');
   const key = await ask('Groq API key (hidden)', { secret: true });

@@ -64,8 +64,104 @@ export function createGroqClient({ apiKey, model, fetchImpl = fetch, timeoutMs =
   };
 }
 
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta';
+const UNSUPPORTED_SCHEMA_KEYS = new Set(['$schema', 'additionalProperties', '$ref', '$defs', 'definitions', 'default', 'examples', 'const', 'exclusiveMinimum', 'exclusiveMaximum', 'pattern', 'format']);
+
+export function toGeminiSchema(schema) {
+  if (Array.isArray(schema)) return schema.map(toGeminiSchema);
+  if (!schema || typeof schema !== 'object') return schema;
+  const out = {};
+  for (const [k, v] of Object.entries(schema)) {
+    if (UNSUPPORTED_SCHEMA_KEYS.has(k)) continue;
+    if (k === 'type' && Array.isArray(v)) {
+      const real = v.filter((t) => t !== 'null');
+      out.type = real[0] ?? 'string';
+      if (real.length < v.length) out.nullable = true;
+      continue;
+    }
+    if (k === 'anyOf' || k === 'oneOf') {
+      const real = v.filter((s) => s?.type !== 'null');
+      if (real.length === 1) Object.assign(out, toGeminiSchema(real[0]), real.length < v.length ? { nullable: true } : {});
+      else out.anyOf = real.map(toGeminiSchema);
+      continue;
+    }
+    out[k] = typeof v === 'object' ? toGeminiSchema(v) : v;
+  }
+  if (out.type === 'object' && out.properties && !Object.keys(out.properties).length) delete out.properties;
+  return out;
+}
+
+export function toGeminiContents(messages) {
+  const names = new Map();
+  const contents = [];
+  for (const m of messages) {
+    const role = m.role === 'assistant' ? 'model' : 'user';
+    const blocks = typeof m.content === 'string' ? [{ type: 'text', text: m.content }] : m.content;
+    const parts = [];
+    for (const b of blocks) {
+      if (b.type === 'text' && b.text) parts.push({ text: b.text });
+      else if (b.type === 'tool_use') {
+        names.set(b.id, b.name);
+        parts.push({ functionCall: { name: b.name, args: b.input ?? {} }, ...(b.signature ? { thoughtSignature: b.signature } : {}) });
+      } else if (b.type === 'tool_result') {
+        const raw = typeof b.content === 'string' ? b.content : Array.isArray(b.content) ? b.content.filter((x) => x.type === 'text').map((x) => x.text).join('\n') : JSON.stringify(b.content);
+        let response;
+        try { response = JSON.parse(raw); } catch { response = { result: raw }; }
+        if (!response || typeof response !== 'object' || Array.isArray(response)) response = { result: response };
+        parts.push({ functionResponse: { name: names.get(b.tool_use_id) ?? 'tool', response } });
+      }
+    }
+    if (parts.length) contents.push({ role, parts });
+  }
+  return contents;
+}
+
+export function fromGeminiCandidate(candidate, promptFeedback) {
+  if (!candidate) return { content: [], stop_reason: promptFeedback?.blockReason ? 'refusal' : 'end_turn' };
+  const content = [];
+  let n = 0;
+  for (const p of candidate.content?.parts ?? []) {
+    if (p.thought) continue;
+    if (p.text) content.push({ type: 'text', text: p.text });
+    if (p.functionCall) content.push({ type: 'tool_use', id: `call_${Date.now().toString(36)}_${n++}`, name: p.functionCall.name, input: p.functionCall.args ?? {}, ...(p.thoughtSignature ? { signature: p.thoughtSignature } : {}) });
+  }
+  const blocked = ['SAFETY', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII', 'RECITATION'].includes(candidate.finishReason);
+  const stop = content.some((b) => b.type === 'tool_use') ? 'tool_use' : blocked ? 'refusal' : 'end_turn';
+  return { content, stop_reason: stop };
+}
+
+export function createGeminiClient({ apiKey = null, model, fetchImpl = fetch, timeoutMs = 30_000, base = GEMINI_BASE, authHeaders = null }) {
+  return async function create({ system, tools, messages, max_tokens: maxTokens = 2048 }) {
+    const body = {
+      contents: toGeminiContents(messages),
+      ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+      ...(tools?.length ? { tools: [{ functionDeclarations: tools.map((t) => ({ name: t.name, description: t.description, parameters: toGeminiSchema(t.input_schema ?? { type: 'object' }) })) }], toolConfig: { functionCallingConfig: { mode: 'AUTO' } } } : {}),
+      generationConfig: { maxOutputTokens: maxTokens, temperature: 0.3 },
+    };
+    let res;
+    try {
+      res = await fetchImpl(`${base}/models/${encodeURIComponent(model)}:generateContent`, {
+        method: 'POST',
+        headers: { ...(authHeaders ? await authHeaders() : { 'x-goog-api-key': apiKey }), 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (err) {
+      throw new Anthropic.APIConnectionError({ message: `Gemini could not be reached: ${err.message}`, cause: err });
+    }
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw Anthropic.APIError.generate(res.status, json, json.error?.message ?? `Gemini answered ${res.status}`, new Headers(res.headers ?? {}));
+    return fromGeminiCandidate(json.candidates?.[0], json.promptFeedback);
+  };
+}
+
 export function createLlm(agentConfig, region) {
   if (agentConfig.provider === 'offline') return null;
+
+  if (agentConfig.provider === 'gemini') {
+    const create = createGeminiClient({ apiKey: agentConfig.geminiKey, model: agentConfig.geminiModel, fetchImpl: agentConfig.fetchImpl });
+    return withHelpers({ provider: 'gemini', model: agentConfig.geminiModel, create });
+  }
 
   if (agentConfig.provider === 'groq') {
     const create = createGroqClient({ apiKey: agentConfig.groqKey, model: agentConfig.groqModel, fetchImpl: agentConfig.fetchImpl });

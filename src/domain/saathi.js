@@ -363,6 +363,51 @@ export function createSaathi(deps) {
     return told;
   }
 
+  const DIDI_KIND = { escort: 'take her to the doctor', visit: 'visit her', refill: 'pick up her tablets', tech: 'help with the phone and forms' };
+
+  async function didiUpdate({ stage, didiName, kind, at = null, note = null, noteLanguage = 'en' }) {
+    const me = await elder();
+    const { lang } = await voice();
+    const p = pronounsOf(me);
+    const what = (DIDI_KIND[kind] ?? 'visit').replace(/\bher\b/g, p.object);
+    const when = at ? ` on ${String(at).replace('T', ' at ')}` : '';
+    if (stage === 'accepted') {
+      await notifyCircle({ audience: 'family', severity: 'info', subject: `${didiName} will ${what}${when}`, english: `${didiName}, a Saathi Didi, accepted the booking to ${what}${when}. Saathi will brief her before the visit and tell ${me.preferredName} who is coming.` });
+      const english = `${didiName} from Saathi will come to ${DIDI_KIND[kind] ? what.replace(p.object, 'you') : 'visit you'}${when}.`;
+      const text = lang === 'en' ? english : (await translateTo(english, lang, 'en')).text;
+      await deliverToElder({ fromId: 'saathi', text, language: lang, system: true });
+      return { told: true };
+    }
+    if (stage === 'arrived') {
+      const english = `${didiName} from Saathi is here.`;
+      const say = lang === 'en' ? english : (await translateTo(english, lang, 'en')).text;
+      await events.publish('DidiArrived', { say, sayLanguage: spokenLanguage(lang), didiName });
+      await notifyCircle({ audience: 'family', severity: 'info', subject: `${didiName} has arrived at ${me.preferredName}'s`, english: `${didiName} checked in at ${me.preferredName}'s home.` });
+      return { told: true };
+    }
+    if (stage === 'done') {
+      const english = note ? (noteLanguage === 'en' ? note : (await translateTo(note, 'en', noteLanguage)).text) : 'The visit is complete.';
+      await notifyCircle({ audience: 'family', severity: 'info', subject: `${didiName} visited ${me.preferredName}`, english: `${didiName} finished the visit (${what}). Her note: "${english}"` });
+      return { told: true, english };
+    }
+    throw invalid('Unknown Didi update.');
+  }
+
+  async function didiBriefingFacts({ share = {}, appointmentId = null } = {}) {
+    const me = await elder();
+    const facts = { name: me.preferredName, home: me.home ?? me.city ?? '', city: me.city ?? '', language: me.language, accessibility: me.accessibility ?? {}, emergencyNumber: emergencyNumberFor(me) };
+    if (share.medicines) facts.medicines = (await careSetup()).medications.map((m) => ({ name: m.name, purpose: m.purpose, times: m.times, withFood: Boolean(m.withFood), looks: m.description }));
+    if (share.mood) {
+      const last = (await store.list('checkins')).filter((c) => !c.private).sort((a, b) => b.at.localeCompare(a.at))[0];
+      facts.mood = last ? { sentiment: last.sentiment, at: last.at, concerns: last.concerns ?? [] } : null;
+    }
+    if (appointmentId) {
+      const a = await store.get('appointments', appointmentId);
+      if (a) facts.appointment = { title: a.title, with: a.with, place: a.place, at: a.at };
+    }
+    return facts;
+  }
+
   async function openHelpAlert(withinMs = 10 * 60 * 1000) {
     const now = clock().getTime();
     return (await store.list('alerts')).find((a) => a.type === 'help' && !a.acknowledged && now - new Date(a.createdAt).getTime() < withinMs) ?? null;
@@ -1206,7 +1251,7 @@ export function createSaathi(deps) {
     sweepSupplies, sweepWeeklyLetter, sweepReminders, recordRefill, upcomingAppointments, sweepAppointments, claimEscort, addVoiceNote, weeklyLetters,
     addMember, removeMember, updateProfile, saveMedication, removeMedication, saveAppointment, removeAppointment, saveRoutine, careSetup, subscribeMember, setAvatar, media, householdId: deps.householdId ?? DEFAULT_HOUSEHOLD,
     messages, doorActivity, homeMap, saveRooms, placeItem, removeItem, whereIs,
-    checkIn, requestHelp, acknowledgeAlert, reportSuspiciousCall, recordScamIncident, scamIncidents, scamHold, decideScamHold, insight, saveReminderVoice, removeReminderVoice, reminderVoices, legacyBook, scamNetworkView, sweepScamWarnings, localNow, recordCall,
+    checkIn, requestHelp, acknowledgeAlert, reportSuspiciousCall, recordScamIncident, scamIncidents, scamHold, decideScamHold, insight, saveReminderVoice, removeReminderVoice, reminderVoices, legacyBook, scamNetworkView, sweepScamWarnings, localNow, recordCall, didiUpdate, didiBriefingFacts,
     familyMessages, sendToFamily, messageFromFamily,
     saveStory, listStories, familySummary,
     circle: () => store.list('circle'),

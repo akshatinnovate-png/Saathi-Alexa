@@ -1,6 +1,7 @@
 import './env.js';
 import { dirname, join } from 'node:path';
 import { execFile } from 'node:child_process';
+import { createHmac } from 'node:crypto';
 import { config } from './config.js';
 import { createServices } from './services.js';
 import { createApp } from './http/app.js';
@@ -13,6 +14,7 @@ import { createGuide } from './agent/guide.js';
 import { createScamNetwork } from './domain/scamNetwork.js';
 import { createBilling } from './billing/billing.js';
 import { createCalls } from './calls/calls.js';
+import { createDidis } from './didis/didis.js';
 import { createVerifier, createHouseholdVerifier } from './auth/verifier.js';
 import { createRingSimulator } from './ring/webhook.js';
 import { createAccounts } from './accounts/accounts.js';
@@ -75,6 +77,9 @@ const cognito = config.auth.userPoolId && config.auth.webClientId
   : null;
 const legacySecret = (await services.store.get('meta', 'session-secret'))?.value ?? null;
 const secret = config.web.sessionSecret ?? (keyring ? null : await sessionSecret(services.store));
+if (!keyring && !process.env.SAATHI_RING_WEBHOOK_SECRET && config.ring.webhookSecret === 'local-ring-simulator-secret' && !config.demo) {
+  config.ring.webhookSecret = createHmac('sha256', secret ?? config.web.sessionSecret).update('saathi-ring-webhook-secret').digest('base64url');
+}
 const sessions = createSessions(secret, { store: services.store, keyring: config.web.sessionSecret ? null : keyring });
 configurePepper(keyring ? (data) => keyring.hmac('pepper', data) : null);
 const audit = createAuditLog({ store: services.store, keyring, key: keyring ? null : Buffer.from(`audit:${secret}`) });
@@ -164,7 +169,8 @@ const guide = createGuide({
     return out.proposals?.length || out.sahayTask ? 'In the family app, I can do that for you after you sign in.' : out.reply;
   } : null,
 });
-const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit, keyring, vault: familyVault, sahayQueue, guide, scamNetwork, billing: billing.enabled ? billing : null, calls: calls.enabled ? calls : null });
+const didis = createDidis({ store: services.store, services, translator: services.translator, llm, partnerCodes: (process.env.SAATHI_DIDI_PARTNER_CODES ?? '').split(',') });
+const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit, keyring, vault: familyVault, sahayQueue, guide, scamNetwork, billing: billing.enabled ? billing : null, calls: calls.enabled ? calls : null, didis });
 
 doorbell.startAll().catch((err) => console.error('Ring listeners failed to start:', err.message));
 

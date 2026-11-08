@@ -9,6 +9,7 @@ import { COUNTRIES, PRONOUNS } from '../domain/people.js';
 import { hostHeaderValidation, localhostHostValidation } from '@modelcontextprotocol/sdk/server/middleware/hostHeaderValidation.js';
 import { mountMcp } from './mcpRoute.js';
 import { mountAuth } from './authRoutes.js';
+import { mountDidis, mountFamilyDidis } from './didiRoutes.js';
 import { apiGuard, mayDo } from './guard.js';
 import { onThisComputer } from '../agent/sahayQueue.js';
 import { isTechHelp, languageOf, askedSahay, instructionFor } from '../agent/techHelp.js';
@@ -20,7 +21,7 @@ import { createReplayGuard, verifySignature, normaliseRingEvent, SIGNATURE_HEADE
 
 const PROTECTED_PAGES = ['/legacy.html', '/doctor-report.html', '/scam-guard.html', '/family.html', '/alexa.html', '/welcome.html', '/scan.html', '/medical-id.html'];
 
-export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null, sahayQueue = null, guide = null, scamNetwork = null, billing = null, calls = null }) {
+export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null, sahayQueue = null, guide = null, scamNetwork = null, billing = null, calls = null, didis = null }) {
   const { localBus, store } = services;
   const app = express();
   app.set('trust proxy', config.web?.trustProxy ?? 'loopback');
@@ -142,6 +143,8 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
       res.json(await billing.webhook(req.body));
     } catch (err) { next(err); }
   });
+
+  if (didis) mountDidis(app, { didis, config });
 
   const guard = apiGuard({ requireLogin, defaultHousehold: DEFAULT_HOUSEHOLD, services, audit });
   if (accounts && sessions) mountAuth(app, { config, accounts, sessions, security, google, familyMail, audit, guard });
@@ -439,6 +442,8 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
       res.status(err.status).json({ error: err.message });
     }
   }));
+
+  mountFamilyDidis(api, { didis, record, memberOf });
 
   api.get('/plan', wrap(async (req, res) => {
     res.json(billing ? await billing.status(req.householdId) : { enabled: false, paidExtras: 'all' });
