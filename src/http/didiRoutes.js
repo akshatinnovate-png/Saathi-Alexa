@@ -1,11 +1,12 @@
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { readCookie, cookieHeader } from '../accounts/sessions.js';
+import { mountDidiFeatures } from './featureRoutes.js';
 
 export const DIDI_COOKIE = 'saathi_didi';
 const YEAR = 365 * 24 * 60 * 60;
 
-export function mountDidis(app, { didis, config, firebase = null, stt = null, push = null, webConfig = {} }) {
+export function mountDidis(app, { didis, config, firebase = null, stt = null, push = null, webConfig = {}, doctorNotes = null, sangat = null }) {
   const r = express.Router();
   const httpsSite = config.auth?.publicUrl?.startsWith('https://');
   const secure = (req) => req.secure || req.get('x-forwarded-proto') === 'https' || Boolean(httpsSite);
@@ -27,7 +28,7 @@ export function mountDidis(app, { didis, config, firebase = null, stt = null, pu
 
   r.use(rateLimit({ windowMs: 60 * 1000, limit: 120, standardHeaders: 'draft-7', legacyHeaders: false }));
   r.get('/lessons', send((req) => ({ lessons: didis.lessons(req.query.language) })));
-  r.get('/config', send(() => ({ phoneSignIn: Boolean(firebase && webConfig.firebase), voiceNotes: Boolean(stt), push: Boolean(push?.enabled && webConfig.firebase && webConfig.vapidKey), firebase: webConfig.firebase ?? null, vapidKey: webConfig.vapidKey ?? null })));
+  r.get('/config', send(() => ({ phoneSignIn: Boolean(firebase && webConfig.firebase), voiceNotes: Boolean(stt), doctorNotes: Boolean(doctorNotes), circles: Boolean(sangat), push: Boolean(push?.enabled && webConfig.firebase && webConfig.vapidKey), firebase: webConfig.firebase ?? null, vapidKey: webConfig.vapidKey ?? null })));
   const phoneFrom = async (idToken) => {
     if (!firebase || typeof idToken !== 'string') return null;
     try { return (await firebase.verifyIdToken(idToken)).phone; } catch { return null; }
@@ -79,6 +80,7 @@ export function mountDidis(app, { didis, config, firebase = null, stt = null, pu
     } catch (err) { next(err); }
   });
   r.post('/push', send((req) => push ? push.register({ token: req.body?.token, didiId: req.didi.id }) : Promise.reject(Object.assign(new Error('Notifications are not set up here.'), { status: 400 }))));
+  mountDidiFeatures(r, { didis, doctorNotes, sangat });
   r.get('/earnings', send((req) => didis.earnings(req.didi, /^\d{4}-\d{2}$/.test(req.query.month ?? '') ? req.query.month : undefined)));
   app.use('/didi-api', r);
 }

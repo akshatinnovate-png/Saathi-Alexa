@@ -84,6 +84,53 @@
             </form>
             <p class="small" id="calls-status" aria-live="polite"></p>
           </article>
+          <article class="glass span-6" aria-labelledby="scan-h" id="scan-card"><div class="card-head"><h3 id="scan-h">Saathi Scan</h3></div>
+            <p class="muted small">Photograph a prescription or a tablet strip. Saathi reads it, warns about duplicates and risky pairs, and adds only what you tick.</p>
+            <label class="pill-action file-pick">Take or choose a photo <input type="file" id="scan-file" accept="image/*" capture="environment"></label>
+            <p class="small" id="scan-status" aria-live="polite"></p>
+            <form class="calls-form" id="scan-form" hidden><ul class="feature-list" id="scan-list"></ul><ul class="insight-list" id="scan-checks"></ul><div class="calls-actions"><button class="pill-action" type="submit">Add the ticked medicines</button></div></form>
+          </article>
+          <article class="glass span-6" aria-labelledby="notes-h" id="notes-card"><div class="card-head"><h3 id="notes-h">Doctor Notes</h3></div>
+            <p class="muted small">Record the doctor visit (ask the doctor first). Saathi writes a short summary in every family language and proposes medicine changes for you to confirm.</p>
+            <label class="inline-check"><input type="checkbox" id="notes-consent"> The doctor agreed to the recording</label>
+            <div class="calls-actions"><button class="pill-action" type="button" id="notes-record" aria-pressed="false">Start recording</button><label class="text-action file-pick">or upload a recording <input type="file" id="notes-file" accept="audio/*"></label></div>
+            <p class="small" id="notes-status" aria-live="polite"></p>
+            <div id="notes-list" class="feature-stack"></div>
+          </article>
+          <article class="glass span-6" aria-labelledby="haq-h" id="haq-card"><div class="card-head"><h3 id="haq-h">Saathi Haq</h3></div>
+            <p class="muted small">Benefits and deadlines she should not miss: the pension life certificate, Ayushman Vay Vandana and old-age pensions.</p>
+            <form class="calls-form" id="haq-form">
+              <label>Year of birth <input id="haq-born" type="number" inputmode="numeric" min="1900" max="2000"></label>
+              <label class="inline-check"><input type="checkbox" id="haq-pensioner"> Gets a pension</label>
+              <label>Pension from <select id="haq-from"><option value="">Not sure</option><option value="central">Central government</option><option value="state">State government</option><option value="defence">Defence</option><option value="bank">Bank or other</option></select></label>
+              <label class="inline-check"><input type="checkbox" id="haq-ayushman"> Already has the Ayushman card</label>
+              <label class="inline-check"><input type="checkbox" id="haq-bpl"> Below-poverty-line (BPL) card</label>
+              <label>State <input id="haq-state" type="text" autocomplete="address-level1" placeholder="Maharashtra"></label>
+              <label class="inline-check"><input type="checkbox" id="haq-life-done"> Life certificate done this year</label>
+              <div class="calls-actions"><button class="pill-action" type="submit">Save</button></div>
+            </form>
+            <ul class="feature-list" id="haq-list"></ul>
+            <label class="text-action file-pick">What does this letter say? Photograph it <input type="file" id="haq-letter" accept="image/*" capture="environment"></label>
+            <div id="haq-explain" class="feature-stack" aria-live="polite"></div>
+          </article>
+          <article class="glass span-6" aria-labelledby="sangat-h" id="sangat-card"><div class="card-head"><h3 id="sangat-h">Saathi Sangat</h3></div>
+            <p class="muted small">Daily chai circles for 5 to 8 elders in her language, hosted on Google Meet by a Saathi Didi. She is reminded and joins with one tap.</p>
+            <ul class="feature-list" id="sangat-list"></ul>
+            <p class="small" id="sangat-status" aria-live="polite"></p>
+          </article>
+          <article class="glass span-6" aria-labelledby="raksha-h" id="raksha-card"><div class="card-head"><h3 id="raksha-h">Saathi Raksha</h3></div>
+            <p class="muted small">With the Saathi Android app on her phone, Saathi notices a likely fall (or a long stillness in the day), asks "Are you all right?", and calls the family if she does not answer.</p>
+            <form class="calls-form" id="raksha-form">
+              <label class="inline-check"><input type="checkbox" id="raksha-on"> Watch for falls</label>
+              <label class="inline-check"><input type="checkbox" id="raksha-still"> Also check on long stillness</label>
+              <label>Stillness after (hours) <input id="raksha-hours" type="number" min="1" max="8" value="3"></label>
+              <label>Between <input id="raksha-from" type="time" value="08:00"></label>
+              <label>and <input id="raksha-to" type="time" value="20:00"></label>
+              <div class="calls-actions"><button class="pill-action" type="submit">Save</button></div>
+            </form>
+            <ul class="insight-list" id="raksha-recent"></ul>
+            <p class="small" id="raksha-status" aria-live="polite"></p>
+          </article>
           <article class="glass span-6" aria-labelledby="didis-h" id="didis-card"><div class="card-head"><h3 id="didis-h">Saathi Didis</h3><a class="text-action" href="/didi.html">Become a Didi</a></div>
             <p class="muted small">Verified women from their neighbourhood, trained by Saathi and paid by you straight to UPI: a doctor escort, a visit, a tablet refill or help with the phone.</p>
             <form class="calls-form" id="didi-form">

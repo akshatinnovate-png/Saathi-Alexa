@@ -10,6 +10,7 @@ import { hostHeaderValidation, localhostHostValidation } from '@modelcontextprot
 import { mountMcp } from './mcpRoute.js';
 import { mountAuth } from './authRoutes.js';
 import { mountDidis, mountFamilyDidis } from './didiRoutes.js';
+import { mountFamilyFeatures } from './featureRoutes.js';
 import { apiGuard, mayDo } from './guard.js';
 import { onThisComputer } from '../agent/sahayQueue.js';
 import { isTechHelp, languageOf, askedSahay, instructionFor } from '../agent/techHelp.js';
@@ -21,7 +22,7 @@ import { createReplayGuard, verifySignature, normaliseRingEvent, SIGNATURE_HEADE
 
 const PROTECTED_PAGES = ['/legacy.html', '/doctor-report.html', '/scam-guard.html', '/family.html', '/alexa.html', '/welcome.html', '/scan.html', '/medical-id.html'];
 
-export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null, sahayQueue = null, guide = null, scamNetwork = null, billing = null, calls = null, didis = null, impact = null }) {
+export function createApp({ config, services, simulatorFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, assistantFor, google, familyMail, doorbell, security = null, audit = null, keyring = null, vault = null, sahayQueue = null, guide = null, scamNetwork = null, billing = null, calls = null, didis = null, impact = null, scan = null, doctorNotes = null, haq = null, sangat = null, raksha = null }) {
   const { localBus, store } = services;
   const app = express();
   app.set('trust proxy', config.web?.trustProxy ?? 'loopback');
@@ -144,7 +145,7 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
     } catch (err) { next(err); }
   });
 
-  if (didis) mountDidis(app, { didis, config });
+  if (didis) mountDidis(app, { didis, config, doctorNotes, sangat });
   const publicLimit = rateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: 'draft-7', legacyHeaders: false });
   app.get('/web-config', publicLimit, (_req, res) => res.json({ firebase: null, vapidKey: null, push: false, live: false }));
   app.get('/impact-api', publicLimit, async (_req, res, next) => {
@@ -452,6 +453,7 @@ export function createApp({ config, services, simulatorFor, verifier, optionalVe
   }));
 
   mountFamilyDidis(api, { didis, record, memberOf });
+  mountFamilyFeatures(api, { scan, doctorNotes, haq, sangat, raksha, record, memberOf });
 
   api.get('/plan', wrap(async (req, res) => {
     res.json(billing ? await billing.status(req.householdId) : { enabled: false, paidExtras: 'all' });

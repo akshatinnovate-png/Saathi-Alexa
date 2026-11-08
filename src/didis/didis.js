@@ -266,6 +266,11 @@ export function createDidis({ store, services, translator = null, llm = null, ma
       return (await store.list('didiBookings')).filter((b) => b.didiId === didi.id && !OPEN.includes(b.status)).sort((a, b) => b.at.localeCompare(a.at)).map((b) => bookingView(b));
     },
 
+    async householdOf(didi, bookingId) {
+      const b = await mine(didi.id, bookingId);
+      return { householdId: b.householdId, kind: b.kind, status: b.status };
+    },
+
     async briefing(didi, bookingId) {
       const b = await mine(didi.id, bookingId);
       const facts = await saathiFor(b.householdId).didiBriefingFacts({ share: b.share, appointmentId: b.appointmentId });

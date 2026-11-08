@@ -3,6 +3,7 @@ import { startPhoneSignIn, enablePush } from './firebase-web.js';
 
 const T = {
   en: {
+    docRecord: "Record the doctor's advice", docConsent: 'The doctor agreed to the recording', docStop: 'Stop and send to the family', docSent: 'Sent. The family has the notes.', host: 'Host a chai circle', hostWhy: 'A daily 30-minute Google Meet call for 5 to 8 elders near you. Families pay you each month.', title: 'Circle name', time: 'Time', meet: 'Google Meet link', circleFee: 'Monthly fee per elder (₹)', create: 'Start the circle', members: 'members', monthly: 'This month from circles', topic: "Today's topic",
     sosBtn: 'SOS: I need help', sosConfirm: 'Send an SOS to the family now?', sosSent: 'SOS sent. The family has been told. Call now:', record: 'Record a voice note', stop: 'Stop and write it down', listening: 'Recording… speak now', heard: 'Check the note, then finish the visit.', rateFamily: 'How was this family?', unsafe: 'I do not want visits from this family again', send: 'Send', thanks: 'Thank you.', safety: 'Safety contact (someone from your group who should know if you press SOS)', contactName: 'Their name', contactPhone: 'Their mobile number', save: 'Save', saved: 'Saved.', card: 'My Saathi card', share: 'Share on WhatsApp', download: 'Download', notify: 'Get new requests as notifications', notifyOn: 'Notifications are on.', phoneTitle: 'Already a Didi, or want to join with just your phone?', sendCode: 'Send me a code', code: 'The 6-digit code from the SMS', verify: 'Sign in', phoneOk: 'Your number is verified. Fill in the rest below.', or: 'Or join with the form below', familyStars: 'Family rating',
     language: 'Language', welcome: 'Become a Saathi Didi', pitch: 'Earn by caring for elders in your own neighbourhood: take them to the doctor, visit, pick up their tablets or help with the phone. You set your own fee and are paid straight to your UPI.',
     name: 'Your name', phone: 'Mobile number', city: 'Town or city', area: 'Your neighbourhood (for example: Kothrud, near Karve Road)', speaks: 'Languages you speak', offer: 'Help you offer and your fee (₹)', upi: 'UPI ID for payments (optional)', partner: 'Partner code from your SHG or NGO (optional)',
@@ -14,6 +15,7 @@ const T = {
     kinds: { escort: 'Doctor escort', visit: 'Company visit', refill: 'Tablet refill', tech: 'Help with phone and forms' },
   },
   hi: {
+    docRecord: 'डॉक्टर की सलाह रिकॉर्ड करें', docConsent: 'डॉक्टर ने रिकॉर्डिंग की अनुमति दी', docStop: 'रोकें और परिवार को भेजें', docSent: 'भेज दिया। परिवार के पास नोट्स हैं।', host: 'चाय मंडली चलाइए', hostWhy: 'आपके पास के 5 से 8 बुज़ुर्गों के लिए रोज़ 30 मिनट की Google Meet कॉल। परिवार हर महीने आपको भुगतान करते हैं।', title: 'मंडली का नाम', time: 'समय', meet: 'Google Meet लिंक', circleFee: 'हर बुज़ुर्ग की मासिक फ़ीस (₹)', create: 'मंडली शुरू करें', members: 'सदस्य', monthly: 'इस महीने मंडलियों से', topic: 'आज का विषय',
     sosBtn: 'SOS: मुझे मदद चाहिए', sosConfirm: 'क्या परिवार को अभी SOS भेजें?', sosSent: 'SOS भेज दिया। परिवार को बता दिया गया है। अभी कॉल करें:', record: 'आवाज़ में नोट रिकॉर्ड करें', stop: 'रोकें और लिख दें', listening: 'रिकॉर्ड हो रहा है… अब बोलिए', heard: 'नोट देख लीजिए, फिर विज़िट पूरी कीजिए।', rateFamily: 'यह परिवार कैसा था?', unsafe: 'मैं इस परिवार के यहाँ फिर नहीं जाना चाहती', send: 'भेजें', thanks: 'धन्यवाद।', safety: 'सुरक्षा संपर्क (आपके समूह का कोई व्यक्ति जिसे SOS पर पता चलना चाहिए)', contactName: 'उनका नाम', contactPhone: 'उनका मोबाइल नंबर', save: 'सहेजें', saved: 'सहेज लिया।', card: 'मेरा साथी कार्ड', share: 'WhatsApp पर भेजें', download: 'डाउनलोड करें', notify: 'नए अनुरोध नोटिफ़िकेशन में पाएँ', notifyOn: 'नोटिफ़िकेशन चालू हैं।', phoneTitle: 'पहले से दीदी हैं, या सिर्फ़ फ़ोन से जुड़ना है?', sendCode: 'मुझे कोड भेजें', code: 'SMS में आया 6 अंकों का कोड', verify: 'साइन इन करें', phoneOk: 'आपका नंबर सत्यापित है। बाकी नीचे भरिए।', or: 'या नीचे दिए फ़ॉर्म से जुड़िए', familyStars: 'परिवार की रेटिंग',
     language: 'भाषा', welcome: 'साथी दीदी बनिए', pitch: 'अपने ही मोहल्ले में बुज़ुर्गों की देखभाल करके कमाइए: डॉक्टर के पास ले जाना, मिलने जाना, दवाएँ लाना या फ़ोन में मदद। फ़ीस आप तय करती हैं, पैसे सीधे आपके UPI में।',
     name: 'आपका नाम', phone: 'मोबाइल नंबर', city: 'शहर या कस्बा', area: 'आपका मोहल्ला (जैसे: कोथरूड, कर्वे रोड के पास)', speaks: 'आप कौन-सी भाषाएँ बोलती हैं', offer: 'आप कौन-सी मदद देती हैं और फ़ीस (₹)', upi: 'भुगतान के लिए UPI ID (वैकल्पिक)', partner: 'आपके SHG या NGO का पार्टनर कोड (वैकल्पिक)',
@@ -25,6 +27,7 @@ const T = {
     kinds: { escort: 'डॉक्टर के पास साथ', visit: 'मिलने जाना', refill: 'दवा लाना', tech: 'फ़ोन और फ़ॉर्म में मदद' },
   },
   mr: {
+    docRecord: 'डॉक्टरांचा सल्ला रेकॉर्ड करा', docConsent: 'डॉक्टरांनी रेकॉर्डिंगला परवानगी दिली', docStop: 'थांबवा आणि घरच्यांना पाठवा', docSent: 'पाठवलं. घरच्यांकडे नोंदी आहेत.', host: 'चहा मंडळ चालवा', hostWhy: 'तुमच्या जवळच्या 5 ते 8 वृद्धांसाठी रोज 30 मिनिटांची Google Meet कॉल. घरचे दर महिन्याला तुम्हाला पैसे देतात.', title: 'मंडळाचं नाव', time: 'वेळ', meet: 'Google Meet लिंक', circleFee: 'प्रत्येक वृद्धाची मासिक फी (₹)', create: 'मंडळ सुरू करा', members: 'सदस्य', monthly: 'या महिन्यात मंडळांतून', topic: 'आजचा विषय',
     sosBtn: 'SOS: मला मदत हवी आहे', sosConfirm: 'घरच्यांना आत्ता SOS पाठवायचा?', sosSent: 'SOS पाठवला. घरच्यांना कळवलं आहे. आत्ता फोन करा:', record: 'आवाजात नोंद करा', stop: 'थांबवा आणि लिहून द्या', listening: 'रेकॉर्ड होत आहे… आता बोला', heard: 'नोंद तपासा, मग भेट पूर्ण करा.', rateFamily: 'हे कुटुंब कसं होतं?', unsafe: 'मला या कुटुंबाकडे पुन्हा जायचं नाही', send: 'पाठवा', thanks: 'धन्यवाद.', safety: 'सुरक्षा संपर्क (तुमच्या गटातील कोणी, ज्यांना SOS कळायला हवा)', contactName: 'त्यांचं नाव', contactPhone: 'त्यांचा मोबाइल नंबर', save: 'जतन करा', saved: 'जतन केलं.', card: 'माझं साथी कार्ड', share: 'WhatsApp वर पाठवा', download: 'डाउनलोड करा', notify: 'नव्या विनंत्या सूचनांमध्ये मिळवा', notifyOn: 'सूचना चालू आहेत.', phoneTitle: 'आधीच दीदी आहात, किंवा फक्त फोनने जोडायचं आहे?', sendCode: 'मला कोड पाठवा', code: 'SMS मधला 6 अंकी कोड', verify: 'साइन इन करा', phoneOk: 'तुमचा नंबर पडताळला आहे. बाकी खाली भरा.', or: 'किंवा खालच्या फॉर्मने जोडा', familyStars: 'कुटुंबाचं रेटिंग',
     language: 'भाषा', welcome: 'साथी दीदी व्हा', pitch: 'आपल्याच परिसरात वृद्धांची काळजी घेऊन कमवा: डॉक्टरकडे नेणं, भेटायला जाणं, गोळ्या आणणं किंवा फोनमध्ये मदत. फी तुम्ही ठरवता, पैसे थेट तुमच्या UPI मध्ये.',
     name: 'तुमचं नाव', phone: 'मोबाइल नंबर', city: 'गाव किंवा शहर', area: 'तुमचा परिसर (उदा. कोथरूड, कर्वे रोडजवळ)', speaks: 'तुम्ही कोणत्या भाषा बोलता', offer: 'तुम्ही देत असलेली मदत आणि फी (₹)', upi: 'पैशांसाठी UPI ID (ऐच्छिक)', partner: 'तुमच्या बचत गट किंवा NGO चा पार्टनर कोड (ऐच्छिक)',
@@ -144,6 +147,68 @@ function lessonCard(lesson, done, refresh) {
   return el('article', { class: 'dd-card' }, el('h3', {}, `${done ? '✓ ' : ''}${lesson.title}`), el('p', {}, lesson.text), form);
 }
 
+function doctorNotesBox(b, act) {
+  const s = t();
+  const consent = el('input', { type: 'checkbox', name: 'doc-consent' });
+  const out = el('p', { class: 'dd-muted', role: 'status' });
+  let rec = null;
+  const btn = el('button', { class: 'dd-btn soft', type: 'button', 'aria-pressed': 'false' }, s.docRecord);
+  btn.addEventListener('click', act(async () => {
+    if (rec) { rec.stop(); return; }
+    if (!consent.checked) { out.textContent = s.docConsent; return; }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const type = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/ogg;codecs=opus';
+    const chunks = [];
+    rec = new MediaRecorder(stream, { mimeType: type, audioBitsPerSecond: 32000 });
+    rec.ondataavailable = (e) => chunks.push(e.data);
+    rec.onstop = act(async () => {
+      stream.getTracks().forEach((tr) => tr.stop());
+      rec = null;
+      btn.textContent = s.docRecord;
+      btn.setAttribute('aria-pressed', 'false');
+      const res = await fetch(`/didi-api/bookings/${b.id}/doctor-notes?consent=yes`, { method: 'POST', headers: { 'content-type': type.split(';')[0] }, body: new Blob(chunks, { type: type.split(';')[0] }) });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? 'That did not work.');
+      out.textContent = s.docSent;
+    });
+    rec.start(1000);
+    btn.textContent = s.docStop;
+    btn.setAttribute('aria-pressed', 'true');
+  }));
+  return el('fieldset', {}, el('legend', {}, s.docRecord), el('label', { class: 'dd-check' }, consent, s.docConsent), el('div', { class: 'dd-actions' }, btn), out);
+}
+
+async function circlesSection() {
+  const s = t();
+  let mine;
+  try { mine = await call('/circles'); } catch { return null; }
+  const error = el('p', { class: 'dd-error', role: 'alert' });
+  const field = (label, attrs) => el('label', {}, label, el('input', attrs));
+  const form = el('form', { class: 'dd-form' },
+    field(s.title, { name: 'title', value: 'Chai and stories' }),
+    field(s.time, { name: 'time', type: 'time', value: '17:00', required: true }),
+    field(s.meet, { name: 'meetLink', type: 'url', placeholder: 'https://meet.google.com/abc-defg-hij', required: true }),
+    field(s.circleFee, { name: 'fee', type: 'number', min: '0', step: '10', value: '200' }),
+    error, el('button', { class: 'dd-btn', type: 'submit' }, s.create));
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = new FormData(form);
+    try { await call('/circles', { title: f.get('title'), time: f.get('time'), meetLink: f.get('meetLink'), fee: Number(f.get('fee')), language: lang }); render(); } catch (err) { error.textContent = err.message; }
+  });
+  const list = mine.circles.map((c) => {
+    const topic = el('p', { class: 'dd-muted', role: 'status' });
+    return el('article', { class: 'dd-card' },
+      el('h3', {}, `${c.title} · ${c.time}`),
+      el('p', { class: 'dd-muted' }, `${c.members} ${s.members} · ₹${c.fee}`),
+      el('div', { class: 'dd-actions' },
+        el('a', { class: 'dd-btn go', href: c.meetLink, target: '_blank', rel: 'noopener' }, 'Google Meet'),
+        el('button', { class: 'dd-btn soft', type: 'button', onclick: async () => { const x = await call(`/circles/${c.id}/topic`); topic.textContent = [x.topic, ...x.questions].join(' · '); } }, s.topic)),
+      topic);
+  });
+  return [el('section', { class: 'dd-card', 'aria-labelledby': 'host' }, el('h2', { id: 'host' }, s.host), el('p', { class: 'dd-muted' }, s.hostWhy),
+    mine.monthly ? el('p', {}, `${s.monthly}: ₹${mine.monthly}`) : null, form), ...list];
+}
+
 function bookingCard(b, refresh) {
   const s = t();
   const msg = el('p', { class: 'dd-error', role: 'alert' });
@@ -194,6 +259,7 @@ function bookingCard(b, refresh) {
       voiceStatus.textContent = s.listening;
     }));
     finish = el('form', { class: 'dd-form' }, el('label', {}, s.note, note), ...(cfg.voiceNotes ? [el('div', { class: 'dd-actions' }, recBtn), voiceStatus] : []), el('button', { class: 'dd-btn go', type: 'submit' }, s.checkOut));
+    if (cfg.doctorNotes && b.kind === 'escort') finish.prepend(doctorNotesBox(b, act));
     finish.addEventListener('submit', (e) => { e.preventDefault(); act(async () => { await call(`/bookings/${b.id}/check-out`, { note: note.value, language: lang }); refresh(); })(); });
   }
   let rateForm = null;
@@ -243,6 +309,10 @@ async function dashboard(me) {
   if (bookings.length) {
     parts.push(el('h2', { class: 'dd-section' }, s.mine));
     parts.push(...bookings.map((b) => bookingCard(b, refresh)));
+  }
+  if (me.ready && cfg.circles) {
+    const circles = await circlesSection();
+    if (circles) parts.push(...circles);
   }
   const cName = el('input', { name: 'contactName', value: me.safetyContact?.name ?? '' });
   const cPhone = el('input', { name: 'contactPhone', type: 'tel', inputmode: 'tel', value: me.safetyContact?.phone ?? '' });

@@ -10,6 +10,11 @@ import { createFileStore } from '../src/local/fileStore.js';
 import { seedData } from '../src/domain/seed.js';
 import { createDidis } from '../src/didis/didis.js';
 import { createImpact } from '../src/domain/impact.js';
+import { createScan } from '../src/features/scan.js';
+import { createDoctorNotes } from '../src/features/doctorNotes.js';
+import { createHaq } from '../src/features/haq.js';
+import { createSangat } from '../src/features/sangat.js';
+import { createRaksha } from '../src/features/raksha.js';
 
 const require = createRequire(import.meta.url);
 const axeSource = readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
@@ -24,6 +29,11 @@ const app = createApp({
   services,
   didis: createDidis({ store: services.store, services }),
   impact: createImpact({ services, store: services.store, includeDemo: true }),
+  scan: createScan({ llm: null, services }),
+  doctorNotes: createDoctorNotes({ llm: null, services, translator: services.translator }),
+  haq: createHaq({ llm: null, services, translator: services.translator }),
+  sangat: createSangat({ store: services.store, services, llm: null }),
+  raksha: createRaksha({ services }),
   simulatorFor: async () => ({ turn: (...a) => simulator.turn(...a), answer: (...a) => simulator.answer(...a), reset: () => {} }),
   assistantFor: async () => assistant,
 });
@@ -68,6 +78,9 @@ const scenarios = [
   { name: 'Saathi Didi sign-up, phone width', path: '/didi.html', width: 390, wait: '#join-title' },
   { name: 'Walk the house', path: '/scan.html' },
   { name: 'Walk the house, drawing by hand', path: '/scan.html', click: '#start-draw' },
+  { name: 'Family app, Scan, Doctor Notes, Haq, Sangat and Raksha', path: '/family.html#care', wait: '#raksha-card' },
+  { name: 'Family app, new features, phone width', path: '/family.html#care', width: 390, wait: '#raksha-card' },
+  { name: 'Saathi voice screen, Raksha asking', path: '/alexa.html', raksha: true },
 ];
 
 let failures = 0;
@@ -82,6 +95,15 @@ for (const s of scenarios) {
   if (s.click) await page.click(s.click);
   if (s.after) await page.waitForSelector(s.after);
   await page.waitForTimeout(s.settle ?? 800);
+  if (s.raksha) {
+    await page.evaluate(() => {
+      document.getElementById('raksha-q').textContent = 'Are you all right? Tap if you are fine.';
+      document.getElementById('raksha-count').textContent = '45 seconds';
+      document.getElementById('raksha-fine').textContent = "I'm fine";
+      document.getElementById('raksha-help').textContent = 'I need help';
+      document.getElementById('raksha').hidden = false;
+    });
+  }
   if (s.confirm) {
     await page.fill('#talk-input', 'Tell Riya that I love her');
     await page.press('#talk-input', 'Enter');

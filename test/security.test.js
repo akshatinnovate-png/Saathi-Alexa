@@ -258,7 +258,8 @@ test('two-step sign-in: TOTP with replay protection, recovery codes that work on
   const secret = started.json.secret.replace(/\s/g, '');
   const step = () => Math.floor(Date.now() / 30000);
   assert.equal((await anand.call('/api/security/totp/confirm', { method: 'POST', body: { code: '000000' === totpAt(secret, step()) ? '111111' : '000000' } })).status, 400);
-  const confirmed = await anand.call('/api/security/totp/confirm', { method: 'POST', body: { code: totpAt(secret, step()) } });
+  const usedCode = totpAt(secret, step());
+  const confirmed = await anand.call('/api/security/totp/confirm', { method: 'POST', body: { code: usedCode } });
   assert.equal(confirmed.json.recoveryCodes.length, 10);
   const recovery = confirmed.json.recoveryCodes;
   const stored = await accounts.raw('anand@saathi.demo');
@@ -268,7 +269,7 @@ test('two-step sign-in: TOTP with replay protection, recovery codes that work on
   const half = await login('anand@saathi.demo');
   assert.deepEqual(half.out.json, { mfa: true });
   assert.equal((await half.call('/api/status')).status, 401);
-  assert.equal((await half.call('/auth/login/mfa', { method: 'POST', body: { code: totpAt(secret, step()) } })).status, 400, 'a code already used must not work again');
+  assert.equal((await half.call('/auth/login/mfa', { method: 'POST', body: { code: usedCode } })).status, 400, 'a code already used must not work again');
   assert.equal((await half.call('/auth/login/mfa', { method: 'POST', body: { code: recovery[0] } })).status, 200);
   assert.equal((await half.call('/api/status')).status, 200);
 

@@ -11,4 +11,10 @@
     <string name="problem_certificate">या पत्त्याचे सुरक्षा प्रमाणपत्र योग्य नाही, म्हणून कुटुंबाच्या सुरक्षेसाठी ॲप थांबले.</string>
     <string name="try_again">पुन्हा प्रयत्न करा</string>
     <string name="change_address">पत्ता बदला</string>
+    <string name="raksha_watch_channel">साथी रक्षा</string>
+    <string name="raksha_watching">साथी रक्षा पडण्यावर लक्ष ठेवत आहे</string>
+    <string name="raksha_ask_title">तुम्ही ठीक आहात ना?</string>
+    <string name="raksha_ask_text">साथी तुमची चौकशी करत आहे. ठीक असाल तर \"मी ठीक आहे\" दाबा, नाहीतर घरच्यांना कळवलं जाईल.</string>
+    <string name="raksha_fine">मी ठीक आहे</string>
+    <string name="raksha_ask_channel">तुम्ही ठीक आहात ना?</string>
 </resources>
