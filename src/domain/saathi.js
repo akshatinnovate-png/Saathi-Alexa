@@ -365,7 +365,7 @@ export function createSaathi(deps) {
 
   const DIDI_KIND = { escort: 'take her to the doctor', visit: 'visit her', refill: 'pick up her tablets', tech: 'help with the phone and forms' };
 
-  async function didiUpdate({ stage, didiName, kind, at = null, note = null, noteLanguage = 'en' }) {
+  async function didiUpdate({ stage, didiName, kind, at = null, note = null, noteLanguage = 'en', safetyContact = null }) {
     const me = await elder();
     const { lang } = await voice();
     const p = pronounsOf(me);
@@ -389,6 +389,16 @@ export function createSaathi(deps) {
       const english = note ? (noteLanguage === 'en' ? note : (await translateTo(note, 'en', noteLanguage)).text) : 'The visit is complete.';
       await notifyCircle({ audience: 'family', severity: 'info', subject: `${didiName} visited ${me.preferredName}`, english: `${didiName} finished the visit (${what}). Her note: "${english}"` });
       return { told: true, english };
+    }
+    if (stage === 'sos') {
+      const english = note ? (noteLanguage === 'en' ? note : (await translateTo(note, 'en', noteLanguage)).text) : '';
+      const contact = safetyContact?.phone ? ` Her safety contact is ${safetyContact.name || 'her group'} on ${safetyContact.phone}.` : '';
+      await notifyCircle({ audience: 'everyone', severity: 'critical', subject: `${didiName} needs help at ${me.preferredName}'s home`, english: `${didiName}, the Saathi Didi visiting ${me.preferredName}, pressed SOS.${english ? ` She said: "${english}".` : ''} Call her or someone nearby now. In an emergency call ${emergencyNumberFor(me) ?? '112'}.${contact}` });
+      return { told: true, english };
+    }
+    if (stage === 'overdue') {
+      await notifyCircle({ audience: 'family', severity: 'high', subject: `${didiName} has not finished the visit yet`, english: `${didiName} checked in at ${me.preferredName}'s home but has not checked out in the expected time. Please call to make sure everyone is all right.` });
+      return { told: true };
     }
     throw invalid('Unknown Didi update.');
   }

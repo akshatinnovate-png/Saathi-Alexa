@@ -15,6 +15,7 @@ import { createScamNetwork } from './domain/scamNetwork.js';
 import { createBilling } from './billing/billing.js';
 import { createCalls } from './calls/calls.js';
 import { createDidis } from './didis/didis.js';
+import { createImpact } from './domain/impact.js';
 import { createVerifier, createHouseholdVerifier } from './auth/verifier.js';
 import { createRingSimulator } from './ring/webhook.js';
 import { createAccounts } from './accounts/accounts.js';
@@ -170,7 +171,7 @@ const guide = createGuide({
   } : null,
 });
 const didis = createDidis({ store: services.store, services, translator: services.translator, llm, partnerCodes: (process.env.SAATHI_DIDI_PARTNER_CODES ?? '').split(',') });
-const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit, keyring, vault: familyVault, sahayQueue, guide, scamNetwork, billing: billing.enabled ? billing : null, calls: calls.enabled ? calls : null, didis });
+const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit, keyring, vault: familyVault, sahayQueue, guide, scamNetwork, billing: billing.enabled ? billing : null, calls: calls.enabled ? calls : null, didis, impact: createImpact({ services, store: services.store, includeDemo: config.demo }) });
 
 doorbell.startAll().catch((err) => console.error('Ring listeners failed to start:', err.message));
 
@@ -212,6 +213,7 @@ setInterval(async () => {
     }
   }
   await calls.sweep(await services.householdIds()).catch((err) => console.error('calls sweep failed', err));
+  await didis.sweepOverdue().catch((err) => console.error('Didi overdue sweep failed', err));
 }, 60 * 1000).unref();
 
 setInterval(async () => {

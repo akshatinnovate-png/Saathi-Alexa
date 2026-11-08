@@ -29,3 +29,6 @@
 .dd-link { word-break: break-all; background: #faf6ee; padding: 10px; border-radius: var(--radius-sm); font-family: ui-monospace, monospace; font-size: .9rem; }
 :root[data-contrast="high"] .dd-body, :root[data-contrast="high"] .dd-card { background: #fff; color: #000; }
 .dd-section { margin: 10px 0 0; font: 500 1.4rem var(--serif); }
+.dd-btn.sos { background: var(--red); color: var(--white); }
+.dd-cardimg { width: 100%; max-width: 420px; border-radius: var(--radius-sm); border: 1px solid #e3d8c6; justify-self: center; }
+.dd-sos-out:empty { display: none; }

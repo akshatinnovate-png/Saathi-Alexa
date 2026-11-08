@@ -1,0 +1,19 @@
+.im-body { background: var(--cream); color: var(--ink); min-height: 100svh; margin: 0; font-family: var(--sans); }
+.im-top, .im-main { max-width: 960px; margin: 0 auto; padding: 24px 16px 8px; }
+.im-main { display: grid; gap: 18px; padding-bottom: 56px; }
+.im-back { color: var(--blue); font-weight: 600; }
+.im-title { font: 400 2.6rem var(--serif); margin: 12px 0 4px; }
+.im-sub, .im-muted { color: #4a4f5c; margin: 0; }
+.im-hero h2 { font: 400 1.8rem var(--serif); margin: 0; }
+.im-hero b { font-size: 3.2rem; color: var(--orange-ink); }
+.im-card { background: var(--white); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); display: grid; gap: 14px; }
+.im-card h2 { margin: 0; font: 500 1.5rem var(--serif); }
+.im-card h3 { margin: 6px 0 0; font-size: 1rem; }
+.im-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.im-stat { background: #faf6ee; border-radius: var(--radius-sm); padding: 14px; display: grid; gap: 2px; }
+.im-stat b { font: 500 2rem var(--serif); }
+.im-stat small { color: #4a4f5c; }
+.im-chart { width: 100%; height: auto; }
+.im-bar { fill: var(--green); }
+.im-axis, .im-value { font: 600 13px var(--sans); fill: #4a4f5c; }
+:root[data-contrast="high"] .im-body, :root[data-contrast="high"] .im-card { background: #fff; color: #000; }

@@ -3,6 +3,13 @@
 
 ## [Unreleased]
 
+### Didi safety and impact
+- **SOS during every visit**: the whole family circle gets a critical alert, and the Didi gets one-tap calls to 112 and her own safety contact (someone from her SHG), which she adds at sign-up or later.
+- **Overdue visits**: if a Didi has not checked out long after the usual time for that kind of help, the family is asked to check on everyone.
+- **Didis rate families too**, see a family's rating before accepting, and can stop seeing requests from a family.
+- **Her Saathi card**: a profile card (name, skills, languages, rating, verified badge) to share on WhatsApp.
+- **Impact dashboard** (`/impact.html`): live totals for elders looked after, tablets confirmed, missed doses caught, calls for help answered, scams stopped and money earned by Didis, with no personal details.
+
 ### Also
 - **Gemini support**: set `GEMINI_API_KEY` to run the assistants on Gemini's free tier (`gemini-2.5-flash` by default), with tool calls and thought signatures kept across turns.
 - When Saathi runs without its local key broker (for example on DynamoDB) and no Ring webhook secret is set, it now derives a private one from the session secret instead of using the shared default.

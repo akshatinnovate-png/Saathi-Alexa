@@ -49,12 +49,30 @@ const clean = (v, max = 120) => (typeof v === 'string' ? v.trim().slice(0, max) 
 const bad = (message, status = 400) => Object.assign(new Error(message), { status });
 const langOf = (l) => (LANGS.includes(l) ? l : 'en');
 
+const esc = (v) => String(v ?? '').replace(/[<>&"']/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[c]);
+
+export function cardSvg({ name, area, skills, languages, rating, visits, verified }) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1000" viewBox="0 0 800 1000">
+<rect width="800" height="1000" fill="#f6efe2"/><rect x="24" y="24" width="752" height="952" rx="36" fill="none" stroke="#e98a1f" stroke-width="6"/>
+<circle cx="400" cy="250" r="120" fill="#fbe7cf"/><text x="400" y="290" font-size="120" text-anchor="middle" font-family="serif" fill="#7a3e06">${esc(String(name).trim().charAt(0).toUpperCase())}</text>
+<text x="400" y="460" font-size="64" text-anchor="middle" font-family="serif" fill="#16181d">${esc(name)}</text>
+<text x="400" y="525" font-size="34" text-anchor="middle" font-family="sans-serif" fill="#12703a">Saathi Didi${verified ? ' · Verified' : ''}</text>
+<text x="400" y="610" font-size="30" text-anchor="middle" font-family="sans-serif" fill="#16181d">${esc(skills)}</text>
+<text x="400" y="665" font-size="30" text-anchor="middle" font-family="sans-serif" fill="#4a4f5c">Speaks ${esc(languages)}</text>
+<text x="400" y="720" font-size="30" text-anchor="middle" font-family="sans-serif" fill="#4a4f5c">${esc(area)}</text>
+<text x="400" y="800" font-size="30" text-anchor="middle" font-family="sans-serif" fill="#7a3e06">${rating ? `★ ${esc(rating)} · ` : ''}${esc(visits)} visits</text>
+<text x="400" y="920" font-size="26" text-anchor="middle" font-family="sans-serif" fill="#4a4f5c">Book me in the Saathi family app</text>
+</svg>`;
+}
+
 export function upiLink({ upiId, name, amount, note }) {
   const params = new URLSearchParams({ pa: upiId, pn: name, cu: 'INR', ...(amount ? { am: String(amount) } : {}), ...(note ? { tn: note.slice(0, 50) } : {}) });
   return `upi://pay?${params}`;
 }
 
-export function createDidis({ store, services, translator = null, llm = null, maps = null, clock = () => new Date(), partnerCodes = [], maxMinutes = 40 }) {
+export const VISIT_MINUTES = { escort: 240, visit: 150, refill: 120, tech: 120 };
+
+export function createDidis({ store, services, translator = null, llm = null, maps = null, images = null, onEvent = async () => {}, clock = () => new Date(), partnerCodes = [], maxMinutes = 40 }) {
   const codes = new Set(partnerCodes.map((c) => String(c).trim()).filter(Boolean));
   const now = () => clock().toISOString();
   const saathiFor = (householdId) => services.forHousehold(householdId);
@@ -90,6 +108,7 @@ export function createDidis({ store, services, translator = null, llm = null, ma
       didi: didi ? { id: didi.id, name: didi.name, upiId: didi.upiId ?? null } : null,
       fee: b.fee, note: b.visitNote ?? null, paidAt: b.paidAt ?? null, rating: b.rating ?? null,
       checkInAt: b.checkInAt ?? null, checkOutAt: b.checkOutAt ?? null, createdAt: b.createdAt,
+      familyRating: b.familyRating ?? null, sos: (b.sos ?? []).length,
       payLink: didi?.upiId && b.status === 'done' && !b.paidAt ? upiLink({ upiId: didi.upiId, name: didi.name, amount: b.fee, note: `Saathi ${KIND_NAME[b.kind]}` }) : null,
     };
   }
@@ -105,6 +124,9 @@ export function createDidis({ store, services, translator = null, llm = null, ma
       const phone = clean(input.phone, 20).replace(/[^\d+]/g, '');
       const city = clean(input.city, 60);
       const area = clean(input.area, 120);
+      const contactName = clean(input.safetyContact?.name, 60);
+      const contactPhone = clean(input.safetyContact?.phone, 20).replace(/[^\d+]/g, '');
+      if (contactPhone && !/^\+?\d{10,14}$/.test(contactPhone)) throw bad('Check your safety contact\'s number.');
       if (!name) throw bad('Tell us your name.');
       if (!/^\+?\d{10,14}$/.test(phone)) throw bad('Enter your mobile number.');
       if (!city) throw bad('Tell us your town or city.');
@@ -119,6 +141,8 @@ export function createDidis({ store, services, translator = null, llm = null, ma
       const token = `didi_${randomBytes(24).toString('base64url')}`;
       const didi = {
         id: `didi-${randomUUID().slice(0, 8)}`, name, phone, city, area: area || null, languages: languages.length ? languages : ['hi'], skills, rates, upiId: upiId || null,
+        safetyContact: contactPhone ? { name: contactName || null, phone: contactPhone } : null,
+        phoneVerified: Boolean(input.verifiedPhone && input.verifiedPhone === phone), blockedHouseholds: [],
         verified: codes.has(clean(input.partnerCode, 40)), lessons: [], visits: 0, ratings: [], reviews: [], createdAt: now(),
       };
       await store.put('didis', didi);
@@ -132,7 +156,28 @@ export function createDidis({ store, services, translator = null, llm = null, ma
       return t ? store.get('didis', t.didiId) : null;
     },
 
-    me: (didi) => ({ ...publicView(didi), phone: didi.phone, upiId: didi.upiId, lessonsDone: didi.lessons ?? [] }),
+    me: (didi) => ({ ...publicView(didi), phone: didi.phone, upiId: didi.upiId, lessonsDone: didi.lessons ?? [], safetyContact: didi.safetyContact ?? null, phoneVerified: Boolean(didi.phoneVerified) }),
+
+    async byPhone(phone) {
+      const p = String(phone ?? '').replace(/[^\d+]/g, '');
+      if (!p) return null;
+      const tail = p.slice(-10);
+      return (await store.list('didis')).find((d) => d.phone === p || d.phone.slice(-10) === tail) ?? null;
+    },
+
+    async newToken(didi) {
+      const token = `didi_${randomBytes(24).toString('base64url')}`;
+      await store.put('didiTokens', { id: hash(token), didiId: didi.id, createdAt: now() });
+      if (!didi.phoneVerified) await store.update('didis', didi.id, { phoneVerified: true });
+      return token;
+    },
+
+    async updateSafety(didi, { name, phone } = {}) {
+      const p = clean(phone, 20).replace(/[^\d+]/g, '');
+      if (p && !/^\+?\d{10,14}$/.test(p)) throw bad('Check your safety contact\'s number.');
+      await store.update('didis', didi.id, { safetyContact: p ? { name: clean(name, 60) || null, phone: p } : null });
+      return { safetyContact: p ? { name: clean(name, 60) || null, phone: p } : null };
+    },
 
     async answerLesson(didi, lessonId, answer) {
       const lesson = LESSONS.find((l) => l.id === lessonId);
@@ -184,6 +229,8 @@ export function createDidis({ store, services, translator = null, llm = null, ma
         bookedBy: by, createdAt: now(),
       };
       await store.put('didiBookings', booking);
+      const nearby = didi ? [didi.id] : (await store.list('didis')).filter((d) => isReady(d) && d.skills.includes(kind) && d.city.toLowerCase() === String(booking.city).toLowerCase() && !(d.blockedHouseholds ?? []).includes(householdId)).map((d) => d.id);
+      await onEvent('offer', { booking: bookingView(booking, didi), didiIds: nearby }).catch(() => {});
       return bookingView(booking, didi);
     },
 
@@ -194,9 +241,15 @@ export function createDidis({ store, services, translator = null, llm = null, ma
 
     async offers(didi) {
       if (!isReady(didi)) return [];
-      const list = (await store.list('didiBookings')).filter((b) => (b.status === 'offered' && b.didiId === didi.id)
-        || (b.status === 'open' && b.city.toLowerCase() === didi.city.toLowerCase() && didi.skills.includes(b.kind)));
-      return list.sort((a, b) => a.at.localeCompare(b.at)).map((b) => ({ ...bookingView(b), fee: b.fee ?? didi.rates[b.kind] }));
+      const all = await store.list('didiBookings');
+      const blocked = didi.blockedHouseholds ?? [];
+      const list = all.filter((b) => !blocked.includes(b.householdId) && ((b.status === 'offered' && b.didiId === didi.id)
+        || (b.status === 'open' && b.city.toLowerCase() === didi.city.toLowerCase() && didi.skills.includes(b.kind))));
+      const familyRating = (householdId) => {
+        const r = all.filter((b) => b.householdId === householdId && b.familyRating).map((b) => b.familyRating.stars);
+        return r.length ? { stars: Math.round((r.reduce((a, x) => a + x, 0) / r.length) * 10) / 10, count: r.length } : null;
+      };
+      return list.sort((a, b) => a.at.localeCompare(b.at)).map((b) => ({ ...bookingView(b), fee: b.fee ?? didi.rates[b.kind], familyRating: familyRating(b.householdId) }));
     },
 
     async accept(didi, bookingId) {
@@ -257,6 +310,54 @@ export function createDidis({ store, services, translator = null, llm = null, ma
       const updated = await store.update('didiBookings', b.id, { status: 'done', checkOutAt: now(), visitNote: text ? { text, language: lang, english: out.english } : null });
       await store.update('didis', didi.id, { visits: (didi.visits ?? 0) + 1 });
       return bookingView(updated);
+    },
+
+    async sos(didi, bookingId, { note, language } = {}) {
+      const b = await mine(didi.id, bookingId);
+      if (!['accepted', 'in-progress'].includes(b.status)) throw bad('SOS works during an accepted visit. In an emergency call 112.', 409);
+      const text = clean(note, 300);
+      const lang = langOf(language ?? didi.languages[0]);
+      await saathiFor(b.householdId).didiUpdate({ stage: 'sos', didiName: didi.name, kind: b.kind, note: text || null, noteLanguage: lang, safetyContact: didi.safetyContact });
+      await store.update('didiBookings', b.id, { sos: [...(b.sos ?? []), { at: now(), note: text || null }] });
+      await onEvent('sos', { didi: { id: didi.id, name: didi.name, phone: didi.phone, safetyContact: didi.safetyContact ?? null }, bookingId: b.id, householdId: b.householdId }).catch(() => {});
+      return { sent: true, call: [{ label: 'Emergency', number: '112' }, ...(didi.safetyContact?.phone ? [{ label: didi.safetyContact.name ?? 'Safety contact', number: didi.safetyContact.phone }] : [])] };
+    },
+
+    async rateFamily(didi, bookingId, { stars, note, block = false } = {}) {
+      const b = await mine(didi.id, bookingId);
+      if (b.status !== 'done') throw bad('Rate the family after the visit.', 409);
+      if (b.familyRating) throw bad('You already rated this visit.', 409);
+      const n = Math.round(Number(stars));
+      if (!(n >= 1 && n <= 5)) throw bad('Choose 1 to 5 stars.');
+      await store.update('didiBookings', b.id, { familyRating: { stars: n, note: clean(note, 200) || null } });
+      if (block) await store.update('didis', didi.id, { blockedHouseholds: [...new Set([...(didi.blockedHouseholds ?? []), b.householdId])] });
+      return { rated: n, blocked: Boolean(block) };
+    },
+
+    async sweepOverdue() {
+      const late = (await store.list('didiBookings')).filter((b) => b.status === 'in-progress' && !b.overdueAlertedAt && b.checkInAt
+        && clock().getTime() - Date.parse(b.checkInAt) > (VISIT_MINUTES[b.kind] ?? 150) * 60_000);
+      for (const b of late) {
+        const didi = await store.get('didis', b.didiId);
+        await saathiFor(b.householdId).didiUpdate({ stage: 'overdue', didiName: didi?.name ?? 'The Didi', kind: b.kind });
+        await store.update('didiBookings', b.id, { overdueAlertedAt: now() });
+        await onEvent('overdue', { didiIds: [b.didiId], bookingId: b.id }).catch(() => {});
+      }
+      return late.length;
+    },
+
+    async card(didi) {
+      const view = publicView(didi);
+      const skills = didi.skills.map((k) => KIND_NAME[k]).join(', ');
+      const langNames = { en: 'English', hi: 'Hindi', mr: 'Marathi' };
+      const lines = { name: didi.name, area: [didi.area, didi.city].filter(Boolean).join(', '), skills, languages: didi.languages.map((l) => langNames[l] ?? l).join(', '), rating: view.rating, visits: view.visits, verified: didi.verified };
+      if (images) {
+        try {
+          const img = await images.generate(`A warm, dignified illustrated profile card (4:5) for a woman caregiver in India named ${lines.name}, a verified "Saathi Didi". Folk-art style border with marigolds and jasmine, cream background, no photo of a real person: an abstract illustration of caring hands and a teacup. Large readable text: "${lines.name}", "Saathi Didi${lines.verified ? ' · Verified' : ''}", "${lines.skills}", "Speaks ${lines.languages}", "${lines.area}". Keep all text exactly as written.`);
+          if (img) return { ...img, lines };
+        } catch { }
+      }
+      return { data: Buffer.from(cardSvg(lines)), contentType: 'image/svg+xml', lines };
     },
 
     async cancel(householdId, bookingId) {
