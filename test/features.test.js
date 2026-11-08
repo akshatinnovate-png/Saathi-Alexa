@@ -308,3 +308,22 @@ test('photos go to Claude as image blocks, JSON mode stays Gemini-only, and reco
   assert.equal(seen.at(-1).json, true);
   assert.equal(seen.at(-1).messages[0].content[0].type, 'media');
 });
+
+test('a feature that needs a model it does not have says so plainly instead of a server error', async () => {
+  const express = (await import('express')).default;
+  const { mountFamilyFeatures } = await import('../src/http/featureRoutes.js');
+  const api = express.Router();
+  const fail = () => { throw Object.assign(new Error('Doctor Notes needs Gemini.'), { status: 503 }); };
+  mountFamilyFeatures(api, { scan: null, doctorNotes: { list: fail }, haq: null, sangat: null, raksha: null, record: () => {}, memberOf: () => null });
+  const app = express();
+  app.use((req, _res, next) => { req.householdId = 'h'; next(); });
+  app.use(api);
+  const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+  try {
+    const res = await fetch(`http://127.0.0.1:${server.address().port}/doctor-notes`);
+    assert.equal(res.status, 503);
+    assert.match((await res.json()).error, /needs Gemini/);
+  } finally {
+    server.close();
+  }
+});
