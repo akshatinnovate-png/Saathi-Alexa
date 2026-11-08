@@ -56,6 +56,13 @@
       </div>
 
       <div class="quick" id="quick" role="group" aria-label="Things you can say"></div>
+      <div class="raksha" id="raksha" hidden role="alertdialog" aria-modal="true" aria-labelledby="raksha-q">
+        <p class="raksha-q" id="raksha-q"></p>
+        <p class="raksha-count" id="raksha-count" aria-live="polite"></p>
+        <div class="raksha-actions"><button class="confirm-yes" id="raksha-fine" type="button"></button><button class="confirm-no" id="raksha-help" type="button"></button></div>
+      </div>
+      <button class="open-assistant" id="sangat-join" type="button" hidden><span class="spark" aria-hidden="true"></span><span id="sangat-label"></span></button>
+      <label class="open-assistant letter-btn" id="letter-btn"><span class="spark" aria-hidden="true"></span><span id="letter-label">What does this letter say?</span><input type="file" id="letter-file" accept="image/*" capture="environment"></label>
 
       <button class="open-assistant" id="open-assistant" type="button"><span class="spark" aria-hidden="true"></span><span id="open-assistant-label">Talk to Saathi</span></button>
 

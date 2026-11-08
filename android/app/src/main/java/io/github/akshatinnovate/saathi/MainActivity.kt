@@ -65,6 +65,7 @@ class MainActivity : Activity() {
         super.onNewIntent(intent)
         setIntent(intent)
         if (intent.action == ACTION_CHANGE_ADDRESS) showSetup(null)
+        if (intent.action == ACTION_RAKSHA) web?.reload()
     }
 
     private fun savedStart(): String? = prefs.getString(KEY_START, null)?.let { SaathiAddress.startPage(it) }
@@ -224,6 +225,7 @@ class MainActivity : Activity() {
                 if (url != null && home.owns(url)) {
                     val path = Uri.parse(url).path
                     if (path == "/alexa.html" || path == "/family.html") prefs.edit().putString(KEY_START, home.page(path)).apply()
+                    if (path == "/alexa.html") startRaksha()
                 }
             }
 
@@ -273,6 +275,17 @@ class MainActivity : Activity() {
         web = view
         setContentView(view)
         if (saved == null || view.restoreState(saved) == null) view.loadUrl(start)
+    }
+
+    private var rakshaStarted = false
+
+    private fun startRaksha() {
+        if (rakshaStarted) return
+        rakshaStarted = true
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFY)
+        }
+        RakshaService.start(this)
     }
 
     private fun decide(request: PermissionRequest, home: SaathiAddress) {
@@ -343,9 +356,11 @@ class MainActivity : Activity() {
 
     companion object {
         const val ACTION_CHANGE_ADDRESS = "io.github.akshatinnovate.saathi.CHANGE_ADDRESS"
+        const val ACTION_RAKSHA = "io.github.akshatinnovate.saathi.RAKSHA"
         private const val PREFS = "saathi"
         private const val KEY_START = "start"
         private const val REQUEST_MEDIA = 7
         private const val REQUEST_FILES = 8
+        private const val REQUEST_NOTIFY = 9
     }
 }

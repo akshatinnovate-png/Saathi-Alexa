@@ -1085,3 +1085,254 @@ document.getElementById('didi-form')?.addEventListener('submit', async (e) => {
   loadDidis();
 });
 loadDidis();
+
+const jsonFetch = async (path, body, method = 'POST') => {
+  const res = await fetch(path, { method, headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const out = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(out.error ?? 'That did not work.');
+  return out;
+};
+const rawFetch = async (path, blob) => {
+  const res = await fetch(path, { method: 'POST', headers: { 'content-type': (blob.type || 'application/octet-stream').split(';')[0] }, body: blob });
+  const out = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(out.error ?? 'That did not work.');
+  return out;
+};
+const statusChip = (s, label) => el('span', { class: `chip ${s}` }, label ?? s);
+
+let scanned = [];
+document.getElementById('scan-file')?.addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  const status = document.getElementById('scan-status');
+  status.textContent = 'Reading the photo…';
+  try {
+    const out = await rawFetch('/api/scan', file);
+    scanned = out.medicines;
+    status.textContent = scanned.length ? `Found ${scanned.length}. Check each one before adding.` : 'No medicines were found in that photo.';
+    document.getElementById('scan-list').replaceChildren(...scanned.map((m, i) => el('li', {},
+      el('label', { class: 'inline-check' }, el('input', { type: 'checkbox', name: `scan-${i}`, checked: !out.checks.some((c) => c.kind === 'duplicate' && c.medicine === m.name) }), el('strong', {}, `${m.name}${m.strength ? ` ${m.strength}` : ''}`)),
+      el('span', { class: 'muted' }, [m.generic, m.purpose].filter(Boolean).join(' · ')),
+      el('label', {}, 'Times ', el('input', { type: 'text', name: `scan-times-${i}`, value: m.times.join(', '), 'aria-label': `Times for ${m.name}` })),
+      m.timesGuessed ? el('span', { class: 'small' }, 'The times were not clear on the photo. Please check them.') : null)));
+    document.getElementById('scan-checks').replaceChildren(...out.checks.map((c) => el('li', {}, c.text)));
+    document.getElementById('scan-form').hidden = !scanned.length;
+  } catch (err) {
+    status.textContent = err.message;
+  }
+});
+document.getElementById('scan-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const status = document.getElementById('scan-status');
+  const chosen = scanned.map((m, i) => ({ m, i })).filter(({ i }) => form[`scan-${i}`]?.checked)
+    .map(({ m, i }) => ({ ...m, times: String(form[`scan-times-${i}`].value).split(/[ ,]+/).filter(Boolean) }));
+  try {
+    const out = await jsonFetch('/api/scan/confirm', { medicines: chosen });
+    status.textContent = `Added ${out.saved}. Saathi will remind her at the times you set.`;
+    form.hidden = true;
+  } catch (err) {
+    status.textContent = err.message;
+  }
+});
+
+async function loadNotes() {
+  const box = document.getElementById('notes-list');
+  if (!box) return;
+  try {
+    const [{ notes }, care] = await Promise.all([jsonFetch('/api/doctor-notes', undefined, 'GET'), jsonFetch('/api/care', undefined, 'GET')]);
+    const meds = care.medications ?? [];
+    box.replaceChildren(...notes.slice(0, 4).map((n) => {
+      const starts = n.medicineChanges.filter((c) => c.action === 'start');
+      const stops = n.medicineChanges.filter((c) => c.action === 'stop').map((c) => ({ c, med: meds.find((m) => m.name.toLowerCase().includes(c.name.toLowerCase().split(' ')[0])) })).filter((x) => x.med);
+      const form = el('form', { class: 'calls-form' },
+        ...starts.map((c, i) => el('label', { class: 'inline-check' }, el('input', { type: 'checkbox', name: `start-${i}`, checked: true }), `Start ${c.name}${c.dose ? ` ${c.dose}` : ''} (${c.times.join(', ') || 'set times'})`)),
+        ...stops.map(({ c, med }, i) => el('label', { class: 'inline-check' }, el('input', { type: 'checkbox', name: `stop-${i}`, checked: true }), `Stop ${med.name}${c.reason ? ` (${c.reason})` : ''}`)),
+        n.nextVisit ? el('label', {}, `Next visit (${n.nextVisit.when})`, el('input', { type: 'datetime-local', name: 'next' })) : null,
+        el('div', { class: 'calls-actions' }, el('button', { class: 'pill-action', type: 'submit' }, 'Apply to Saathi')));
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        try {
+          await jsonFetch(`/api/doctor-notes/${n.id}/apply`, {
+            start: starts.filter((_, i) => form[`start-${i}`]?.checked),
+            stop: stops.filter((_, i) => form[`stop-${i}`]?.checked).map(({ med }) => med.id),
+            appointment: form.next?.value ? { at: form.next.value.slice(0, 16), with: n.nextVisit?.with || n.doctor, title: 'Follow-up visit' } : null,
+          });
+          loadNotes();
+        } catch (err) {
+          document.getElementById('notes-status').textContent = err.message;
+        }
+      });
+      return el('article', {},
+        el('strong', {}, `${new Date(n.at).toLocaleDateString()} · ${n.doctor || 'Doctor visit'}${n.by ? ` · recorded by ${n.by}` : ''}`),
+        el('p', {}, n.summary),
+        n.warnings.length ? el('p', { class: 'small' }, `Watch for: ${n.warnings.join('; ')}`) : null,
+        n.tests.length ? el('p', { class: 'small' }, `Tests: ${n.tests.join(', ')}`) : null,
+        n.questions.length ? el('p', { class: 'small muted' }, `Ask next time: ${n.questions.join(' ')}`) : null,
+        n.status === 'applied' ? statusChip('done', 'Applied') : (starts.length || stops.length || n.nextVisit ? form : null));
+    }));
+  } catch {
+    document.getElementById('notes-card').hidden = true;
+  }
+}
+let notesRecorder = null;
+async function sendNote(blob) {
+  const status = document.getElementById('notes-status');
+  if (!document.getElementById('notes-consent').checked) { status.textContent = 'Ask the doctor first, then tick the box.'; return; }
+  status.textContent = 'Listening to the recording and writing the notes…';
+  try {
+    await rawFetch('/api/doctor-notes?consent=yes', blob);
+    status.textContent = 'Done. The family and she have been told.';
+    loadNotes();
+  } catch (err) {
+    status.textContent = err.message;
+  }
+}
+document.getElementById('notes-record')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  if (notesRecorder) { notesRecorder.stop(); return; }
+  if (!document.getElementById('notes-consent').checked) { document.getElementById('notes-status').textContent = 'Ask the doctor first, then tick the box.'; return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const type = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/ogg;codecs=opus';
+    const chunks = [];
+    notesRecorder = new MediaRecorder(stream, { mimeType: type, audioBitsPerSecond: 32000 });
+    notesRecorder.ondataavailable = (ev) => chunks.push(ev.data);
+    notesRecorder.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop());
+      notesRecorder = null;
+      btn.textContent = 'Start recording';
+      btn.setAttribute('aria-pressed', 'false');
+      sendNote(new Blob(chunks, { type: type.split(';')[0] }));
+    };
+    notesRecorder.start(1000);
+    btn.textContent = 'Stop and write the notes';
+    btn.setAttribute('aria-pressed', 'true');
+    document.getElementById('notes-status').textContent = 'Recording the visit…';
+  } catch {
+    document.getElementById('notes-status').textContent = 'Microphone permission was not given.';
+  }
+});
+document.getElementById('notes-file')?.addEventListener('change', (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) sendNote(f); });
+loadNotes();
+
+const HAQ_LABEL = { due: 'Due now', late: 'Overdue', upcoming: 'Coming up', done: 'Done', eligible: 'Eligible', check: 'Check' };
+async function loadHaq(out) {
+  const card = document.getElementById('haq-card');
+  if (!card) return;
+  try {
+    const view = out ?? await jsonFetch('/api/haq', undefined, 'GET');
+    const s = view.settings ?? {};
+    const f = (id) => document.getElementById(id);
+    f('haq-born').value = s.birthYear ?? '';
+    f('haq-pensioner').checked = Boolean(s.pensioner);
+    f('haq-from').value = s.pensionFrom ?? '';
+    f('haq-ayushman').checked = Boolean(s.ayushmanCard);
+    f('haq-bpl').checked = Boolean(s.bplCard);
+    f('haq-state').value = s.state ?? '';
+    f('haq-life-done').checked = s.lifeCertificateYear === new Date().getFullYear();
+    f('haq-list').replaceChildren(...view.benefits.map((b) => el('li', {},
+      statusChip(b.status, HAQ_LABEL[b.status] ?? b.status), el('strong', {}, b.title), el('span', {}, b.why),
+      b.when ? el('span', { class: 'small' }, `Window: ${b.when.opens} to ${b.when.closes}`) : null,
+      el('ol', { class: 'insight-list' }, ...b.steps.map((x) => el('li', {}, x))),
+      el('div', { class: 'calls-actions' },
+        b.link ? el('a', { class: 'text-action', href: b.link, target: '_blank', rel: 'noopener' }, 'Official site') : null,
+        b.didiCanHelp && !['done'].includes(b.status) ? el('button', { class: 'text-action', type: 'button', onclick: async () => {
+          try {
+            await jsonFetch('/api/didis/bookings', { kind: 'tech', at: new Date(Date.now() + 2 * 864e5).toISOString().slice(0, 11) + '11:00', notes: `Please help with: ${b.title}.` });
+            document.getElementById('didi-status').textContent = 'A request for a Didi to help is posted. Change the time in the Saathi Didis card if needed.';
+          } catch (err) { alert(err.message); }
+        } }, 'Book a Didi to help') : null))));
+  } catch {
+    card.hidden = true;
+  }
+}
+document.getElementById('haq-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = (id) => document.getElementById(id);
+  try {
+    loadHaq(await jsonFetch('/api/haq', {
+      birthYear: Number(f('haq-born').value) || null, pensioner: f('haq-pensioner').checked, pensionFrom: f('haq-from').value || null,
+      ayushmanCard: f('haq-ayushman').checked, bplCard: f('haq-bpl').checked, state: f('haq-state').value,
+      lifeCertificateYear: f('haq-life-done').checked ? new Date().getFullYear() : null,
+    }, 'PUT'));
+  } catch (err) { alert(err.message); }
+});
+document.getElementById('haq-letter')?.addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  const box = document.getElementById('haq-explain');
+  box.replaceChildren(el('p', { class: 'small' }, 'Reading the letter…'));
+  try {
+    const x = await rawFetch('/api/haq/explain', file);
+    box.replaceChildren(el('article', {},
+      x.scamRisk !== 'none' ? statusChip(x.scamRisk, x.scamRisk === 'likely' ? 'Looks like a scam' : 'Be careful') : null,
+      el('strong', {}, x.title || 'The letter'), el('p', {}, x.plain),
+      x.whatToDo.length ? el('ol', { class: 'insight-list' }, ...x.whatToDo.map((w) => el('li', {}, w))) : null,
+      x.deadline ? el('p', { class: 'small' }, `Deadline: ${x.deadline}`) : null,
+      x.money ? el('p', { class: 'small' }, `Amount: ${x.money}`) : null,
+      x.scamSigns.length ? el('p', { class: 'small' }, `Warning signs: ${x.scamSigns.join('; ')}`) : null,
+      x.forElder?.lang !== 'en' ? el('p', { class: 'muted', lang: x.forElder.lang }, x.forElder.text) : null));
+  } catch (err) {
+    box.replaceChildren(el('p', { class: 'small' }, err.message));
+  }
+});
+loadHaq();
+
+const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const LANG_NAME = { en: 'English', hi: 'Hindi', mr: 'Marathi' };
+async function loadSangat() {
+  const list = document.getElementById('sangat-list');
+  if (!list) return;
+  const status = document.getElementById('sangat-status');
+  try {
+    const { circles } = await jsonFetch('/api/sangat', undefined, 'GET');
+    const act = (c, action) => async () => {
+      try { await jsonFetch(`/api/sangat/${c.id}/${action}`, {}); loadSangat(); } catch (err) { status.textContent = err.message; }
+    };
+    list.replaceChildren(...circles.map((c) => el('li', {},
+      el('strong', {}, `${c.title} · ${c.time} · ${LANG_NAME[c.language] ?? c.language}`),
+      el('span', {}, [c.host ? `Hosted by ${c.host.name}${c.host.rating ? ` ★${c.host.rating}` : ''}` : null, c.days.length === 7 ? 'Every day' : c.days.map((d) => DAY[d]).join(', '), c.fee ? `₹${c.fee} a month` : 'Free', `${c.seats} seats left`].filter(Boolean).join(' · ')),
+      el('div', { class: 'calls-actions' },
+        c.joined ? statusChip('done', 'Joined') : el('button', { class: 'pill-action', type: 'button', onclick: act(c, 'join'), disabled: c.seats <= 0 }, 'Join'),
+        c.payLink ? el('a', { class: 'pill-action', href: c.payLink }, `Pay ₹${c.fee} with UPI`) : null,
+        c.joined && c.fee && !c.paidThisMonth ? el('button', { class: 'text-action', type: 'button', onclick: act(c, 'paid') }, 'I have paid') : null,
+        c.joined ? el('button', { class: 'text-action', type: 'button', onclick: act(c, 'leave') }, 'Leave') : null))));
+    status.textContent = circles.length ? '' : 'No circle near her yet. A Saathi Didi can start one from the Didi app.';
+  } catch {
+    document.getElementById('sangat-card').hidden = true;
+  }
+}
+loadSangat();
+
+async function loadRaksha() {
+  const form = document.getElementById('raksha-form');
+  if (!form) return;
+  try {
+    const { settings, recent } = await jsonFetch('/api/raksha', undefined, 'GET');
+    const f = (id) => document.getElementById(id);
+    f('raksha-on').checked = settings.enabled;
+    f('raksha-still').checked = settings.stillness;
+    f('raksha-hours').value = settings.stillHours;
+    f('raksha-from').value = settings.from;
+    f('raksha-to').value = settings.to;
+    const what = { fine: 'She said she was fine', escalated: 'No answer: the family was alerted', waiting: 'Waiting for her answer' };
+    f('raksha-recent').replaceChildren(...recent.map((r) => el('li', {}, `${new Date(r.createdAt).toLocaleString()}: ${r.kind === 'fall' ? 'possible fall' : 'long stillness'}. ${what[r.status] ?? r.status}.`)));
+  } catch {
+    document.getElementById('raksha-card').hidden = true;
+  }
+}
+document.getElementById('raksha-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = (id) => document.getElementById(id);
+  try {
+    await jsonFetch('/api/raksha', { enabled: f('raksha-on').checked, stillness: f('raksha-still').checked, stillHours: Number(f('raksha-hours').value), from: f('raksha-from').value, to: f('raksha-to').value }, 'PUT');
+    f('raksha-status').textContent = f('raksha-on').checked ? 'Saved. Open the Saathi app on her phone once so it can start watching.' : 'Saved. Raksha is off.';
+    loadRaksha();
+  } catch (err) {
+    f('raksha-status').textContent = err.message;
+  }
+});
+loadRaksha();

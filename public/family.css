@@ -368,3 +368,16 @@ button.person:hover { background: rgb(255 255 255 / 90%); }
 .didi-bookings li { background: rgb(255 255 255 / 70%); border-radius: 14px; padding: 10px 12px; display: grid; gap: 6px; font-size: .95rem; }
 .didi-bookings .calls-actions a { text-decoration: none; }
 .didi-bookings select { min-height: 36px; border-radius: 10px; border: 1px solid #d9cfbe; padding: 0 8px; font: inherit; background: #fff; color: inherit; }
+.file-pick { position: relative; display: inline-flex; align-items: center; cursor: pointer; overflow: hidden; }
+.file-pick input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.feature-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.feature-list:empty { display: none; }
+.feature-list li { background: rgb(255 255 255 / 70%); border-radius: 14px; padding: 10px 12px; display: grid; gap: 6px; font-size: .95rem; }
+.feature-stack { display: grid; gap: 10px; margin-top: 10px; }
+.feature-stack:empty { display: none; }
+.feature-stack article { background: rgb(255 255 255 / 70%); border-radius: 14px; padding: 12px; display: grid; gap: 6px; }
+.chip { justify-self: start; padding: 2px 10px; border-radius: 999px; font-size: .8rem; font-weight: 600; background: #f3eadb; }
+.chip.due, .chip.late, .chip.likely { background: var(--red-soft); color: var(--red); }
+.chip.eligible, .chip.check, .chip.possible { background: var(--peach); color: var(--orange-ink); }
+.chip.done, .chip.fine { background: var(--green-soft); color: var(--green); }
+.feature-list input[type=text], .feature-list select { min-height: 36px; border-radius: 10px; border: 1px solid #d9cfbe; padding: 0 8px; font: inherit; background: #fff; color: inherit; }

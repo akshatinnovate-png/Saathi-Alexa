@@ -3,6 +3,14 @@
 
 ## [Unreleased]
 
+### Five new features
+- **Saathi Scan**: photograph a prescription or tablet strip. Claude or Gemini reads it, including Indian dosing notes ("1-0-1", OD, BD, TDS, HS, before and after food), and Saathi warns about duplicates and a short list of well-known risky pairs. The family ticks what to add.
+- **Saathi Haq**: the pension life certificate window (from 1 October at 80 and over), Ayushman Vay Vandana at 70, the national old-age pension and Maharashtra's Shravanbal scheme, with weekly reminders while the certificate is due. Aaji can ask "What does this letter say?" and hear it explained in her language; likely scams go to Scam Shield.
+- **Saathi Raksha**: the Android app notices a likely fall (free fall, impact, stillness) or long stillness in the day, and asks Aaji if she is all right. No answer in 45 seconds starts the help escalation, with a map link when her location is known.
+- **Saathi Sangat**: a ready Saathi Didi hosts a small circle (3 to 10 elders) on Google Meet in their language, for a monthly fee paid to her by UPI. Aaji is reminded ten minutes before and joins with one button; the family hears she attended.
+- **Doctor Notes**: with the doctor's consent, the family or the escorting Didi records the advice. Gemini summarises it (recordings need a Gemini key; the other models do not take audio), Aaji hears it in her language, and one tap applies tablet changes and the next visit. Notes are sealed as health data.
+- Photo and audio uploads have their own size limits and an hourly limit; model-unavailable errors now reach the app as a clear message.
+
 ### Didi safety and impact
 - **SOS during every visit**: the whole family circle gets a critical alert, and the Didi gets one-tap calls to 112 and her own safety contact (someone from her SHG), which she adds at sign-up or later.
 - **Overdue visits**: if a Didi has not checked out long after the usual time for that kind of help, the family is asked to check on everyone.

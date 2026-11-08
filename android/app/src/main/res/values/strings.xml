@@ -13,4 +13,10 @@
     <string name="problem_certificate">This address\'s security certificate is not valid, so the app stopped to keep the family safe.</string>
     <string name="try_again">Try again</string>
     <string name="change_address">Change address</string>
+    <string name="raksha_watch_channel">Saathi Raksha</string>
+    <string name="raksha_watching">Saathi Raksha is watching for falls</string>
+    <string name="raksha_ask_title">Are you all right?</string>
+    <string name="raksha_ask_text">Saathi is checking on you. Tap I\'m fine, or your family will be called.</string>
+    <string name="raksha_fine">I\'m fine</string>
+    <string name="raksha_ask_channel">Are you all right?</string>
 </resources>

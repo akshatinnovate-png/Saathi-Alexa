@@ -1,5 +1,5 @@
 export const CLASS_B = {
-  medications: ['name', 'purpose', 'description', 'phrase', 'short', 'i18n'],
+  medications: ['name', 'generic', 'purpose', 'description', 'phrase', 'short', 'i18n'],
   appointments: ['title', 'with', 'place', 'i18n'],
   checkins: ['text', 'english'],
   stories: ['title', 'text', 'translations'],
@@ -7,6 +7,7 @@ export const CLASS_B = {
   messages: ['text', 'translations', 'translated'],
   letters: ['text', 'html', 'sections'],
   alerts: ['words', 'reason'],
+  doctorNotes: ['summary', 'plain', 'medicineChanges', 'tests', 'nextVisit', 'warnings', 'questions', 'translations', 'doctor'],
   profile: ['medical'],
 };
 

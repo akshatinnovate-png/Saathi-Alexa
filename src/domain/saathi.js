@@ -403,6 +403,47 @@ export function createSaathi(deps) {
     throw invalid('Unknown Didi update.');
   }
 
+  const FEATURE_COLLECTIONS = new Set(['doctorNotes', 'sangatAttendance', 'rakshaEvents', 'haqReminders']);
+  function featureStore(collection) {
+    if (!FEATURE_COLLECTIONS.has(collection)) throw invalid('Unknown records.');
+    return {
+      get: (id) => store.get(collection, id),
+      put: (item) => store.put(collection, item),
+      list: () => store.list(collection),
+      update: (itemId, patch) => store.update(collection, itemId, patch),
+    };
+  }
+
+  async function notifyFamilyAbout({ subject, english, elderEnglish = null, severity = 'info' }) {
+    if (elderEnglish) {
+      const { lang } = await voice();
+      const text = lang === 'en' ? elderEnglish : (await translateTo(elderEnglish, lang, 'en')).text;
+      await deliverToElder({ fromId: 'saathi', text, language: lang, system: true });
+    }
+    await notifyCircle({ audience: 'family', severity, subject, english });
+    return { told: true };
+  }
+
+  async function sangatReminder({ circleId, title, time }) {
+    const me = await elder();
+    const { lang } = await voice();
+    const english = `${me.preferredName}, your chai circle "${title}" starts at ${time}. Tap "Join the circle" to see your friends.`;
+    const say = lang === 'en' ? english : (await translateTo(english, lang, 'en')).text;
+    await events.publish('SangatReminder', { circleId, say, sayLanguage: spokenLanguage(lang) });
+    await deliverToElder({ fromId: 'saathi', text: say, language: lang, system: true });
+    return { told: true };
+  }
+
+  async function shareDoctorNote({ summary, by = null }) {
+    const me = await elder();
+    const { lang } = await voice();
+    const english = `Notes from today's doctor visit: ${summary}`;
+    const text = lang === 'en' ? english : (await translateTo(english, lang, 'en')).text;
+    await deliverToElder({ fromId: 'saathi', text, language: lang, system: true });
+    await notifyCircle({ audience: 'family', severity: 'info', subject: `What the doctor said about ${me.preferredName}`, english: `${by ? `${by} recorded ` : ''}${english} Open the family app to review any medicine changes.` });
+    return { told: true };
+  }
+
   async function didiBriefingFacts({ share = {}, appointmentId = null } = {}) {
     const me = await elder();
     const facts = { name: me.preferredName, home: me.home ?? me.city ?? '', city: me.city ?? '', language: me.language, accessibility: me.accessibility ?? {}, emergencyNumber: emergencyNumberFor(me) };
@@ -432,6 +473,31 @@ export function createSaathi(deps) {
     }
     const alert = await raiseAlert({ reason, words: reason, severity: urgency === 'critical' ? 'critical' : 'high', source: 'asked-for-help' });
     return { alertId: alert.id, sayLanguage: lang, say: t(lang, 'helpStarted') };
+  }
+
+  async function rakshaAsk({ checkId, kind, seconds }) {
+    const me = await elder();
+    const { lang } = await voice();
+    const english = kind === 'fall'
+      ? `${me.preferredName}, are you all right? Tap "I'm fine". If you don't, Saathi will call your family.`
+      : `${me.preferredName}, are you all right? You have been very still for a while. Tap "I'm fine", or Saathi will call your family.`;
+    const say = lang === 'en' ? english : (await translateTo(english, lang, 'en')).text;
+    await events.publish('RakshaCheck', { checkId, kind, seconds, say, sayLanguage: spokenLanguage(lang) });
+    return { say, sayLanguage: lang };
+  }
+
+  async function rakshaAlert({ kind, location = null }) {
+    const existing = await openHelpAlert();
+    if (existing) return { alertId: existing.id, deduplicated: true };
+    const me = await elder();
+    const p = pronounsOf(me);
+    const where = location ? ` Last known location: https://www.google.com/maps/search/?api=1&query=${location.lat},${location.lng}` : '';
+    const reason = kind === 'fall'
+      ? `Saathi noticed a possible fall and ${p.subject} did not answer.${where}`
+      : `${p.Subject} had not moved for a long time and did not answer Saathi.${where}`;
+    const alert = await raiseAlert({ reason, words: '(no answer to "Are you all right?")', severity: 'critical', source: `raksha-${kind}` });
+    if (location) await store.update('alerts', alert.id, { location });
+    return { alertId: alert.id };
   }
 
   async function raiseAlert({ reason, words, severity, source }) {
@@ -925,7 +991,7 @@ export function createSaathi(deps) {
     const short = `${purpose} tablet`;
     const remaining = input.remaining === undefined || input.remaining === '' ? existing?.supply?.remaining ?? null : Math.max(0, Math.round(Number(input.remaining)) || 0);
     const med = {
-      ...(existing ?? {}), id, name, purpose, description, times, time: times[0], days, withFood: Boolean(input.withFood), phrase, short,
+      ...(existing ?? {}), id, name, generic: clean(input.generic) || existing?.generic || '', purpose, description, times, time: times[0], days, withFood: Boolean(input.withFood), phrase, short,
       supply: remaining === null ? null : { ...(existing?.supply ?? {}), remaining, lowAtDays: Math.max(1, Number(input.lowAtDays) || existing?.supply?.lowAtDays || 5) },
       i18n: existing && existing.phrase === phrase ? existing.i18n : await localizeFields({ phrase, short }),
     };
@@ -1038,6 +1104,31 @@ export function createSaathi(deps) {
       next.medical = {
         conditions: text(m.conditions, 400), allergies: text(m.allergies, 300), bloodGroup: blood.includes(m.bloodGroup) ? m.bloodGroup : '',
         doctor: text(m.doctor, 80), doctorPhone: text(m.doctorPhone, 30), familyPhone: text(m.familyPhone, 30), notes: text(m.notes, 400),
+      };
+    }
+    if (patch.haq && typeof patch.haq === 'object') {
+      const h = patch.haq;
+      const year = clock().getFullYear();
+      const born = Math.round(Number(h.birthYear));
+      next.haq = {
+        birthYear: born >= 1900 && born <= year - 40 ? born : null,
+        pensioner: Boolean(h.pensioner),
+        pensionFrom: ['central', 'state', 'defence', 'bank', 'other'].includes(h.pensionFrom) ? h.pensionFrom : null,
+        ayushmanCard: Boolean(h.ayushmanCard),
+        bplCard: Boolean(h.bplCard),
+        state: text(h.state, 40),
+        lifeCertificateYear: Number(h.lifeCertificateYear) >= 2000 && Number(h.lifeCertificateYear) <= year ? Number(h.lifeCertificateYear) : (me.haq?.lifeCertificateYear ?? null),
+      };
+    }
+    if (patch.raksha && typeof patch.raksha === 'object') {
+      const r = patch.raksha;
+      const hhmm = (v, d) => (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(v)) ? String(v) : d);
+      next.raksha = {
+        enabled: Boolean(r.enabled),
+        stillness: Boolean(r.stillness),
+        stillHours: Math.min(8, Math.max(1, Math.round(Number(r.stillHours) || 3))),
+        from: hhmm(r.from, '08:00'),
+        to: hhmm(r.to, '20:00'),
       };
     }
     if ('shareMoodWords' in patch) next.privacy = { ...me.privacy, shareMoodWords: Boolean(patch.shareMoodWords) };
@@ -1261,7 +1352,7 @@ export function createSaathi(deps) {
     sweepSupplies, sweepWeeklyLetter, sweepReminders, recordRefill, upcomingAppointments, sweepAppointments, claimEscort, addVoiceNote, weeklyLetters,
     addMember, removeMember, updateProfile, saveMedication, removeMedication, saveAppointment, removeAppointment, saveRoutine, careSetup, subscribeMember, setAvatar, media, householdId: deps.householdId ?? DEFAULT_HOUSEHOLD,
     messages, doorActivity, homeMap, saveRooms, placeItem, removeItem, whereIs,
-    checkIn, requestHelp, acknowledgeAlert, reportSuspiciousCall, recordScamIncident, scamIncidents, scamHold, decideScamHold, insight, saveReminderVoice, removeReminderVoice, reminderVoices, legacyBook, scamNetworkView, sweepScamWarnings, localNow, recordCall, didiUpdate, didiBriefingFacts,
+    checkIn, requestHelp, acknowledgeAlert, reportSuspiciousCall, recordScamIncident, scamIncidents, scamHold, decideScamHold, insight, saveReminderVoice, removeReminderVoice, reminderVoices, legacyBook, scamNetworkView, sweepScamWarnings, localNow, recordCall, didiUpdate, didiBriefingFacts, featureStore, shareDoctorNote, notifyFamilyAbout, sangatReminder, rakshaAsk, rakshaAlert,
     familyMessages, sendToFamily, messageFromFamily,
     saveStory, listStories, familySummary,
     circle: () => store.list('circle'),

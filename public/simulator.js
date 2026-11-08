@@ -257,6 +257,8 @@ function react(event) {
   const d = event.detail ?? {};
   if (type === 'TabletReminder' && d.voice?.url) playThenAnnounce(d.voice.url, d.say);
   else if ((type === 'TabletReminder' || type === 'VisitReminder' || type === 'ScamWarning' || type === 'DidiArrived') && d.say) announce(d.say);
+  if (type === 'RakshaCheck') showRaksha(d);
+  if (type === 'SangatReminder') { if (d.say) announce(d.say); refreshSangat(); }
   if (type === 'MessageForElder' && !busy && Date.now() - lastRead > 5000) {
     lastRead = Date.now();
     setTimeout(() => say(phrases().messages), 1200);
@@ -353,3 +355,93 @@ $('open-assistant').addEventListener('click', async () => {
 
 onEvents(addEvent);
 init();
+
+const FEATURE_WORDS = {
+  en: { fine: "I'm fine", help: 'I need help', left: (n) => `${n} seconds`, sent: 'Your family has been called.', ok: 'Thank you. Glad you are fine.', join: (t, at) => `Join "${t}" (${at})`, letter: 'What does this letter say?', reading: 'Reading the letter…', ask: 'Are you all right? Tap if you are fine.' },
+  hi: { fine: 'मैं ठीक हूँ', help: 'मुझे मदद चाहिए', left: (n) => `${n} सेकंड`, sent: 'आपके परिवार को बुलाया गया है।', ok: 'धन्यवाद। अच्छा है कि आप ठीक हैं।', join: (t, at) => `"${t}" में जुड़ें (${at})`, letter: 'यह चिट्ठी क्या कहती है?', reading: 'चिट्ठी पढ़ रहे हैं…', ask: 'क्या आप ठीक हैं? ठीक हों तो दबाइए।' },
+  mr: { fine: 'मी ठीक आहे', help: 'मला मदत हवी', left: (n) => `${n} सेकंद`, sent: 'तुमच्या घरच्यांना कळवलं आहे.', ok: 'धन्यवाद. तुम्ही ठीक आहात, छान.', join: (t, at) => `"${t}" मध्ये सामील व्हा (${at})`, letter: 'हे पत्र काय सांगतं?', reading: 'पत्र वाचत आहे…', ask: 'तुम्ही ठीक आहात ना? ठीक असाल तर दाबा.' },
+};
+const words = () => FEATURE_WORDS[settings.language] ?? FEATURE_WORDS.en;
+let rakshaTimer = null;
+function closeRaksha(message) {
+  clearInterval(rakshaTimer);
+  rakshaTimer = null;
+  $('raksha').hidden = true;
+  if (message) announce(message);
+}
+async function answerRaksha(id, fine) {
+  try {
+    const res = await fetch(`/api/raksha/${encodeURIComponent(id)}/answer`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ fine }) });
+    const out = await res.json().catch(() => ({}));
+    closeRaksha(out.status === 'fine' ? words().ok : words().sent);
+  } catch {
+    closeRaksha(null);
+  }
+}
+function showRaksha(d) {
+  const w = words();
+  let left = Number(d.seconds) || 45;
+  $('raksha-q').textContent = d.say ?? '';
+  $('raksha-fine').textContent = w.fine;
+  $('raksha-help').textContent = w.help;
+  $('raksha-fine').onclick = () => answerRaksha(d.checkId, true);
+  $('raksha-help').onclick = () => answerRaksha(d.checkId, false);
+  $('raksha-count').textContent = w.left(left);
+  $('raksha').hidden = false;
+  $('raksha-fine').focus();
+  if (d.say) announce(d.say);
+  clearInterval(rakshaTimer);
+  rakshaTimer = setInterval(() => {
+    left -= 1;
+    $('raksha-count').textContent = w.left(Math.max(0, left));
+    if (left <= 0) closeRaksha(w.sent);
+  }, 1000);
+}
+async function refreshSangat() {
+  const btn = $('sangat-join');
+  if (!btn) return;
+  try {
+    const res = await fetch('/api/sangat/today');
+    if (!res.ok) { btn.hidden = true; return; }
+    const next = (await res.json()).circles.find((c) => c.now);
+    btn.hidden = !next;
+    if (!next) return;
+    $('sangat-label').textContent = words().join(next.title, next.time);
+    btn.onclick = async () => {
+      const r = await fetch(`/api/sangat/${encodeURIComponent(next.id)}/attend`, { method: 'POST' });
+      const out = await r.json().catch(() => ({}));
+      if (out.meetLink) window.open(out.meetLink, '_blank', 'noopener');
+    };
+  } catch {
+    btn.hidden = true;
+  }
+}
+refreshSangat();
+async function pendingRaksha() {
+  try {
+    const res = await fetch('/api/raksha');
+    if (!res.ok) return;
+    const waiting = (await res.json()).recent?.find((r) => r.status === 'waiting' && r.secondsLeft > 0);
+    if (waiting) showRaksha({ checkId: waiting.id, seconds: waiting.secondsLeft, say: words().ask });
+  } catch {
+    return;
+  }
+}
+pendingRaksha();
+setInterval(refreshSangat, 5 * 60 * 1000);
+$('letter-label') && ($('letter-label').textContent = words().letter);
+$('letter-file')?.addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  $('alexa-said').textContent = words().reading;
+  try {
+    const res = await fetch('/api/haq/explain', { method: 'POST', headers: { 'content-type': file.type || 'image/jpeg' }, body: file });
+    const out = await res.json().catch(() => ({}));
+    const text = res.ok ? out.forElder?.text ?? out.plain : out.error;
+    $('alexa-said').textContent = text ?? '';
+    if (text) announce(text);
+  } catch {
+    $('alexa-said').textContent = '';
+  }
+});

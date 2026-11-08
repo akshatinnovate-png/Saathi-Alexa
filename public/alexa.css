@@ -172,3 +172,9 @@ select, input[type="text"] {
 .private-join h2 { margin: 0 0 10px; font: 400 clamp(1.6rem, 5vw, 2.2rem) / 1.2 var(--sans); }
 .private-join p { margin: 8px 0; font-size: 1.2rem; line-height: 1.5; color: #d6d9e2; }
 .private-join-emoji { font-size: clamp(3.4rem, 16vw, 5.2rem) !important; letter-spacing: 0.2em; padding: 16px; border-radius: 22px; background: rgb(255 255 255 / 8%); color: #fff !important; }
+.raksha { display: grid; gap: 14px; padding: 20px; border-radius: 24px; background: #fff4f2; border: 3px solid #b42318; text-align: center; }
+.raksha-q { font: 600 1.5rem var(--sans); margin: 0; color: #161b29; }
+.raksha-count { font: 600 1.2rem var(--sans); margin: 0; color: #b42318; }
+.raksha-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.letter-btn { position: relative; overflow: hidden; }
+.letter-btn input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }

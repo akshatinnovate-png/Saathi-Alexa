@@ -100,6 +100,7 @@ export function toGeminiContents(messages) {
     const parts = [];
     for (const b of blocks) {
       if (b.type === 'text' && b.text) parts.push({ text: b.text });
+      else if (b.type === 'media' && b.data) parts.push({ inlineData: { mimeType: b.mimeType, data: b.data } });
       else if (b.type === 'tool_use') {
         names.set(b.id, b.name);
         parts.push({ functionCall: { name: b.name, args: b.input ?? {} }, ...(b.signature ? { thoughtSignature: b.signature } : {}) });
@@ -131,12 +132,12 @@ export function fromGeminiCandidate(candidate, promptFeedback) {
 }
 
 export function createGeminiClient({ apiKey = null, model, fetchImpl = fetch, timeoutMs = 30_000, base = GEMINI_BASE, authHeaders = null }) {
-  return async function create({ system, tools, messages, max_tokens: maxTokens = 2048 }) {
+  return async function create({ system, tools, messages, max_tokens: maxTokens = 2048, json = false }) {
     const body = {
       contents: toGeminiContents(messages),
       ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
       ...(tools?.length ? { tools: [{ functionDeclarations: tools.map((t) => ({ name: t.name, description: t.description, parameters: toGeminiSchema(t.input_schema ?? { type: 'object' }) })) }], toolConfig: { functionCallingConfig: { mode: 'AUTO' } } } : {}),
-      generationConfig: { maxOutputTokens: maxTokens, temperature: 0.3 },
+      generationConfig: { maxOutputTokens: maxTokens, temperature: json ? 0.1 : 0.3, ...(json ? { responseMimeType: 'application/json' } : {}) },
     };
     let res;
     try {
@@ -149,9 +150,9 @@ export function createGeminiClient({ apiKey = null, model, fetchImpl = fetch, ti
     } catch (err) {
       throw new Anthropic.APIConnectionError({ message: `Gemini could not be reached: ${err.message}`, cause: err });
     }
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok) throw Anthropic.APIError.generate(res.status, json, json.error?.message ?? `Gemini answered ${res.status}`, new Headers(res.headers ?? {}));
-    return fromGeminiCandidate(json.candidates?.[0], json.promptFeedback);
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw Anthropic.APIError.generate(res.status, out, out.error?.message ?? `Gemini answered ${res.status}`, new Headers(res.headers ?? {}));
+    return fromGeminiCandidate(out.candidates?.[0], out.promptFeedback);
   };
 }
 
@@ -189,7 +190,7 @@ export function createLlm(agentConfig, region) {
   return withHelpers({ provider: bedrock ? 'amazon-bedrock' : 'claude-api', model, create });
 }
 
-function withHelpers({ provider, model, create }) {
+export function withHelpers({ provider, model, create }) {
   async function translate(text, { from, to }) {
     const response = await create({
       system: 'You translate short personal messages between family members. Keep the warmth, names and terms of endearment (Aaji, Nani, beta and so on). Output only the translation.',
@@ -211,5 +212,30 @@ function withHelpers({ provider, model, create }) {
     return { sentiment: json.sentiment, scores: { positive: n(json.positive), negative: n(json.negative), neutral: n(json.neutral), mixed: n(json.mixed) } };
   }
 
-  return { provider, model, create, translate, mood };
+  const gemini = provider.startsWith('gemini');
+  const claude = provider === 'amazon-bedrock' || provider === 'claude-api';
+
+  function mediaBlock(m) {
+    if (gemini) return { type: 'media', mimeType: m.mimeType, data: m.data };
+    if (claude && m.mimeType.startsWith('image/')) return { type: 'image', source: { type: 'base64', media_type: m.mimeType, data: m.data } };
+    if (claude && m.mimeType === 'application/pdf') return { type: 'document', source: { type: 'base64', media_type: m.mimeType, data: m.data } };
+    throw Object.assign(new Error(m.mimeType.startsWith('audio/') ? 'Listening to recordings needs Gemini. Add a Gemini API key in Saathi\'s settings.' : 'Reading photos needs Claude or Gemini. Turn one on in Saathi\'s settings.'), { status: 503 });
+  }
+
+  async function understand({ system, prompt, media = [], maxTokens = 2048 }) {
+    const blocks = media.map(mediaBlock);
+    const response = await create({
+      system, max_tokens: maxTokens, ...(gemini ? { json: true } : {}),
+      messages: [{ role: 'user', content: [...blocks, { type: 'text', text: prompt }] }],
+    });
+    if (response.stop_reason === 'refusal') return null;
+    const raw = response.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
+    try {
+      return JSON.parse(raw.slice(raw.search(/[[{]/), Math.max(raw.lastIndexOf('}'), raw.lastIndexOf(']')) + 1));
+    } catch {
+      return null;
+    }
+  }
+
+  return { provider, model, create, translate, mood, understand };
 }
