@@ -18,7 +18,7 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
           components: clippy
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 22
       - run: cargo test --locked
@@ -34,7 +34,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@2c76c034f9e32a5d6e2c104dc4df23a22476db04
         with:
           toolchain: nightly
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 22
           cache: npm
