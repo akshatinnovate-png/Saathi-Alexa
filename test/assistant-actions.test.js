@@ -8,7 +8,7 @@ import { createHouseholdVerifier } from '../src/auth/verifier.js';
 import { createFamilyAssistant } from '../src/agent/familyAssistant.js';
 import { createSahayQueue, onThisComputer } from '../src/agent/sahayQueue.js';
 import { isTechHelp, languageOf, askedSahay, instructionFor } from '../src/agent/techHelp.js';
-import { createGroqClient, createLlm } from '../src/agent/llm.js';
+import { createGroqClient, createGeminiClient, createLlm, toGeminiSchema } from '../src/agent/llm.js';
 import { testServices, testConfig } from './helpers.js';
 
 let server;
@@ -270,4 +270,37 @@ test('the Groq client speaks the OpenAI format and maps errors to the SDK error 
   assert.deepEqual([llm.provider, llm.model], ['groq', 'openai/gpt-oss-120b']);
   assert.equal(await llm.translate('hello', { from: 'en', to: 'hi' }), 'नमस्ते');
   assert.equal(createLlm({ provider: 'offline' }), null);
+});
+
+test('the Gemini client speaks the Gemini API format, keeps tool calls paired and maps errors to the SDK types', async () => {
+  const sent = [];
+  let reply = { ok: true, status: 200, body: { candidates: [{ finishReason: 'STOP', content: { parts: [{ thought: true, text: 'hmm' }, { functionCall: { name: 'where_is', args: { item: 'glasses' } }, thoughtSignature: 'sig1' }] } }] } };
+  const fetchImpl = async (url, init) => { sent.push({ url, body: JSON.parse(init.body), key: init.headers['x-goog-api-key'] }); return { ok: reply.ok, status: reply.status, json: async () => reply.body }; };
+  const create = createGeminiClient({ apiKey: 'k', model: 'gemini-2.5-flash', fetchImpl });
+  const out = await create({
+    system: 'sys',
+    tools: [{ name: 'where_is', description: 'find', input_schema: { type: 'object', additionalProperties: false, properties: { item: { type: ['string', 'null'] } } } }],
+    messages: [
+      { role: 'user', content: 'Where are her glasses?' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 'c0', name: 'where_is', input: { item: 'glasses' }, signature: 's0' }] },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'c0', content: 'On the table' }] },
+    ],
+  });
+  assert.equal(sent[0].key, 'k');
+  assert.match(sent[0].url, /models\/gemini-2\.5-flash:generateContent$/);
+  assert.deepEqual(sent[0].body.contents.map((c) => c.role), ['user', 'model', 'user']);
+  assert.equal(sent[0].body.contents[1].parts[0].thoughtSignature, 's0');
+  assert.deepEqual(sent[0].body.contents[2].parts[0].functionResponse, { name: 'where_is', response: { result: 'On the table' } });
+  assert.deepEqual(sent[0].body.tools[0].functionDeclarations[0].parameters.properties.item, { type: 'string', nullable: true });
+  assert.deepEqual([out.stop_reason, out.content[0].name, out.content[0].signature], ['tool_use', 'where_is', 'sig1']);
+  reply = { ok: true, status: 200, body: { candidates: [{ finishReason: 'SAFETY', content: { parts: [] } }] } };
+  assert.equal((await create({ messages: [] })).stop_reason, 'refusal');
+  reply = { ok: false, status: 429, body: { error: { message: 'slow down' } } };
+  await assert.rejects(create({ messages: [] }), (e) => e instanceof Anthropic.RateLimitError);
+  const offline = createGeminiClient({ apiKey: 'k', model: 'm', fetchImpl: async () => { throw new Error('ENOTFOUND'); } });
+  await assert.rejects(offline({ messages: [] }), (e) => e instanceof Anthropic.APIConnectionError);
+  assert.deepEqual(toGeminiSchema({ anyOf: [{ type: 'string' }, { type: 'null' }] }), { type: 'string', nullable: true });
+  const llm = createLlm({ provider: 'gemini', geminiKey: 'k', geminiModel: 'gemini-2.5-flash', fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'नमस्ते' }] } }] }) }) });
+  assert.deepEqual([llm.provider, llm.model], ['gemini', 'gemini-2.5-flash']);
+  assert.equal(await llm.translate('hello', { from: 'en', to: 'hi' }), 'नमस्ते');
 });

@@ -54,13 +54,13 @@ export function upiLink({ upiId, name, amount, note }) {
   return `upi://pay?${params}`;
 }
 
-export function createDidis({ store, services, translator = null, llm = null, clock = () => new Date(), partnerCodes = [] }) {
+export function createDidis({ store, services, translator = null, llm = null, maps = null, clock = () => new Date(), partnerCodes = [], maxMinutes = 40 }) {
   const codes = new Set(partnerCodes.map((c) => String(c).trim()).filter(Boolean));
   const now = () => clock().toISOString();
   const saathiFor = (householdId) => services.forHousehold(householdId);
 
   const publicView = (d) => ({
-    id: d.id, name: d.name, languages: d.languages, city: d.city, skills: d.skills, rates: d.rates,
+    id: d.id, name: d.name, languages: d.languages, city: d.city, area: d.area ?? null, skills: d.skills, rates: d.rates,
     verified: d.verified, ready: isReady(d), visits: d.visits ?? 0,
     rating: d.ratings?.length ? Math.round((d.ratings.reduce((a, r) => a + r, 0) / d.ratings.length) * 10) / 10 : null,
     reviews: (d.reviews ?? []).slice(-3),
@@ -104,6 +104,7 @@ export function createDidis({ store, services, translator = null, llm = null, cl
       const name = clean(input.name, 60);
       const phone = clean(input.phone, 20).replace(/[^\d+]/g, '');
       const city = clean(input.city, 60);
+      const area = clean(input.area, 120);
       if (!name) throw bad('Tell us your name.');
       if (!/^\+?\d{10,14}$/.test(phone)) throw bad('Enter your mobile number.');
       if (!city) throw bad('Tell us your town or city.');
@@ -117,7 +118,7 @@ export function createDidis({ store, services, translator = null, llm = null, cl
       if ((await store.list('didis')).some((d) => d.phone === phone)) throw bad('This number already has a Saathi Didi account.');
       const token = `didi_${randomBytes(24).toString('base64url')}`;
       const didi = {
-        id: `didi-${randomUUID().slice(0, 8)}`, name, phone, city, languages: languages.length ? languages : ['hi'], skills, rates, upiId: upiId || null,
+        id: `didi-${randomUUID().slice(0, 8)}`, name, phone, city, area: area || null, languages: languages.length ? languages : ['hi'], skills, rates, upiId: upiId || null,
         verified: codes.has(clean(input.partnerCode, 40)), lessons: [], visits: 0, ratings: [], reviews: [], createdAt: now(),
       };
       await store.put('didis', didi);
@@ -146,10 +147,21 @@ export function createDidis({ store, services, translator = null, llm = null, cl
     async search(householdId) {
       const me = await saathiFor(householdId).elder();
       const city = String(me?.city ?? '').toLowerCase();
-      return (await store.list('didis'))
-        .filter((d) => isReady(d) && (!city || d.city.toLowerCase() === city))
+      const ready = (await store.list('didis')).filter(isReady);
+      const byRating = (a, b) => (b.rating ?? 0) - (a.rating ?? 0) || b.visits - a.visits;
+      if (maps && me?.home) {
+        try {
+          const minutes = await maps.travelMinutes(ready.map((d) => [d.area, d.city].filter(Boolean).join(', ')), [me.home, me.city].filter(Boolean).join(', '));
+          return ready
+            .map((d, i) => ({ ...publicView(d), minutesAway: minutes[i] }))
+            .filter((d) => d.minutesAway !== null && d.minutesAway <= maxMinutes)
+            .sort((a, b) => a.minutesAway - b.minutesAway || byRating(a, b));
+        } catch { }
+      }
+      return ready
+        .filter((d) => !city || d.city.toLowerCase() === city)
         .map(publicView)
-        .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || b.visits - a.visits);
+        .sort(byRating);
     },
 
     async book(householdId, input = {}, by = null) {

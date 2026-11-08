@@ -33,7 +33,7 @@ jobs:
           '
       - name: No secrets committed
         run: |
-          if git grep -nE '(AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|sk-ant-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{36}|xox[baprs]-[A-Za-z0-9-]{10,})' -- ':!test/**' ':!*.md'; then
+          if git grep -nE '(AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|-----BEGIN [A-Z ]*PRIVATE KEY-----|sk-ant-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{36}|xox[baprs]-[A-Za-z0-9-]{10,})' -- ':!test/**' ':!*.md'; then
             echo "A secret-looking value is committed. Remove it and rotate it."; exit 1
           fi
   test:

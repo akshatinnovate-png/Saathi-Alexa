@@ -1048,7 +1048,7 @@ async function loadDidis() {
     const who = document.getElementById('didi-who');
     const chosen = who.value;
     who.replaceChildren(el('option', { value: '' }, 'Any verified Didi nearby'),
-      ...didis.map((d) => el('option', { value: d.id }, `${d.name}${d.rating ? ` ★${d.rating}` : ''} · ${d.visits} visits · ${d.skills.map((k) => `₹${d.rates[k]}`).join('/')}`)));
+      ...didis.map((d) => el('option', { value: d.id }, `${d.name}${d.rating ? ` ★${d.rating}` : ''}${d.area ? ` · ${d.area}` : ''}${d.minutesAway != null ? ` · ${d.minutesAway} min away` : ''} · ${d.visits} visits · ${d.skills.map((k) => `₹${d.rates[k]}`).join('/')}`)));
     who.value = chosen;
     const act = (path, body) => async () => {
       const r = await fetch(`/api/didis/bookings/${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body ?? {}) });

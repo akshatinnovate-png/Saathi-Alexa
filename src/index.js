@@ -1,6 +1,7 @@
 import './env.js';
 import { dirname, join } from 'node:path';
 import { execFile } from 'node:child_process';
+import { createHmac } from 'node:crypto';
 import { config } from './config.js';
 import { createServices } from './services.js';
 import { createApp } from './http/app.js';
@@ -76,6 +77,9 @@ const cognito = config.auth.userPoolId && config.auth.webClientId
   : null;
 const legacySecret = (await services.store.get('meta', 'session-secret'))?.value ?? null;
 const secret = config.web.sessionSecret ?? (keyring ? null : await sessionSecret(services.store));
+if (!keyring && !process.env.SAATHI_RING_WEBHOOK_SECRET && config.ring.webhookSecret === 'local-ring-simulator-secret' && !config.demo) {
+  config.ring.webhookSecret = createHmac('sha256', secret ?? config.web.sessionSecret).update('saathi-ring-webhook-secret').digest('base64url');
+}
 const sessions = createSessions(secret, { store: services.store, keyring: config.web.sessionSecret ? null : keyring });
 configurePepper(keyring ? (data) => keyring.hmac('pepper', data) : null);
 const audit = createAuditLog({ store: services.store, keyring, key: keyring ? null : Buffer.from(`audit:${secret}`) });

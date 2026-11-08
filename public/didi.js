@@ -3,7 +3,7 @@ import { el } from './common.js';
 const T = {
   en: {
     language: 'Language', welcome: 'Become a Saathi Didi', pitch: 'Earn by caring for elders in your own neighbourhood: take them to the doctor, visit, pick up their tablets or help with the phone. You set your own fee and are paid straight to your UPI.',
-    name: 'Your name', phone: 'Mobile number', city: 'Town or city', speaks: 'Languages you speak', offer: 'Help you offer and your fee (₹)', upi: 'UPI ID for payments (optional)', partner: 'Partner code from your SHG or NGO (optional)',
+    name: 'Your name', phone: 'Mobile number', city: 'Town or city', area: 'Your neighbourhood (for example: Kothrud, near Karve Road)', speaks: 'Languages you speak', offer: 'Help you offer and your fee (₹)', upi: 'UPI ID for payments (optional)', partner: 'Partner code from your SHG or NGO (optional)',
     join: 'Join', hello: 'Namaste', verified: 'Verified', notVerified: 'Waiting for verification by a partner group', ready: 'Ready for bookings', lessons: 'Three short lessons', lessonsWhy: 'Finish these before your first booking.',
     check: 'Check my answer', right: 'Correct.', wrong: 'Not quite. Read it once more.', offers: 'New requests near you', none: 'Nothing right now. We will show new requests here.', accept: 'Accept',
     mine: 'My bookings', briefing: 'Read the briefing', checkIn: 'I have arrived', checkOut: 'Finish visit', note: 'How did it go? (the family will read this)', earnings: 'This month',
@@ -13,7 +13,7 @@ const T = {
   },
   hi: {
     language: 'भाषा', welcome: 'साथी दीदी बनिए', pitch: 'अपने ही मोहल्ले में बुज़ुर्गों की देखभाल करके कमाइए: डॉक्टर के पास ले जाना, मिलने जाना, दवाएँ लाना या फ़ोन में मदद। फ़ीस आप तय करती हैं, पैसे सीधे आपके UPI में।',
-    name: 'आपका नाम', phone: 'मोबाइल नंबर', city: 'शहर या कस्बा', speaks: 'आप कौन-सी भाषाएँ बोलती हैं', offer: 'आप कौन-सी मदद देती हैं और फ़ीस (₹)', upi: 'भुगतान के लिए UPI ID (वैकल्पिक)', partner: 'आपके SHG या NGO का पार्टनर कोड (वैकल्पिक)',
+    name: 'आपका नाम', phone: 'मोबाइल नंबर', city: 'शहर या कस्बा', area: 'आपका मोहल्ला (जैसे: कोथरूड, कर्वे रोड के पास)', speaks: 'आप कौन-सी भाषाएँ बोलती हैं', offer: 'आप कौन-सी मदद देती हैं और फ़ीस (₹)', upi: 'भुगतान के लिए UPI ID (वैकल्पिक)', partner: 'आपके SHG या NGO का पार्टनर कोड (वैकल्पिक)',
     join: 'जुड़िए', hello: 'नमस्ते', verified: 'सत्यापित', notVerified: 'पार्टनर समूह से सत्यापन बाकी है', ready: 'बुकिंग के लिए तैयार', lessons: 'तीन छोटे पाठ', lessonsWhy: 'पहली बुकिंग से पहले इन्हें पूरा कीजिए।',
     check: 'जवाब जाँचें', right: 'सही।', wrong: 'थोड़ा और पढ़िए।', offers: 'आपके पास नए अनुरोध', none: 'अभी कुछ नहीं। नए अनुरोध यहाँ दिखेंगे।', accept: 'स्वीकार करें',
     mine: 'मेरी बुकिंग', briefing: 'जानकारी पढ़ें', checkIn: 'मैं पहुँच गई', checkOut: 'विज़िट पूरी करें', note: 'कैसा रहा? (परिवार यह पढ़ेगा)', earnings: 'इस महीने',
@@ -23,7 +23,7 @@ const T = {
   },
   mr: {
     language: 'भाषा', welcome: 'साथी दीदी व्हा', pitch: 'आपल्याच परिसरात वृद्धांची काळजी घेऊन कमवा: डॉक्टरकडे नेणं, भेटायला जाणं, गोळ्या आणणं किंवा फोनमध्ये मदत. फी तुम्ही ठरवता, पैसे थेट तुमच्या UPI मध्ये.',
-    name: 'तुमचं नाव', phone: 'मोबाइल नंबर', city: 'गाव किंवा शहर', speaks: 'तुम्ही कोणत्या भाषा बोलता', offer: 'तुम्ही देत असलेली मदत आणि फी (₹)', upi: 'पैशांसाठी UPI ID (ऐच्छिक)', partner: 'तुमच्या बचत गट किंवा NGO चा पार्टनर कोड (ऐच्छिक)',
+    name: 'तुमचं नाव', phone: 'मोबाइल नंबर', city: 'गाव किंवा शहर', area: 'तुमचा परिसर (उदा. कोथरूड, कर्वे रोडजवळ)', speaks: 'तुम्ही कोणत्या भाषा बोलता', offer: 'तुम्ही देत असलेली मदत आणि फी (₹)', upi: 'पैशांसाठी UPI ID (ऐच्छिक)', partner: 'तुमच्या बचत गट किंवा NGO चा पार्टनर कोड (ऐच्छिक)',
     join: 'सामील व्हा', hello: 'नमस्कार', verified: 'पडताळणी झाली', notVerified: 'पार्टनर गटाकडून पडताळणी बाकी', ready: 'बुकिंगसाठी तयार', lessons: 'तीन छोटे धडे', lessonsWhy: 'पहिल्या बुकिंगपूर्वी हे पूर्ण करा.',
     check: 'उत्तर तपासा', right: 'बरोबर.', wrong: 'अजून एकदा वाचा.', offers: 'तुमच्या जवळच्या नव्या विनंत्या', none: 'आत्ता काही नाही. नव्या विनंत्या इथे दिसतील.', accept: 'स्वीकारा',
     mine: 'माझी बुकिंग', briefing: 'माहिती वाचा', checkIn: 'मी पोहोचले', checkOut: 'भेट पूर्ण करा', note: 'कसं झालं? (घरचे हे वाचतील)', earnings: 'या महिन्यात',
@@ -67,6 +67,7 @@ function signUpView() {
     field(s.name, { name: 'name', required: true, autocomplete: 'name' }),
     field(s.phone, { name: 'phone', required: true, type: 'tel', autocomplete: 'tel', inputmode: 'tel' }),
     field(s.city, { name: 'city', required: true, autocomplete: 'address-level2' }),
+    field(s.area, { name: 'area', autocomplete: 'address-level3' }),
     el('fieldset', {}, el('legend', {}, s.speaks), ...['mr', 'hi', 'en'].map((l) => el('label', { class: 'dd-check' }, el('input', { type: 'checkbox', name: 'language', value: l, checked: l === lang }), { en: 'English', hi: 'हिन्दी', mr: 'मराठी' }[l]))),
     el('fieldset', {}, el('legend', {}, s.offer), ...skills),
     field(s.upi, { name: 'upiId', autocomplete: 'off', placeholder: 'name@bank' }),
@@ -79,7 +80,7 @@ function signUpView() {
     const chosen = f.getAll('skill');
     try {
       const out = await call('/signup', {
-        name: f.get('name'), phone: f.get('phone'), city: f.get('city'), languages: f.getAll('language'), skills: chosen,
+        name: f.get('name'), phone: f.get('phone'), city: f.get('city'), area: f.get('area'), languages: f.getAll('language'), skills: chosen,
         rates: Object.fromEntries(chosen.map((k) => [k, Number(f.get(`rate-${k}`))])), upiId: f.get('upiId'), partnerCode: f.get('partnerCode'),
       });
       savedLink = `${location.origin}${out.link}`;

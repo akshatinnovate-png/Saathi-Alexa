@@ -204,3 +204,19 @@ test('the Didi app and the family app talk to each other over HTTP', async () =>
   assert.equal(money.body.earned, 400);
   assert.equal((await call('POST', '/didi-api/logout', null, didi)).status, 200);
 });
+
+test('with Google Maps, families see ready Didis within 40 minutes, nearest first, and fall back to the city when Maps fails', async () => {
+  const services = testServices();
+  let down = false;
+  const asked = [];
+  const maps = { travelMinutes: async (origins, destination) => { asked.push({ origins, destination }); if (down) throw new Error('quota'); return origins.map((o) => ({ 'Kothrud, Pune': 12, 'Baner, Pune': 25, 'Thane, Mumbai': 180 })[o] ?? null); } };
+  const didis = createDidis({ store: services.store, services, maps, clock: fixedClock, partnerCodes: ['SEWA-PUNE'] });
+  await ready(didis, { ...sunita, area: 'Baner' });
+  await ready(didis, { ...sunita, name: 'Asha', phone: '9822033333', area: 'Kothrud' });
+  await ready(didis, { ...sunita, name: 'Far', phone: '9822055555', city: 'Mumbai', area: 'Thane' });
+  const near = await didis.search('default');
+  assert.deepEqual(near.map((d) => [d.name, d.minutesAway]), [['Asha', 12], ['Sunita Pawar', 25]]);
+  assert.match(asked[0].destination, /Kothrud, Pune/);
+  down = true;
+  assert.deepEqual((await didis.search('default')).map((d) => d.name).sort(), ['Asha', 'Sunita Pawar']);
+});

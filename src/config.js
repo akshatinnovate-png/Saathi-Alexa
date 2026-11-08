@@ -40,7 +40,9 @@ export const config = {
   },
 
   agent: {
-    provider: env.SAATHI_AGENT_PROVIDER ?? (flag('SAATHI_USE_BEDROCK', useAws) ? 'bedrock' : env.ANTHROPIC_API_KEY ? 'anthropic' : env.GROQ_API_KEY ? 'groq' : 'offline'),
+    provider: env.SAATHI_AGENT_PROVIDER ?? (flag('SAATHI_USE_BEDROCK', useAws) ? 'bedrock' : env.ANTHROPIC_API_KEY ? 'anthropic' : env.GEMINI_API_KEY ? 'gemini' : env.GROQ_API_KEY ? 'groq' : 'offline'),
+    geminiKey: env.GEMINI_API_KEY || undefined,
+    geminiModel: env.SAATHI_GEMINI_MODEL ?? 'gemini-2.5-flash',
     groqKey: env.GROQ_API_KEY || undefined,
     groqModel: env.SAATHI_GROQ_MODEL ?? 'openai/gpt-oss-120b',
     model: env.SAATHI_MODEL ?? 'claude-opus-5-5',
