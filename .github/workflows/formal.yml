@@ -55,8 +55,17 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
+        with:
+          path: |
+            ~/.kani
+            ~/.cargo/bin/cargo-kani
+            ~/.cargo/bin/kani
+            ~/.rustup/toolchains/nightly-*
+          key: kani-0.68.0-${{ runner.os }}
       - name: Install Kani
         run: |
+          command -v cargo-kani >/dev/null && [ -d ~/.kani/kani-0.68.0 ] && exit 0
           cargo install --locked kani-verifier@0.68.0
           for i in 1 2 3 4 5 6 7 8 9 10; do cargo kani setup && exit 0; rm -rf ~/.kani; sleep $((i * 15)); done
           exit 1
