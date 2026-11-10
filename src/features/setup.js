@@ -19,6 +19,15 @@ const RECOMMENDED = [
     restore: (before) => ({ scamNetwork: { receive: Boolean(before?.receive), share: Boolean(before?.share) } }),
     snapshot: (elder) => elder?.scamNetwork ?? null,
   },
+  {
+    id: 'scam-shield',
+    title: 'Scam Shield on her phone',
+    detail: 'The Saathi Android app checks incoming texts and WhatsApp messages on her phone, with Gemma running on the phone itself, and warns her about scams. The messages never leave her phone.',
+    isOn: (elder) => Boolean(elder?.scamShield?.enabled),
+    turnOn: () => ({ scamShield: { enabled: true } }),
+    restore: (before) => ({ scamShield: { enabled: Boolean(before?.enabled) } }),
+    snapshot: (elder) => elder?.scamShield ?? null,
+  },
 ];
 
 const SEVERITY = { urgent: 0, soon: 1, info: 2 };
@@ -42,7 +51,7 @@ export function createSetup({ services, accounts = null, security = null, haq = 
       { id: 'medicines', title: 'Add their tablets', detail: 'Photograph a prescription and Saathi fills in the list.', done: medicines.length > 0, action: { label: 'Scan a prescription', href: '#care/scan' } },
       { id: 'family', title: 'Invite family', detail: 'Everyone sees the same day, each in their own language.', done: circle.filter((p) => p.role !== 'elder').length > 1, action: { label: 'Invite someone', open: 'invite' } },
       { id: 'device', title: elder?.preferredName ? `Set up ${elder.preferredName}'s screen` : 'Set up their screen', detail: 'A six-digit code turns any tablet or old phone into their Saathi.', done: devices.length > 0, action: { label: 'Get a code', open: 'devices' } },
-      { id: 'protection', title: 'Turn on recommended protection', detail: 'Fall checks and scam warnings, in one tap.', done: RECOMMENDED.every((r) => r.isOn(elder)), action: { label: 'Review and turn on', open: 'recommended' } },
+      { id: 'protection', title: 'Turn on recommended protection', detail: 'Fall checks, scam warnings and Scam Shield, in one tap.', done: RECOMMENDED.every((r) => r.isOn(elder)), action: { label: 'Review and turn on', open: 'recommended' } },
       { id: 'medical', title: 'Fill in the medical ID', detail: 'Allergies, conditions and who to call, for a paramedic.', done: Boolean(medical.conditions || medical.allergies || medical.familyPhone), action: { label: 'Open settings', open: 'settings' } },
     ];
     if (account) {

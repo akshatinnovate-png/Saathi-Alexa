@@ -73,10 +73,10 @@ test('recommended protection turns on only what is off, never widens sharing, an
   await saathi.updateProfile({ raksha: { enabled: false, stillness: true, stillHours: 5, from: '07:00', to: '19:00' } });
 
   const preview = await setup.recommended('default');
-  assert.deepEqual(preview.changes.map((c) => [c.id, c.on]), [['raksha', false], ['scam-warnings', false]]);
+  assert.deepEqual(preview.changes.map((c) => [c.id, c.on]), [['raksha', false], ['scam-warnings', false], ['scam-shield', false]]);
 
   const applied = await setup.applyRecommended('default');
-  assert.deepEqual(applied.applied, ['raksha', 'scam-warnings']);
+  assert.deepEqual(applied.applied, ['raksha', 'scam-warnings', 'scam-shield']);
   assert.ok(applied.changes.every((c) => c.on));
   const elder = await saathi.elder();
   assert.deepEqual(elder.raksha, { enabled: true, stillness: true, stillHours: 5, from: '07:00', to: '19:00' }, 'her own stillness settings are kept');
@@ -87,8 +87,9 @@ test('recommended protection turns on only what is off, never widens sharing, an
   assert.equal(again.undo, null);
 
   const undone = await setup.undoRecommended('default', applied.undo);
-  assert.deepEqual(undone.restored, ['raksha', 'scam-warnings']);
+  assert.deepEqual(undone.restored, ['raksha', 'scam-warnings', 'scam-shield']);
   const after = await saathi.elder();
+  assert.equal(after.scamShield.enabled, false);
   assert.equal(after.raksha.enabled, false);
   assert.equal(after.raksha.stillHours, 5);
   assert.deepEqual(after.scamNetwork, { receive: false, share: false });
@@ -138,13 +139,13 @@ test('over HTTP: anyone in the family sees the lists, only the owner turns prote
   assert.equal((await call('anand', 'GET', '/api/setup')).body.total, 6);
   assert.equal((await call('anand', 'POST', '/api/setup/recommended', {})).status, 403, 'a family member who is not the owner cannot change protection');
 
-  assert.equal((await call('riya', 'GET', '/api/setup/recommended')).body.changes.length, 2);
+  assert.equal((await call('riya', 'GET', '/api/setup/recommended')).body.changes.length, 3);
   const applied = await call('riya', 'POST', '/api/setup/recommended', {});
-  assert.deepEqual(applied.body.applied, ['raksha', 'scam-warnings']);
+  assert.deepEqual(applied.body.applied, ['raksha', 'scam-warnings', 'scam-shield']);
   assert.equal((await call('riya', 'GET', '/api/raksha')).body.settings.enabled, true);
   assert.equal((await call('riya', 'GET', '/api/setup')).body.steps.find((s) => s.id === 'protection').done, true);
   const undone = await call('riya', 'POST', '/api/setup/recommended/undo', { undo: applied.body.undo });
-  assert.deepEqual(undone.body.restored, ['raksha', 'scam-warnings']);
+  assert.deepEqual(undone.body.restored, ['raksha', 'scam-warnings', 'scam-shield']);
   assert.equal((await call('riya', 'GET', '/api/raksha')).body.settings.enabled, false);
   assert.equal((await call('riya', 'POST', '/api/setup/recommended/undo', {})).status, 400);
 });

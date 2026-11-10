@@ -258,6 +258,7 @@ function react(event) {
   if (type === 'TabletReminder' && d.voice?.url) playThenAnnounce(d.voice.url, d.say);
   else if ((type === 'TabletReminder' || type === 'VisitReminder' || type === 'ScamWarning' || type === 'DidiArrived') && d.say) announce(d.say);
   if (type === 'RakshaCheck') showRaksha(d);
+  if (type === 'ScamSuspected' && d.source === 'phone') announce(words().shield);
   if (type === 'SangatReminder') { if (d.say) announce(d.say); refreshSangat(); }
   if (type === 'MessageForElder' && !busy && Date.now() - lastRead > 5000) {
     lastRead = Date.now();
@@ -357,9 +358,9 @@ onEvents(addEvent);
 init();
 
 const FEATURE_WORDS = {
-  en: { fine: "I'm fine", help: 'I need help', left: (n) => `${n} seconds`, sent: 'Your family has been called.', ok: 'Thank you. Glad you are fine.', join: (t, at) => `Join "${t}" (${at})`, letter: 'What does this letter say?', reading: 'Reading the letter…', ask: 'Are you all right? Tap if you are fine.' },
-  hi: { fine: 'मैं ठीक हूँ', help: 'मुझे मदद चाहिए', left: (n) => `${n} सेकंड`, sent: 'आपके परिवार को बुलाया गया है।', ok: 'धन्यवाद। अच्छा है कि आप ठीक हैं।', join: (t, at) => `"${t}" में जुड़ें (${at})`, letter: 'यह चिट्ठी क्या कहती है?', reading: 'चिट्ठी पढ़ रहे हैं…', ask: 'क्या आप ठीक हैं? ठीक हों तो दबाइए।' },
-  mr: { fine: 'मी ठीक आहे', help: 'मला मदत हवी', left: (n) => `${n} सेकंद`, sent: 'तुमच्या घरच्यांना कळवलं आहे.', ok: 'धन्यवाद. तुम्ही ठीक आहात, छान.', join: (t, at) => `"${t}" मध्ये सामील व्हा (${at})`, letter: 'हे पत्र काय सांगतं?', reading: 'पत्र वाचत आहे…', ask: 'तुम्ही ठीक आहात ना? ठीक असाल तर दाबा.' },
+  en: { fine: "I'm fine", help: 'I need help', left: (n) => `${n} seconds`, sent: 'Your family has been called.', ok: 'Thank you. Glad you are fine.', join: (t, at) => `Join "${t}" (${at})`, letter: 'What does this letter say?', reading: 'Reading the letter…', ask: 'Are you all right? Tap if you are fine.', shield: 'A message on your phone looks like a scam. Please do not share any code or send money. I have told your family.' },
+  hi: { fine: 'मैं ठीक हूँ', help: 'मुझे मदद चाहिए', left: (n) => `${n} सेकंड`, sent: 'आपके परिवार को बुलाया गया है।', ok: 'धन्यवाद। अच्छा है कि आप ठीक हैं।', join: (t, at) => `"${t}" में जुड़ें (${at})`, letter: 'यह चिट्ठी क्या कहती है?', reading: 'चिट्ठी पढ़ रहे हैं…', ask: 'क्या आप ठीक हैं? ठीक हों तो दबाइए।', shield: 'आपके फोन पर आया एक मैसेज धोखा लगता है। कृपया कोई कोड न बताएँ और पैसे न भेजें। मैंने आपके परिवार को बता दिया है।' },
+  mr: { fine: 'मी ठीक आहे', help: 'मला मदत हवी', left: (n) => `${n} सेकंद`, sent: 'तुमच्या घरच्यांना कळवलं आहे.', ok: 'धन्यवाद. तुम्ही ठीक आहात, छान.', join: (t, at) => `"${t}" मध्ये सामील व्हा (${at})`, letter: 'हे पत्र काय सांगतं?', reading: 'पत्र वाचत आहे…', ask: 'तुम्ही ठीक आहात ना? ठीक असाल तर दाबा.', shield: 'तुमच्या फोनवर आलेला एक मेसेज फसवणूक वाटतो. कृपया कोणताही कोड सांगू नका आणि पैसे पाठवू नका. मी घरच्यांना कळवले आहे.' },
 };
 const words = () => FEATURE_WORDS[settings.language] ?? FEATURE_WORDS.en;
 let rakshaTimer = null;

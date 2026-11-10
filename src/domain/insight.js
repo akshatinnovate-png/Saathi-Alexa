@@ -47,7 +47,7 @@ export function weekStats({ dates, medications, doses, checkins, door, orientati
     doorDays: new Set(door.filter((e) => byDate(e.at)).map((e) => localDate(Date.parse(e.at), timeZone))).size,
     askedTime: orientations.filter((o) => byDate(o.at)).length,
     helpRequests: alerts.filter((a) => a.type === 'help' && byDate(a.createdAt)).length,
-    scams: alerts.filter((a) => ['scam', 'scam-guard'].includes(a.type) && byDate(a.createdAt)).length,
+    scams: alerts.filter((a) => ['scam', 'scam-guard', 'scam-shield'].includes(a.type) && byDate(a.createdAt)).length,
   };
 }
 

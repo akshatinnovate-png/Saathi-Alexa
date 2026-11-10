@@ -20,7 +20,7 @@ export function createImpact({ services, store, includeDemo = false, clock = () 
       const help = alerts.filter((a) => a.type === 'help');
       t.helpRequests += help.length;
       t.helpAnswered += help.filter((a) => a.acknowledged).length;
-      t.scamsStopped += incidents.length + alerts.filter((a) => a.type === 'scam').length;
+      t.scamsStopped += incidents.length + alerts.filter((a) => a.type === 'scam' || a.type === 'scam-shield').length;
     }
     const didis = await store.list('didis');
     const bookings = (await store.list('didiBookings')).filter((b) => includeDemo || b.householdId !== DEFAULT_HOUSEHOLD);

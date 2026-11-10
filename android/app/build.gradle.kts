@@ -40,7 +40,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (keystore != null) signingConfig = signingConfigs.getByName("release")
         }
     }
@@ -72,5 +72,6 @@ android {
 }
 
 dependencies {
+    implementation("com.google.mediapipe:tasks-genai:0.10.24")
     testImplementation("junit:junit:4.13.2")
 }

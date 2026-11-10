@@ -3,6 +3,12 @@
 
 ## [Unreleased]
 
+### Scam Shield: Gemma on her phone
+- The Saathi Android app checks incoming texts and WhatsApp messages for scams on her phone. A fast rules check runs first; unclear messages go to **Gemma running on the phone** (MediaPipe LLM Inference).
+- She is warned in her language, and her Saathi screen says it aloud. The family hears only the kind of scam; **the message never leaves her phone**. Real bank messages and "do not share" OTPs are left alone.
+- The model downloads once over Wi-Fi, only on phones with enough memory, and is checked against its SHA-256. Set it with `SAATHI_GEMMA_MODEL_FILE` or `SAATHI_GEMMA_MODEL_URL` plus `SAATHI_GEMMA_MODEL_SHA256`. Without a model the rules check still works.
+- Part of the one-tap recommended protection, with a card in Care, Safety.
+
 ### Easier to use
 - **Labelled navigation** with five places (Home, Care, Messages, Memories, More), a fixed five-tab bar on phones, and Care split into tabs that remember where you were.
 - **Search everything** with the Search button, `/` or Ctrl+K; `g` then a letter jumps between pages and `?` lists the shortcuts. Links such as `#care/haq` open the right card.

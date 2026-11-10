@@ -252,6 +252,39 @@ export function createSaathi(deps) {
     return { alertId, kinds, deduplicated: Boolean(open), sayLanguage: spokenLanguage(lang), say: t(lang, 'scamWarning') };
   }
 
+  const SHIELD_KINDS = new Set(['otp', 'kyc', 'digital-arrest', 'prize', 'investment', 'job', 'impersonation', 'link', 'other']);
+  const SHIELD_KIND_TEXT = { otp: 'asked for a one-time code', kyc: 'a fake bank or KYC message', 'digital-arrest': 'a fake police or "digital arrest" threat', prize: 'a fake prize or lottery', investment: 'a fake investment offer', job: 'a fake job offer', impersonation: 'someone pretending to be family or an official', link: 'a suspicious link', other: 'a likely scam' };
+
+  async function reportScamMessage(input = {}) {
+    const me = await elder();
+    const kind = SHIELD_KINDS.has(input.kind) ? input.kind : 'other';
+    const engine = input.engine === 'gemma' ? 'gemma' : 'rules';
+    const channel = ['sms', 'whatsapp', 'other'].includes(input.channel) ? input.channel : 'other';
+    const confidence = Math.max(0, Math.min(1, Number(input.confidence) || 0));
+    const now = clock();
+    const event = { id: id('shield'), kind, engine, channel, confidence: Math.round(confidence * 100) / 100, at: now.toISOString() };
+    await store.put('scamShield', event);
+    const open = (await store.list('alerts')).find((a) => a.type === 'scam-shield' && !a.acknowledged && now.getTime() - Date.parse(a.createdAt) < 30 * 60 * 1000);
+    await events.publish('ScamSuspected', { kind, engine, channel, source: 'phone' });
+    metrics.emit('ScamSuspected', 1, { source: 'phone', engine });
+    if (open) return { id: event.id, alertId: open.id, deduplicated: true };
+    const alertId = id('scam');
+    const where = channel === 'whatsapp' ? 'a WhatsApp message' : channel === 'sms' ? 'a text message' : 'a message';
+    const summary = `${where[0].toUpperCase()}${where.slice(1)} on ${me.preferredName}'s phone looked like ${SHIELD_KIND_TEXT[kind]}.`;
+    await store.put('alerts', { id: alertId, type: 'scam-shield', severity: 'high', kinds: [kind], engine, createdAt: event.at, acknowledged: false, summary });
+    const p = pronounsOf(me);
+    await notifyCircle({
+      audience: 'family', severity: 'high',
+      subject: `A scam message reached ${me.preferredName}'s phone`,
+      english: `${summary} Saathi warned ${p.object} on the phone not to share codes, PINs or bank details. The message itself stayed on ${p.possessive} phone; ${engine === 'gemma' ? 'Gemma checked it there' : 'Saathi checked it there'}. A quick call from you would help.`,
+    });
+    return { id: event.id, alertId, deduplicated: false };
+  }
+
+  async function scamShieldEvents({ limit = 10 } = {}) {
+    return (await store.list('scamShield')).sort((a, b) => b.at.localeCompare(a.at)).slice(0, limit);
+  }
+
   const GUARD_HOLD_MS = 30 * 60 * 1000;
   const GUARD_KINDS = new Set(['remote-access', 'remote-payment', 'otp-page', 'tech-support', 'gift-card', 'digital-arrest', 'tamper', 'other']);
   const lines = (v, n, max = 200) => (Array.isArray(v) ? v : []).map((x) => String(x ?? '').trim().slice(0, max)).filter(Boolean).slice(0, n);
@@ -340,7 +373,7 @@ export function createSaathi(deps) {
     const active = settings.receive ? activeWarnings(warnings, { country: me.country, today: localParts().date }) : [];
     const since = clock().getTime() - 30 * 24 * 3600 * 1000;
     const kinds = new Set();
-    for (const a of await store.list('alerts')) if (a.type === 'scam' && Date.parse(a.createdAt) >= since) for (const k of a.kinds ?? []) kinds.add(k);
+    for (const a of await store.list('alerts')) if ((a.type === 'scam' || a.type === 'scam-shield') && Date.parse(a.createdAt) >= since) for (const k of a.kinds ?? []) kinds.add(k);
     for (const i of await store.list('scamIncidents')) if (Date.parse(i.createdAt) >= since) kinds.add(i.kind);
     return {
       settings, country: me.country ?? null,
@@ -1131,6 +1164,7 @@ export function createSaathi(deps) {
         to: hhmm(r.to, '20:00'),
       };
     }
+    if (patch.scamShield && typeof patch.scamShield === 'object') next.scamShield = { enabled: Boolean(patch.scamShield.enabled) };
     if ('shareMoodWords' in patch) next.privacy = { ...me.privacy, shareMoodWords: Boolean(patch.shareMoodWords) };
     if (patch.alexaPrivacy && typeof patch.alexaPrivacy === 'object') {
       const current = { medicinePurposes: true, doctorNames: true, storyText: true, ...(me.alexaPrivacy ?? {}) };
@@ -1352,7 +1386,7 @@ export function createSaathi(deps) {
     sweepSupplies, sweepWeeklyLetter, sweepReminders, recordRefill, upcomingAppointments, sweepAppointments, claimEscort, addVoiceNote, weeklyLetters,
     addMember, removeMember, updateProfile, saveMedication, removeMedication, saveAppointment, removeAppointment, saveRoutine, careSetup, subscribeMember, setAvatar, media, householdId: deps.householdId ?? DEFAULT_HOUSEHOLD,
     messages, doorActivity, homeMap, saveRooms, placeItem, removeItem, whereIs,
-    checkIn, requestHelp, acknowledgeAlert, reportSuspiciousCall, recordScamIncident, scamIncidents, scamHold, decideScamHold, insight, saveReminderVoice, removeReminderVoice, reminderVoices, legacyBook, scamNetworkView, sweepScamWarnings, localNow, recordCall, didiUpdate, didiBriefingFacts, featureStore, shareDoctorNote, notifyFamilyAbout, sangatReminder, rakshaAsk, rakshaAlert,
+    checkIn, requestHelp, acknowledgeAlert, reportSuspiciousCall, reportScamMessage, scamShieldEvents, recordScamIncident, scamIncidents, scamHold, decideScamHold, insight, saveReminderVoice, removeReminderVoice, reminderVoices, legacyBook, scamNetworkView, sweepScamWarnings, localNow, recordCall, didiUpdate, didiBriefingFacts, featureStore, shareDoctorNote, notifyFamilyAbout, sangatReminder, rakshaAsk, rakshaAlert,
     familyMessages, sendToFamily, messageFromFamily,
     saveStory, listStories, familySummary,
     circle: () => store.list('circle'),

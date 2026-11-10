@@ -17,4 +17,17 @@
     <string name="raksha_ask_text">साथी आपका हाल पूछ रहा है। ठीक हों तो \"मैं ठीक हूँ\" दबाइए, वरना परिवार को बुलाया जाएगा।</string>
     <string name="raksha_fine">मैं ठीक हूँ</string>
     <string name="raksha_ask_channel">क्या आप ठीक हैं?</string>
+    <string name="shield_channel">साथी स्कैम शील्ड</string>
+    <string name="shield_title">यह मैसेज धोखा लगता है</string>
+    <string name="shield_otp">इसमें ओटीपी माँगा गया है। इसे कभी किसी को न बताएँ, बैंक को भी नहीं।</string>
+    <string name="shield_kyc">इसमें खाता या केवाईसी अपडेट करने को कहा गया है। बैंक ऐसा मैसेज से कभी नहीं कहते। क्लिक या जवाब न दें।</string>
+    <string name="shield_arrest">इसमें गिरफ्तारी या पुलिस की धमकी है। यह जाना-पहचाना धोखा है। पैसे न दें, जवाब न दें।</string>
+    <string name="shield_money">इसमें आसान पैसे, इनाम या नौकरी का वादा है। कोई फीस न दें, जानकारी न दें।</string>
+    <string name="shield_family">कोई नए नंबर से परिवार का होने का दावा कर रहा है। पहले पुराने नंबर पर परिवार को फोन करें।</string>
+    <string name="shield_other">लिंक न खोलें, कोड न बताएँ, पैसे न भेजें।</string>
+    <string name="shield_family_told">आपके परिवार को बता दिया गया है। मैसेज आपके फोन पर ही रहा।</string>
+    <string name="shield_ask_title">उनके मैसेज सुरक्षित करें?</string>
+    <string name="shield_ask_text">साथी इस फोन पर आने वाले एसएमएस और व्हाट्सएप मैसेज में धोखा पहचान कर उन्हें सावधान कर सकता है। मैसेज फोन पर ही जाँचे जाते हैं और कहीं नहीं जाते। अगली स्क्रीन पर साथी को सूचनाएँ पढ़ने दें।</string>
+    <string name="shield_allow">अनुमति दें</string>
+    <string name="shield_not_now">अभी नहीं</string>
 </resources>
