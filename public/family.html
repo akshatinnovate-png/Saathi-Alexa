@@ -12,6 +12,9 @@
   <link rel="stylesheet" href="florals.css">
   <link rel="stylesheet" href="assistant.css">
   <link rel="stylesheet" href="home3d.css">
+  <link rel="stylesheet" href="shell.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#f3ebdd">
   <script type="importmap">{ "imports": { "three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/", "@noble/hashes/": "/vendor/noble-hashes/", "@noble/curves/": "/vendor/noble-curves/", "@noble/post-quantum/": "/vendor/noble-post-quantum/" } }</script>
 </head>
 <body class="fam bloom bloom-cream">
@@ -29,13 +32,28 @@
             <span>Viewing as</span>
             <select id="member"></select>
           </label>
-          <button class="chip-btn" id="t-large" type="button" aria-pressed="false">Large text</button>
-          <button class="chip-btn" id="t-contrast" type="button" aria-pressed="false">High contrast</button>
+          <button class="chip-btn search-btn" id="open-palette" type="button" data-icon="search"><span>Search</span><kbd aria-hidden="true">/</kbd></button>
+          <div class="display-menu">
+            <button class="chip-btn" id="open-display" type="button" aria-expanded="false" aria-controls="display-pop">Display</button>
+            <div class="display-pop" id="display-pop" hidden>
+              <button class="chip-btn" id="t-large" type="button" aria-pressed="false">Large text</button>
+              <button class="chip-btn" id="t-contrast" type="button" aria-pressed="false">High contrast</button>
+              <button class="chip-btn" id="t-motion" type="button" aria-pressed="false">Less motion</button>
+            </div>
+          </div>
         </div>
       </header>
 
       <section class="view" id="view-overview" data-view="overview" aria-labelledby="hello">
+        <p class="offline" id="offline" role="status" hidden>You are offline. Saathi will reconnect by itself; what you see may be a little old.</p>
         <div id="alerts" class="alerts" aria-live="assertive" aria-label="Alerts"></div>
+        <nav class="quick-actions" aria-label="Quick actions">
+          <a class="qa" href="#messages" data-icon="message"><span>Send a message</span></a>
+          <a class="qa" href="#care/scan" data-icon="scan"><span>Scan a prescription</span></a>
+          <a class="qa" href="#care/didis" data-icon="heart"><span>Book a Didi</span></a>
+          <a class="qa" href="#care/notes" data-icon="mic"><span>Record doctor notes</span></a>
+          <button class="qa" type="button" id="share-day" data-icon="send"><span>Share today</span></button>
+        </nav>
         <div class="overview">
           <article class="hero sprig" aria-labelledby="hero-label">
             <div class="hero-top">
@@ -66,14 +84,35 @@
             </section>
           </div>
         </div>
+        <div class="home-grid">
+          <article class="glass" aria-labelledby="attention-h" id="attention-card">
+            <div class="card-head"><h3 id="attention-h">Needs attention</h3><span class="count-pill" id="attention-count" hidden></span></div>
+            <ul class="attention" id="attention" aria-live="polite"><li class="skeleton"></li><li class="skeleton"></li></ul>
+          </article>
+          <article class="glass" aria-labelledby="setup-h" id="setup-card" hidden>
+            <div class="card-head"><h3 id="setup-h">Finish setting up</h3><span class="ring" id="setup-ring" role="img" aria-label="Setup progress"></span></div>
+            <ul class="setup-steps" id="setup-steps"></ul>
+          </article>
+          <article class="glass" aria-labelledby="timeline-h" id="timeline-card">
+            <div class="card-head"><h3 id="timeline-h">Today</h3><a class="text-action" href="#care">Open care</a></div>
+            <ol class="timeline" id="timeline"><li class="skeleton"></li><li class="skeleton"></li><li class="skeleton"></li></ol>
+          </article>
+        </div>
       </section>
 
       <section class="view" id="view-care" data-view="care" aria-labelledby="care-h" hidden>
         <h2 class="view-title" id="care-h">Care</h2>
-        <div class="grid">
-          <article class="glass span-6" aria-labelledby="meds-h"><div class="card-head"><h3 id="meds-h">Tablets today</h3><button class="text-action" type="button" id="manage-meds">Manage medicines</button></div><div class="list" id="meds"></div></article>
-          <article class="glass span-6" aria-labelledby="appts-h"><div class="card-head"><h3 id="appts-h">Doctor visits</h3><button class="text-action" type="button" id="manage-appts">Add a visit</button></div><div class="list" id="appointments"></div></article>
-          <article class="glass span-6" aria-labelledby="calls-h" id="calls-card" hidden><div class="card-head"><h3 id="calls-h">Saathi Calls</h3></div>
+        <div class="tabs" role="tablist" aria-label="Care sections" id="care-tabs">
+          <button role="tab" type="button" data-tab="today" id="tab-today" aria-selected="true">Today</button>
+          <button role="tab" type="button" data-tab="health" id="tab-health" aria-selected="false" tabindex="-1">Health</button>
+          <button role="tab" type="button" data-tab="safety" id="tab-safety" aria-selected="false" tabindex="-1">Safety</button>
+          <button role="tab" type="button" data-tab="help" id="tab-help" aria-selected="false" tabindex="-1">Help and benefits</button>
+          <button role="tab" type="button" data-tab="extras" id="tab-extras" aria-selected="false" tabindex="-1">Extras</button>
+        </div>
+        <div class="grid care-grid" id="care-grid" role="tabpanel" aria-labelledby="tab-today">
+          <article class="glass span-6" data-tab="today" data-card="meds" aria-labelledby="meds-h"><div class="card-head"><h3 id="meds-h">Tablets today</h3><button class="text-action" type="button" id="manage-meds">Manage medicines</button></div><div class="list" id="meds"></div></article>
+          <article class="glass span-6" data-tab="today" data-card="appts" aria-labelledby="appts-h"><div class="card-head"><h3 id="appts-h">Doctor visits</h3><button class="text-action" type="button" id="manage-appts">Add a visit</button></div><div class="list" id="appointments"></div></article>
+          <article class="glass span-6" data-tab="health" data-card="calls" aria-labelledby="calls-h" id="calls-card" hidden><div class="card-head"><h3 id="calls-h">Saathi Calls</h3></div>
             <p class="muted small">Saathi phones them every day on any phone: tablets, how they feel, and your messages. If nobody answers twice, you are told.</p>
             <form class="calls-form" id="calls-form">
               <label class="inline-check"><input type="checkbox" id="calls-enabled"> Call every day</label>
@@ -84,21 +123,22 @@
             </form>
             <p class="small" id="calls-status" aria-live="polite"></p>
           </article>
-          <article class="glass span-6" aria-labelledby="scan-h" id="scan-card"><div class="card-head"><h3 id="scan-h">Saathi Scan</h3></div>
+          <article class="glass span-6" data-tab="health" data-card="scan" aria-labelledby="scan-h" id="scan-card"><div class="card-head"><h3 id="scan-h">Saathi Scan</h3></div>
             <p class="muted small">Photograph a prescription or a tablet strip. Saathi reads it, warns about duplicates and risky pairs, and adds only what you tick.</p>
             <label class="pill-action file-pick">Take or choose a photo <input type="file" id="scan-file" accept="image/*" capture="environment"></label>
             <p class="small" id="scan-status" aria-live="polite"></p>
             <form class="calls-form" id="scan-form" hidden><ul class="feature-list" id="scan-list"></ul><ul class="insight-list" id="scan-checks"></ul><div class="calls-actions"><button class="pill-action" type="submit">Add the ticked medicines</button></div></form>
           </article>
-          <article class="glass span-6" aria-labelledby="notes-h" id="notes-card"><div class="card-head"><h3 id="notes-h">Doctor Notes</h3></div>
+          <article class="glass span-6" data-tab="health" data-card="notes" aria-labelledby="notes-h" id="notes-card"><div class="card-head"><h3 id="notes-h">Doctor Notes</h3></div>
             <p class="muted small">Record the doctor visit (ask the doctor first). Saathi writes a short summary in every family language and proposes medicine changes for you to confirm.</p>
             <label class="inline-check"><input type="checkbox" id="notes-consent"> The doctor agreed to the recording</label>
             <div class="calls-actions"><button class="pill-action" type="button" id="notes-record" aria-pressed="false">Start recording</button><label class="text-action file-pick">or upload a recording <input type="file" id="notes-file" accept="audio/*"></label></div>
             <p class="small" id="notes-status" aria-live="polite"></p>
             <div id="notes-list" class="feature-stack"></div>
           </article>
-          <article class="glass span-6" aria-labelledby="haq-h" id="haq-card"><div class="card-head"><h3 id="haq-h">Saathi Haq</h3></div>
+          <article class="glass span-6" data-tab="help" data-card="haq" aria-labelledby="haq-h" id="haq-card"><div class="card-head"><h3 id="haq-h">Saathi Haq</h3></div>
             <p class="muted small">Benefits and deadlines she should not miss: the pension life certificate, Ayushman Vay Vandana and old-age pensions.</p>
+            <details class="fold" id="haq-details"><summary>Her details</summary>
             <form class="calls-form" id="haq-form">
               <label>Year of birth <input id="haq-born" type="number" inputmode="numeric" min="1900" max="2000"></label>
               <label class="inline-check"><input type="checkbox" id="haq-pensioner"> Gets a pension</label>
@@ -109,18 +149,19 @@
               <label class="inline-check"><input type="checkbox" id="haq-life-done"> Life certificate done this year</label>
               <div class="calls-actions"><button class="pill-action" type="submit">Save</button></div>
             </form>
+            </details>
             <ul class="feature-list" id="haq-list"></ul>
             <label class="text-action file-pick">What does this letter say? Photograph it <input type="file" id="haq-letter" accept="image/*" capture="environment"></label>
             <div id="haq-explain" class="feature-stack" aria-live="polite"></div>
           </article>
-          <article class="glass span-6" aria-labelledby="sangat-h" id="sangat-card"><div class="card-head"><h3 id="sangat-h">Saathi Sangat</h3></div>
+          <article class="glass span-6" data-tab="help" data-card="sangat" aria-labelledby="sangat-h" id="sangat-card"><div class="card-head"><h3 id="sangat-h">Saathi Sangat</h3></div>
             <p class="muted small">Daily chai circles for 5 to 8 elders in her language, hosted on Google Meet by a Saathi Didi. She is reminded and joins with one tap.</p>
             <ul class="feature-list" id="sangat-list"></ul>
             <p class="small" id="sangat-status" aria-live="polite"></p>
           </article>
-          <article class="glass span-6" aria-labelledby="raksha-h" id="raksha-card"><div class="card-head"><h3 id="raksha-h">Saathi Raksha</h3></div>
+          <article class="glass span-6" data-tab="safety" data-card="raksha" aria-labelledby="raksha-h" id="raksha-card"><div class="card-head"><h3 id="raksha-h">Saathi Raksha</h3></div>
             <p class="muted small">With the Saathi Android app on her phone, Saathi notices a likely fall (or a long stillness in the day), asks "Are you all right?", and calls the family if she does not answer.</p>
-            <form class="calls-form" id="raksha-form">
+            <form class="calls-form" id="raksha-form" data-autosave>
               <label class="inline-check"><input type="checkbox" id="raksha-on"> Watch for falls</label>
               <label class="inline-check"><input type="checkbox" id="raksha-still"> Also check on long stillness</label>
               <label>Stillness after (hours) <input id="raksha-hours" type="number" min="1" max="8" value="3"></label>
@@ -131,7 +172,7 @@
             <ul class="insight-list" id="raksha-recent"></ul>
             <p class="small" id="raksha-status" aria-live="polite"></p>
           </article>
-          <article class="glass span-6" aria-labelledby="didis-h" id="didis-card"><div class="card-head"><h3 id="didis-h">Saathi Didis</h3><a class="text-action" href="/didi.html">Become a Didi</a></div>
+          <article class="glass span-6" data-tab="help" data-card="didis" aria-labelledby="didis-h" id="didis-card"><div class="card-head"><h3 id="didis-h">Saathi Didis</h3><a class="text-action" href="/didi.html">Become a Didi</a></div>
             <p class="muted small">Verified women from their neighbourhood, trained by Saathi and paid by you straight to UPI: a doctor escort, a visit, a tablet refill or help with the phone.</p>
             <form class="calls-form" id="didi-form">
               <label>What do you need? <select id="didi-kind"><option value="escort">Doctor escort</option><option value="visit">Company visit</option><option value="refill">Tablet refill</option><option value="tech">Help with phone and forms</option></select></label>
@@ -145,25 +186,25 @@
             <p class="small" id="didi-status" aria-live="polite"></p>
             <ul class="didi-bookings" id="didi-bookings"></ul>
           </article>
-          <article class="glass span-6" aria-labelledby="plan-h" id="plan-card" hidden><div class="card-head"><h3 id="plan-h">Plan</h3></div>
+          <article class="glass span-6" data-tab="extras" data-card="plan" aria-labelledby="plan-h" id="plan-card" hidden><div class="card-head"><h3 id="plan-h">Plan</h3></div>
             <p class="small" id="plan-now"></p>
             <p class="muted small">Help alerts, scam protection and medicine reminders are always included, whatever the plan.</p>
             <ul class="plan-list" id="plan-list"></ul>
             <p class="small" id="plan-status" aria-live="polite"></p>
           </article>
-          <article class="glass span-6" aria-labelledby="ssn-h"><div class="card-head"><h3 id="ssn-h">Scams near you</h3></div>
+          <article class="glass span-6" data-tab="safety" data-card="ssn" aria-labelledby="ssn-h"><div class="card-head"><h3 id="ssn-h">Scams near you</h3></div>
             <p class="muted small">Warnings checked by a person, shared by Saathi homes. Only the kind of scam is ever shared: no names, numbers or messages.</p>
             <label class="inline-check"><input type="checkbox" id="ssn-receive"> Warn us about new scams (Saathi will tell them gently)</label>
             <label class="inline-check"><input type="checkbox" id="ssn-share"> Let us share the kinds of scams Saathi sees here</label>
             <ul class="insight-list" id="ssn-warnings"></ul>
             <p class="small" id="ssn-status" aria-live="polite"></p>
           </article>
-          <article class="glass span-6" aria-labelledby="legacy-h"><div class="card-head"><h3 id="legacy-h">Living Legacy</h3><a class="text-action" href="/legacy.html">Open the book</a></div><p class="muted small">Every story in the memory book, as an illustrated family book in every family language, with the narration. Print it or save it as a PDF.</p></article>
-          <article class="glass span-6" aria-labelledby="insight-h"><div class="card-head"><h3 id="insight-h">Saathi Insight</h3><a class="text-action" href="/doctor-report.html">Doctor report</a></div><p class="muted small" id="insight-summary">Looking at this week…</p><ul class="insight-list" id="insight-changes"></ul></article>
-          <article class="glass span-6" aria-labelledby="mid-h"><div class="card-head"><h3 id="mid-h">Medical ID card</h3><a class="text-action" href="/medical-id.html">Open and print</a></div><p class="muted small">One page for a paramedic or a hospital: allergies, conditions, medicines, who to call and the language they speak. Keep a copy on the fridge and in a handbag.</p></article>
-          <article class="glass span-6" aria-labelledby="mood-h"><h3 id="mood-h">How they've been feeling</h3><div class="mood" id="mood"></div></article>
-          <article class="glass span-12" aria-labelledby="routine-h"><div class="card-head"><h3 id="routine-h">Daily routine</h3><button class="text-action" type="button" id="manage-routine">Edit routine</button></div><p class="muted small" id="routine-note">Saathi uses this to answer "what should I do now?". Tablets are added automatically.</p><ol class="routine-list" id="routine"></ol></article>
-          <article class="glass span-6" aria-labelledby="door-h"><h3 id="door-h">Front door</h3><div class="list" id="door"></div></article>
+          <article class="glass span-6" data-tab="extras" data-card="legacy" aria-labelledby="legacy-h"><div class="card-head"><h3 id="legacy-h">Living Legacy</h3><a class="text-action" href="/legacy.html">Open the book</a></div><p class="muted small">Every story in the memory book, as an illustrated family book in every family language, with the narration. Print it or save it as a PDF.</p></article>
+          <article class="glass span-6" data-tab="health" data-card="insight" aria-labelledby="insight-h"><div class="card-head"><h3 id="insight-h">Saathi Insight</h3><a class="text-action" href="/doctor-report.html">Doctor report</a></div><p class="muted small" id="insight-summary">Looking at this week…</p><ul class="insight-list" id="insight-changes"></ul></article>
+          <article class="glass span-6" data-tab="health" data-card="mid" aria-labelledby="mid-h"><div class="card-head"><h3 id="mid-h">Medical ID card</h3><a class="text-action" href="/medical-id.html">Open and print</a></div><p class="muted small">One page for a paramedic or a hospital: allergies, conditions, medicines, who to call and the language they speak. Keep a copy on the fridge and in a handbag.</p></article>
+          <article class="glass span-6" data-tab="today" data-card="mood" aria-labelledby="mood-h"><h3 id="mood-h">How they've been feeling</h3><div class="mood" id="mood"></div></article>
+          <article class="glass span-12" data-tab="today" data-card="routine" aria-labelledby="routine-h"><div class="card-head"><h3 id="routine-h">Daily routine</h3><button class="text-action" type="button" id="manage-routine">Edit routine</button></div><p class="muted small" id="routine-note">Saathi uses this to answer "what should I do now?". Tablets are added automatically.</p><ol class="routine-list" id="routine"></ol></article>
+          <article class="glass span-6" data-tab="today" data-card="door" aria-labelledby="door-h"><h3 id="door-h">Front door</h3><div class="list" id="door"></div></article>
         </div>
       </section>
 
@@ -214,29 +255,42 @@
       <section class="view" id="view-assistant" data-view="assistant" aria-labelledby="assistant-title" hidden>
         <div id="assistant-root"></div>
       </section>
+      <section class="view" id="view-more" data-view="more" aria-labelledby="more-h" hidden>
+        <h2 class="view-title" id="more-h">More</h2>
+        <h3 class="tiles-h">Saathi</h3>
+        <div class="tiles">
+          <a class="tile" href="#assistant" data-icon="sparkle"><strong>Ask Saathi</strong><span>The family assistant: questions and actions</span></a>
+          <a class="tile" href="#home" data-icon="home"><strong>House map</strong><span>Where things are kept at home</span></a>
+          <a class="tile" href="/alexa.html" data-icon="mic" id="open-elder-screen"><strong>Their Saathi screen</strong><span>See what they see and hear</span></a>
+          <a class="tile" href="/legacy.html" data-icon="book"><strong>Living Legacy</strong><span>Their stories as a family book</span></a>
+          <a class="tile" href="/doctor-report.html" data-icon="letter"><strong>Doctor report</strong><span>A one-page summary for the next visit</span></a>
+          <a class="tile" href="/medical-id.html" data-icon="heart"><strong>Medical ID card</strong><span>For the fridge and a handbag</span></a>
+          <a class="tile" href="/scam-guard.html" data-icon="shield"><strong>Scam Guard</strong><span>Calls and messages Saathi held back</span></a>
+        </div>
+        <h3 class="tiles-h">Family and setup</h3>
+        <div class="tiles">
+          <button class="tile" type="button" id="open-invite" data-icon="userPlus"><strong>Invite family</strong><span>Each person in their own language</span></button>
+          <button class="tile" type="button" id="open-devices" data-icon="tablet"><strong>Set up their device</strong><span>A six-digit code, no passwords</span></button>
+          <button class="tile" type="button" id="open-recommended" data-icon="shield"><strong>Recommended protection</strong><span>Fall checks and scam warnings in one tap</span></button>
+          <button class="tile" type="button" id="open-settings" data-icon="gear"><strong>Settings</strong><span>Profile, email, doorbell and plan</span></button>
+          <button class="tile" type="button" id="open-security" data-icon="shield"><strong>Security</strong><span>Passkeys, two-step sign-in, devices</span></button>
+          <button class="tile" type="button" id="install-app" data-icon="phone" hidden><strong>Install the app</strong><span>Put Saathi on this phone's home screen</span></button>
+          <button class="tile" type="button" id="open-shortcuts" data-icon="search"><strong>Keyboard shortcuts</strong><span>Press ? anywhere</span></button>
+          <button class="tile" type="button" id="logout" data-icon="logout"><strong>Log out</strong><span>On this device only</span></button>
+        </div>
+      </section>
     </main>
 
     <nav class="rail" aria-label="Sections">
-      <p class="rail-clock" id="clock">--:--</p>
-      <span class="rail-status" id="live" title="Live updates connected"></span>
+      <a class="brand" href="#overview"><img src="assets/logo-ink.svg" alt="" width="28" height="28"><span>Saathi</span></a>
       <div class="rail-group">
-        <a class="rail-btn" href="#overview" data-nav="overview" aria-label="Overview"></a>
-        <a class="rail-btn" href="#care" data-nav="care" aria-label="Care: alerts, tablets and visits"><span class="badge" id="alert-badge" hidden></span></a>
-        <button class="rail-btn" type="button" id="open-invite" data-icon="userPlus" aria-label="Invite family"></button>
-        <button class="rail-btn" type="button" id="open-devices" data-icon="tablet" aria-label="Set up their device"></button>
-        <button class="rail-btn" type="button" id="open-settings" data-icon="gear" aria-label="Settings"></button>
-        <button class="rail-btn" type="button" id="open-security" data-icon="shield" aria-label="Security"></button>
+        <a class="rail-btn" href="#overview" data-nav="overview"><span class="nav-label">Home</span></a>
+        <a class="rail-btn" href="#care" data-nav="care"><span class="nav-label">Care</span><span class="badge" id="alert-badge" hidden></span></a>
+        <a class="rail-btn" href="#messages" data-nav="messages"><span class="nav-label">Messages</span></a>
+        <a class="rail-btn" href="#memories" data-nav="memories"><span class="nav-label">Memories</span></a>
+        <a class="rail-btn" href="#more" data-nav="more"><span class="nav-label">More</span></a>
       </div>
-      <div class="rail-group">
-        <a class="rail-btn" href="#memories" data-nav="memories" aria-label="Memories and letters"></a>
-        <a class="rail-btn" href="#messages" data-nav="messages" aria-label="Messages"></a>
-        <a class="rail-btn" href="#assistant" data-nav="assistant" aria-label="Saathi assistant"></a>
-        <a class="rail-btn" href="#home" data-nav="home" aria-label="House map"></a>
-      </div>
-      <div class="rail-group rail-bottom">
-        <a class="rail-btn" href="/alexa.html" data-icon="mic" aria-label="Open their Saathi screen" id="open-elder-screen"></a>
-        <button class="rail-btn" type="button" id="logout" data-icon="logout" aria-label="Log out"></button>
-      </div>
+      <p class="rail-foot"><span class="rail-status" id="live"></span><span id="live-text">Live</span><span class="rail-clock" id="clock">--:--</span></p>
     </nav>
   </div>
 
@@ -352,6 +406,7 @@
       <p class="form-error" id="pair-error" role="alert" hidden></p>
       <div class="sheet-actions">
         <button class="text-action" type="button" id="pair-new">New code</button>
+        <button class="text-action" type="button" id="pair-share">Share the link</button>
         <button class="pill-action dark" type="button" id="device-close">Done</button>
       </div>
       <h3 class="devices-h">Connected devices</h3>
@@ -387,7 +442,46 @@
     </div>
   </dialog>
 
+  <dialog class="sheet palette" id="palette" aria-label="Search Saathi">
+    <div class="palette-box">
+      <label class="sr-only" for="palette-input">Search for a page, a card or an action</label>
+      <input id="palette-input" type="text" autocomplete="off" placeholder="Search: tablets, Didi, settings…" role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list">
+      <ul id="palette-list" role="listbox" aria-label="Results"></ul>
+      <p class="palette-hint muted small">Enter to open · Esc to close</p>
+    </div>
+  </dialog>
+
+  <dialog class="sheet" id="shortcuts-dialog" aria-labelledby="shortcuts-h">
+    <form method="dialog" class="sheet-form">
+      <h2 id="shortcuts-h">Keyboard shortcuts</h2>
+      <dl class="keys">
+        <dt><kbd>/</kbd> or <kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Search everything</dd>
+        <dt><kbd>g</kbd> then <kbd>h</kbd></dt><dd>Home</dd>
+        <dt><kbd>g</kbd> then <kbd>c</kbd></dt><dd>Care</dd>
+        <dt><kbd>g</kbd> then <kbd>m</kbd></dt><dd>Messages</dd>
+        <dt><kbd>g</kbd> then <kbd>y</kbd></dt><dd>Memories</dd>
+        <dt><kbd>g</kbd> then <kbd>o</kbd></dt><dd>More</dd>
+        <dt><kbd>?</kbd></dt><dd>This list</dd>
+      </dl>
+      <div class="sheet-actions"><button class="pill-action dark" type="submit">Close</button></div>
+    </form>
+  </dialog>
+
+  <dialog class="sheet" id="recommended-dialog" aria-labelledby="recommended-h">
+    <div class="sheet-form">
+      <h2 id="recommended-h">Recommended protection</h2>
+      <p class="muted">One tap turns these on. Nothing is shared outside your family, every change is written to the security history, and you can undo it straight away.</p>
+      <ul class="recommended" id="recommended-list"></ul>
+      <p class="form-error" id="recommended-error" role="alert" hidden></p>
+      <div class="sheet-actions">
+        <button class="text-action" type="button" id="recommended-close">Not now</button>
+        <button class="pill-action dark" type="button" id="recommended-apply">Turn on</button>
+      </div>
+    </div>
+  </dialog>
+
   <input type="file" id="avatar-file" accept="image/png,image/jpeg,image/webp" hidden>
   <script type="module" src="family.js"></script>
+  <script type="module" src="shell.js"></script>
 </body>
 </html>

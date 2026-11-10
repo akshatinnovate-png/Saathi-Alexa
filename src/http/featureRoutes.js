@@ -6,7 +6,7 @@ const images = express.raw({ type: IMAGE_TYPES, limit: '6mb' });
 const audio = express.raw({ type: AUDIO_TYPES, limit: '12mb' });
 const modelLimit = rateLimit({ windowMs: 60 * 60 * 1000, limit: 60, standardHeaders: 'draft-7', legacyHeaders: false });
 
-export function mountFamilyFeatures(api, { scan, doctorNotes, haq, sangat, raksha, record, memberOf }) {
+export function mountFamilyFeatures(api, { scan, doctorNotes, haq, sangat, raksha, setup = null, record, memberOf }) {
   const send = (feature, fn) => async (req, res, next) => {
     try {
       if (!feature) return res.status(404).json({ error: 'This part of Saathi is not set up here.' });
@@ -58,6 +58,20 @@ export function mountFamilyFeatures(api, { scan, doctorNotes, haq, sangat, raksh
       return out;
     }));
   }
+
+  api.get('/setup', send(setup, (req) => setup.status(req.householdId, { email: req.user?.email ?? null, role: req.role })));
+  api.get('/attention', send(setup, (req) => setup.attention(req.householdId, { memberId: memberOf(req), role: req.role })));
+  api.get('/setup/recommended', send(setup, (req) => setup.recommended(req.householdId)));
+  api.post('/setup/recommended', send(setup, async (req) => {
+    const out = await setup.applyRecommended(req.householdId, req.body?.ids);
+    record(req, 'recommended-protection', { applied: out.applied });
+    return out;
+  }));
+  api.post('/setup/recommended/undo', send(setup, async (req) => {
+    const out = await setup.undoRecommended(req.householdId, req.body?.undo);
+    record(req, 'recommended-protection-undone', { restored: out.restored });
+    return out;
+  }));
 
   api.get('/raksha', send(raksha, async (req) => ({ settings: await raksha.settings(req.householdId), recent: await raksha.recent(req.householdId), answerSeconds: raksha.answerSeconds })));
   api.put('/raksha', send(raksha, async (req) => {

@@ -75,6 +75,7 @@ try {
   }
   await fam.goto(`${B}/family.html`);
   await fam.waitForTimeout(1200);
+  await fam.click('a[data-nav="more"]');
   await fam.click('#open-security');
   await fam.waitForSelector('#security-body >> text=Add a passkey');
   const loaded = await fam.evaluate(async () => { await document.fonts.ready; return [...new Set([...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replaceAll('"', '')))]; });
@@ -94,6 +95,8 @@ try {
   await fam.waitForSelector('#security-body >> text=Private messages are on for this device', { timeout: 10000 });
   ok(true, 'the owner turned on private messages');
   await fam.click('#security-dialog >> text=Done');
+
+  await fam.click('a[data-nav="more"]');
 
   await fam.click('#open-devices');
   await fam.waitForTimeout(800);
@@ -138,12 +141,15 @@ try {
   const shown = await tab.waitForFunction(() => document.getElementById('alexa-said').textContent.includes('Kabir got the job'), null, { timeout: 60000 }).then(() => true).catch(() => false);
   ok(shown, "Aaji's tablet decrypts and shows the private message");
 
+  await fam.click('a[data-nav="more"]');
+
   await fam.click('#open-security');
   await fam.waitForSelector('#security-body >> text=Lock with fingerprint or face');
   await fam.click('#security-body >> text=Lock with fingerprint or face');
   await fam.waitForFunction(() => document.getElementById('toast').textContent.includes('after each restart'), null, { timeout: 15000 });
   await fam.reload();
   await fam.waitForTimeout(1500);
+  await fam.click('a[data-nav="more"]');
   await fam.click('#open-security');
   await fam.waitForSelector('#security-body >> text=Unlock with fingerprint or face');
   ok(true, 'after a restart, private messages stay locked until the passkey unlocks them');
