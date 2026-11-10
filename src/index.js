@@ -21,6 +21,7 @@ import { createDoctorNotes } from './features/doctorNotes.js';
 import { createHaq } from './features/haq.js';
 import { createSangat } from './features/sangat.js';
 import { createRaksha } from './features/raksha.js';
+import { createSetup } from './features/setup.js';
 import { createVerifier, createHouseholdVerifier } from './auth/verifier.js';
 import { createRingSimulator } from './ring/webhook.js';
 import { createAccounts } from './accounts/accounts.js';
@@ -181,7 +182,8 @@ const doctorNotes = createDoctorNotes({ llm, services, translator: services.tran
 const haq = createHaq({ llm, services, translator: services.translator });
 const sangat = createSangat({ store: services.store, services, llm });
 const raksha = createRaksha({ services });
-const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit, keyring, vault: familyVault, sahayQueue, guide, scamNetwork, billing: billing.enabled ? billing : null, calls: calls.enabled ? calls : null, didis, impact: createImpact({ services, store: services.store, includeDemo: config.demo }), scan, doctorNotes, haq, sangat, raksha });
+const setup = createSetup({ services, accounts, security, haq });
+const app = createApp({ config, services, simulatorFor, assistantFor, verifier, optionalVerifier, accounts, sessions, allowedHosts, ringSimulator, google, familyMail, doorbell, security, audit, keyring, vault: familyVault, sahayQueue, guide, scamNetwork, billing: billing.enabled ? billing : null, calls: calls.enabled ? calls : null, didis, impact: createImpact({ services, store: services.store, includeDemo: config.demo }), scan, doctorNotes, haq, sangat, raksha, setup });
 
 doorbell.startAll().catch((err) => console.error('Ring listeners failed to start:', err.message));
 

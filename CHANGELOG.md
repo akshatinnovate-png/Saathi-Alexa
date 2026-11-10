@@ -3,6 +3,13 @@
 
 ## [Unreleased]
 
+### Easier to use
+- **Labelled navigation** with five places (Home, Care, Messages, Memories, More), a fixed five-tab bar on phones, and Care split into tabs that remember where you were.
+- **Search everything** with the Search button, `/` or Ctrl+K; `g` then a letter jumps between pages and `?` lists the shortcuts. Links such as `#care/haq` open the right card.
+- **Home** gains quick actions, a setup checklist, a Today timeline and a **Needs attention** list: calls for help, tablets not confirmed or running low, visits nobody is taking her to, and benefit deadlines, each with one button.
+- **Recommended protection** shows what will change (fall checks and scam warnings), turns it on in one tap and offers Undo. Only the owner can use it, it never turns on sharing, and each change is written to the security history.
+- One style for every field, switches that save themselves for Raksha, loading placeholders, an offline notice, a Display menu with a less-motion setting, and a home-screen install.
+
 ### Five new features
 - **Saathi Scan**: photograph a prescription or tablet strip. Claude or Gemini reads it, including Indian dosing notes ("1-0-1", OD, BD, TDS, HS, before and after food), and Saathi warns about duplicates and a short list of well-known risky pairs. The family ticks what to add.
 - **Saathi Haq**: the pension life certificate window (from 1 October at 80 and over), Ayushman Vay Vandana at 70, the national old-age pension and Maharashtra's Shravanbal scheme, with weekly reminders while the certificate is due. Aaji can ask "What does this letter say?" and hear it explained in her language; likely scams go to Scam Shield.

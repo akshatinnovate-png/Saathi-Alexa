@@ -29,6 +29,7 @@ export function applyDisplay(settings) {
   const root = document.documentElement;
   root.dataset.large = String(Boolean(settings.large));
   if (settings.contrast) root.dataset.contrast = 'high'; else delete root.dataset.contrast;
+  if (settings.motion) root.dataset.motion = 'reduce'; else delete root.dataset.motion;
 }
 
 export function bindToggle(button, settings, key, onChange) {

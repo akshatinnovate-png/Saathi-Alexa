@@ -230,6 +230,7 @@ async function renderThread() {
 
 async function refresh() {
   const s = await api(`/family/summary?member=${encodeURIComponent(meId())}`);
+  window.dispatchEvent(new CustomEvent('saathi:summary', { detail: s }));
   renderHero(s);
   renderUpNext(s);
   renderAlerts(s.alerts);
@@ -250,10 +251,13 @@ function greet() {
   $('clock').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-async function show(view) {
-  currentView = ['overview', 'care', 'messages', 'memories', 'home', 'assistant'].includes(view) ? view : 'overview';
+async function show(target) {
+  const [view, sub] = String(target ?? '').split('/');
+  currentView = ['overview', 'care', 'messages', 'memories', 'home', 'assistant', 'more'].includes(view) ? view : 'overview';
   document.querySelectorAll('.view').forEach((v) => { v.hidden = v.dataset.view !== currentView; });
-  document.querySelectorAll('[data-nav]').forEach((a) => (a.dataset.nav === currentView ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
+  const navView = ['home', 'assistant'].includes(currentView) ? 'more' : currentView;
+  document.querySelectorAll('[data-nav]').forEach((a) => (a.dataset.nav === navView ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
+  window.dispatchEvent(new CustomEvent('saathi:view', { detail: { view: currentView, sub: sub ?? null } }));
   if (currentView === 'messages') renderThread();
   if (currentView === 'care') renderDoor();
   if (currentView === 'assistant' && !loaded.assistant) {
@@ -389,16 +393,18 @@ function setupInvite() {
   });
 }
 
+let pairLink = null;
 function setupDevices() {
   const dialog = $('device-dialog');
   let countdown;
   $('device-h').textContent = `Set up ${elderName}'s device`;
-  $('open-devices').setAttribute('aria-label', `Set up ${elderName}'s device`);
+  $('open-devices').querySelector('strong').textContent = `Set up ${elderName}'s device`;
 
   async function newCode() {
     $('pair-error').hidden = true;
     try {
       const { code, expiresAt, url, qr } = await api('/devices/pairing-code', {});
+      pairLink = url;
       $('pair-code').textContent = `${code.slice(0, 3)} ${code.slice(3)}`;
       $('pair-url').textContent = url.replace(/^https?:\/\//, '');
       $('pair-qr').innerHTML = svg(qr);
@@ -446,6 +452,16 @@ function setupDevices() {
     dialog.showModal();
   });
   $('pair-new').addEventListener('click', newCode);
+  $('pair-share').addEventListener('click', async () => {
+    if (!pairLink) return;
+    const text = `Open this on ${elderName}'s tablet to set up Saathi, then type the six-digit code I give you: ${pairLink}`;
+    try {
+      if (navigator.share) await navigator.share({ title: 'Saathi', text });
+      else { await navigator.clipboard.writeText(text); toast('Link copied. The code is not in it, so it is safe to send.'); }
+    } catch {
+      toast('Could not share the link.');
+    }
+  });
   $('device-close').addEventListener('click', () => dialog.close());
   dialog.addEventListener('close', () => { clearInterval(countdown); clearInterval(watcher); });
   $('pair-device').addEventListener('click', async () => {
@@ -823,12 +839,13 @@ $('insight-dismiss').addEventListener('click', () => { $('insight-dismiss').clos
 $('logout').addEventListener('click', async () => { await fetch('/auth/logout', { method: 'POST' }); location.href = '/login.html'; });
 bindToggle($('t-large'), settings, 'large', () => applyDisplay(settings));
 bindToggle($('t-contrast'), settings, 'contrast', () => applyDisplay(settings));
+bindToggle($('t-motion'), settings, 'motion', () => applyDisplay(settings));
 
 function decorateRail() {
-  const icons = { overview: 'overview', care: 'bell', memories: 'letter', messages: 'users', assistant: 'sparkle', home: 'home' };
+  const icons = { overview: 'home', care: 'heart', memories: 'book', messages: 'message', more: 'menu' };
   document.querySelectorAll('[data-nav]').forEach((a) => a.prepend(iconEl(icons[a.dataset.nav])));
   document.querySelectorAll('[data-icon]').forEach((b) => b.prepend(iconEl(b.dataset.icon)));
-  $('live').innerHTML = svg(icon('signal', { size: 22 }));
+  $('live').innerHTML = svg(icon('signal', { size: 16 }));
   document.querySelector('#compose .round-btn').innerHTML = svg(icon('send', { size: 20 }));
 }
 
@@ -1225,6 +1242,7 @@ async function loadHaq(out) {
     const view = out ?? await jsonFetch('/api/haq', undefined, 'GET');
     const s = view.settings ?? {};
     const f = (id) => document.getElementById(id);
+    f('haq-details').open = !s.birthYear;
     f('haq-born').value = s.birthYear ?? '';
     f('haq-pensioner').checked = Boolean(s.pensioner);
     f('haq-from').value = s.pensionFrom ?? '';
@@ -1336,3 +1354,5 @@ document.getElementById('raksha-form')?.addEventListener('submit', async (e) => 
   }
 });
 loadRaksha();
+
+window.addEventListener('saathi:protection', () => { loadRaksha(); loadScamNetwork(); });

@@ -15,6 +15,8 @@ const PATHS = {
   message: '<path d="M5 6h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8l-4.5 3V18H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/>',
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  menu: '<circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   arrowRight: '<path d="M5 12h14M13 6l6 6-6 6"/>',
   logout: '<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M10 16l-4-4 4-4M6 12h10"/>',
   signal: '<path d="M4.5 9.5a11 11 0 0 1 15 0M7.5 12.5a7 7 0 0 1 9 0M10.5 15.5a3 3 0 0 1 3 0"/><circle cx="12" cy="18.5" r="1"/>',

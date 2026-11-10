@@ -15,6 +15,7 @@ import { createDoctorNotes } from '../src/features/doctorNotes.js';
 import { createHaq } from '../src/features/haq.js';
 import { createSangat } from '../src/features/sangat.js';
 import { createRaksha } from '../src/features/raksha.js';
+import { createSetup } from '../src/features/setup.js';
 
 const require = createRequire(import.meta.url);
 const axeSource = readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
@@ -34,6 +35,7 @@ const app = createApp({
   haq: createHaq({ llm: null, services, translator: services.translator }),
   sangat: createSangat({ store: services.store, services, llm: null }),
   raksha: createRaksha({ services }),
+  setup: createSetup({ services }),
   simulatorFor: async () => ({ turn: (...a) => simulator.turn(...a), answer: (...a) => simulator.answer(...a), reset: () => {} }),
   assistantFor: async () => assistant,
 });
@@ -68,8 +70,8 @@ const scenarios = [
   { name: 'House map, phone width', path: '/family.html#home', width: 390, wait: '.h3-rooms li' },
   { name: 'Set up a device (pairing code)', path: '/device.html' },
   { name: 'Join from an invite (expired link)', path: '/join.html?invite=nope' },
-  { name: 'Family app, invite dialog', path: '/family.html', click: '#open-invite', after: '#mail-status' },
-  { name: "Family app, set up Aaji's device", path: '/family.html', click: '#open-devices', after: '#pair-qr svg, #pair-error:not([hidden])' },
+  { name: 'Family app, invite dialog', path: '/family.html#more', click: '#open-invite', after: '#mail-status' },
+  { name: "Family app, set up Aaji's device", path: '/family.html#more', click: '#open-devices', after: '#pair-qr svg, #pair-error:not([hidden])' },
   { name: 'Family app, care view', path: '/family.html#care', wait: '#meds .row-item' },
   { name: 'Family app, medicines editor', path: '/family.html#care', wait: '#meds .row-item', click: '#manage-meds', after: '#edit-body form' },
   { name: 'Saathi Didi sign-up', path: '/didi.html', wait: '#join-title' },
@@ -78,8 +80,20 @@ const scenarios = [
   { name: 'Saathi Didi sign-up, phone width', path: '/didi.html', width: 390, wait: '#join-title' },
   { name: 'Walk the house', path: '/scan.html' },
   { name: 'Walk the house, drawing by hand', path: '/scan.html', click: '#start-draw' },
-  { name: 'Family app, Scan, Doctor Notes, Haq, Sangat and Raksha', path: '/family.html#care', wait: '#raksha-card' },
-  { name: 'Family app, new features, phone width', path: '/family.html#care', width: 390, wait: '#raksha-card' },
+  { name: 'Family app, care: health tab', path: '/family.html#care/health', wait: '#scan-card:not(.tab-off)' },
+  { name: 'Family app, care: safety tab', path: '/family.html#care/raksha', wait: '#raksha-card:not(.tab-off)' },
+  { name: 'Family app, care: help and benefits tab', path: '/family.html#care/sangat', wait: '#sangat-card:not(.tab-off)' },
+  { name: 'Family app, care: extras tab', path: '/family.html#care/extras', wait: '#tab-extras[aria-selected=true]' },
+  { name: 'Family app, care on a phone', path: '/family.html#care/didis', width: 390, wait: '#didis-card:not(.tab-off)' },
+  { name: 'Family app, home with attention, setup and today', path: '/family.html', wait: '#attention li:not(.skeleton)' },
+  { name: 'Family app, home on a phone', path: '/family.html', width: 390, wait: '#attention li:not(.skeleton)' },
+  { name: 'Family app, home, high contrast', path: '/family.html', contrast: true, wait: '#attention li:not(.skeleton)' },
+  { name: 'Family app, More', path: '/family.html#more', wait: '.tile svg' },
+  { name: 'Family app, More on a phone', path: '/family.html#more', width: 390, wait: '.tile svg' },
+  { name: 'Family app, search', path: '/family.html', click: '#open-palette', after: '#palette-list li' },
+  { name: 'Family app, keyboard shortcuts', path: '/family.html#more', click: '#open-shortcuts', after: '#shortcuts-dialog[open]' },
+  { name: 'Family app, recommended protection', path: '/family.html#more', click: '#open-recommended', after: '#recommended-dialog[open]' },
+  { name: 'Family app, display menu', path: '/family.html', click: '#open-display', after: '#display-pop:not([hidden])' },
   { name: 'Saathi voice screen, Raksha asking', path: '/alexa.html', raksha: true },
 ];
 
