@@ -1356,3 +1356,32 @@ document.getElementById('raksha-form')?.addEventListener('submit', async (e) => 
 loadRaksha();
 
 window.addEventListener('saathi:protection', () => { loadRaksha(); loadScamNetwork(); });
+
+const SHIELD_KIND = { otp: 'asked for a one-time code', kyc: 'fake bank or KYC message', 'digital-arrest': 'fake police threat', prize: 'fake prize', investment: 'fake investment', job: 'fake job offer', impersonation: 'someone pretending to be family or an official', link: 'suspicious link', other: 'likely scam' };
+async function loadShield() {
+  const card = document.getElementById('shield-card');
+  if (!card) return;
+  try {
+    const out = await jsonFetch('/api/scam-shield', undefined, 'GET');
+    document.getElementById('shield-on').checked = out.enabled;
+    document.getElementById('shield-engine').textContent = out.model
+      ? `On her phone: ${out.model.name}, running on the device. Her phone downloads it once over Wi-Fi.`
+      : 'On her phone: quick built-in checks. Add an on-device Gemma model to this Saathi for smarter checks.';
+    document.getElementById('shield-recent').replaceChildren(...out.recent.map((r) => el('li', {}, `${new Date(r.at).toLocaleString()}: ${r.channel === 'whatsapp' ? 'WhatsApp' : r.channel === 'sms' ? 'Text' : 'Message'}, ${SHIELD_KIND[r.kind] ?? r.kind}${r.engine === 'gemma' ? ' (Gemma)' : ''}.`)));
+  } catch {
+    card.hidden = true;
+  }
+}
+document.getElementById('shield-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const status = document.getElementById('shield-status');
+  try {
+    const on = document.getElementById('shield-on').checked;
+    await jsonFetch('/api/scam-shield', { enabled: on }, 'PUT');
+    status.textContent = on ? 'Saved. Open the Saathi app on her phone and allow it to read notifications.' : 'Saved. Scam Shield is off.';
+  } catch (err) {
+    status.textContent = err.message;
+  }
+});
+loadShield();
+window.addEventListener('saathi:protection', () => loadShield());

@@ -19,4 +19,17 @@
     <string name="raksha_ask_text">Saathi is checking on you. Tap I\'m fine, or your family will be called.</string>
     <string name="raksha_fine">I\'m fine</string>
     <string name="raksha_ask_channel">Are you all right?</string>
+    <string name="shield_channel">Saathi Scam Shield</string>
+    <string name="shield_title">This message looks like a scam</string>
+    <string name="shield_otp">It asks for a one-time code (OTP). Never share it with anyone, not even the bank.</string>
+    <string name="shield_kyc">It says your account or KYC needs updating. Banks never ask this by message. Do not click or reply.</string>
+    <string name="shield_arrest">It threatens arrest or police action. This is a known scam. Do not pay or reply; hang up on any call.</string>
+    <string name="shield_money">It promises easy money, a prize or a job. Do not pay any fee or share details.</string>
+    <string name="shield_family">Someone says they are family on a new number. Call your family on their old number first.</string>
+    <string name="shield_other">Do not click links, share codes or send money.</string>
+    <string name="shield_family_told">Your family has been told. The message stayed on your phone.</string>
+    <string name="shield_ask_title">Protect her messages?</string>
+    <string name="shield_ask_text">Saathi can check incoming texts and WhatsApp messages for scams on this phone and warn her. The messages are checked on the phone and never leave it. Allow Saathi to read notifications on the next screen.</string>
+    <string name="shield_allow">Allow</string>
+    <string name="shield_not_now">Not now</string>
 </resources>

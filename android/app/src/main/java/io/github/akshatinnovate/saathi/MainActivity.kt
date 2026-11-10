@@ -2,6 +2,9 @@ package io.github.akshatinnovate.saathi
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
+import android.app.NotificationManager
+import android.content.ComponentName
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.SharedPreferences
@@ -11,6 +14,7 @@ import android.net.Uri
 import android.net.http.SslError
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.text.InputType
 import android.util.TypedValue
 import android.view.Gravity
@@ -36,6 +40,10 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.window.OnBackInvokedDispatcher
+import io.github.akshatinnovate.saathi.shield.SaathiApi
+import io.github.akshatinnovate.saathi.shield.ScamShieldService
+import io.github.akshatinnovate.saathi.shield.ShieldConfig
+import java.util.concurrent.Executors
 
 class MainActivity : Activity() {
 
@@ -286,6 +294,45 @@ class MainActivity : Activity() {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFY)
         }
         RakshaService.start(this)
+        offerShield()
+    }
+
+    private fun shieldGranted(): Boolean {
+        val component = ComponentName(this, ScamShieldService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            return getSystemService(NotificationManager::class.java)?.isNotificationListenerAccessGranted(component) == true
+        }
+        val enabled = Settings.Secure.getString(contentResolver, "enabled_notification_listeners") ?: return false
+        return enabled.split(':').any { ComponentName.unflattenFromString(it) == component }
+    }
+
+    private fun offerShield() {
+        if (shieldGranted()) return
+        val now = System.currentTimeMillis()
+        if (now - prefs.getLong(KEY_SHIELD_ASKED, 0L) < SHIELD_ASK_GAP_MILLIS) return
+        Executors.newSingleThreadExecutor().execute {
+            val config = try {
+                ShieldConfig.parse(SaathiApi.call(applicationContext, "/api/scam-shield", "GET", null))
+            } catch (_: Exception) {
+                null
+            }
+            if (config?.enabled != true) return@execute
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                prefs.edit().putLong(KEY_SHIELD_ASKED, now).apply()
+                AlertDialog.Builder(this)
+                    .setTitle(R.string.shield_ask_title)
+                    .setMessage(R.string.shield_ask_text)
+                    .setPositiveButton(R.string.shield_allow) { _, _ ->
+                        try {
+                            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                        } catch (_: ActivityNotFoundException) {
+                        }
+                    }
+                    .setNegativeButton(R.string.shield_not_now, null)
+                    .show()
+            }
+        }
     }
 
     private fun decide(request: PermissionRequest, home: SaathiAddress) {
@@ -362,5 +409,7 @@ class MainActivity : Activity() {
         private const val REQUEST_MEDIA = 7
         private const val REQUEST_FILES = 8
         private const val REQUEST_NOTIFY = 9
+        private const val KEY_SHIELD_ASKED = "shield_asked"
+        private const val SHIELD_ASK_GAP_MILLIS = 24L * 60 * 60 * 1000
     }
 }

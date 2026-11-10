@@ -6,7 +6,7 @@ const images = express.raw({ type: IMAGE_TYPES, limit: '6mb' });
 const audio = express.raw({ type: AUDIO_TYPES, limit: '12mb' });
 const modelLimit = rateLimit({ windowMs: 60 * 60 * 1000, limit: 60, standardHeaders: 'draft-7', legacyHeaders: false });
 
-export function mountFamilyFeatures(api, { scan, doctorNotes, haq, sangat, raksha, setup = null, record, memberOf }) {
+export function mountFamilyFeatures(api, { scan, doctorNotes, haq, sangat, raksha, setup = null, scamShield = null, record, memberOf }) {
   const send = (feature, fn) => async (req, res, next) => {
     try {
       if (!feature) return res.status(404).json({ error: 'This part of Saathi is not set up here.' });
@@ -58,6 +58,18 @@ export function mountFamilyFeatures(api, { scan, doctorNotes, haq, sangat, raksh
       return out;
     }));
   }
+
+  api.get('/scam-shield', send(scamShield, (req) => scamShield.view(req.householdId)));
+  api.put('/scam-shield', send(scamShield, async (req) => {
+    await req.saathi.updateProfile({ scamShield: { enabled: req.body?.enabled === true } });
+    record(req, 'scam-shield-settings', { enabled: req.body?.enabled === true });
+    return scamShield.view(req.householdId);
+  }));
+  api.post('/scam-shield/report', modelLimit, send(scamShield, (req) => scamShield.report(req.householdId, { kind: req.body?.kind, engine: req.body?.engine, channel: req.body?.channel, confidence: req.body?.confidence })));
+  api.get('/scam-shield/model', (req, res, next) => {
+    if (!scamShield) return res.status(404).json({ error: 'This part of Saathi is not set up here.' });
+    try { scamShield.sendModel(res); } catch (err) { if (err.status) return res.status(err.status).json({ error: err.message }); next(err); }
+  });
 
   api.get('/setup', send(setup, (req) => setup.status(req.householdId, { email: req.user?.email ?? null, role: req.role })));
   api.get('/attention', send(setup, (req) => setup.attention(req.householdId, { memberId: memberOf(req), role: req.role })));

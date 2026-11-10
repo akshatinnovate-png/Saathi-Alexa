@@ -17,4 +17,17 @@
     <string name="raksha_ask_text">साथी तुमची चौकशी करत आहे. ठीक असाल तर \"मी ठीक आहे\" दाबा, नाहीतर घरच्यांना कळवलं जाईल.</string>
     <string name="raksha_fine">मी ठीक आहे</string>
     <string name="raksha_ask_channel">तुम्ही ठीक आहात ना?</string>
+    <string name="shield_channel">साथी स्कॅम शील्ड</string>
+    <string name="shield_title">हा मेसेज फसवणूक वाटतो</string>
+    <string name="shield_otp">यात ओटीपी मागितला आहे. तो कधीही कोणालाही सांगू नका, बँकेलाही नाही.</string>
+    <string name="shield_kyc">यात खाते किंवा केवायसी अपडेट करायला सांगितले आहे. बँक असे मेसेजने कधीच सांगत नाही. क्लिक किंवा उत्तर देऊ नका.</string>
+    <string name="shield_arrest">यात अटकेची किंवा पोलिसांची धमकी आहे. ही ओळखीची फसवणूक आहे. पैसे देऊ नका, उत्तर देऊ नका.</string>
+    <string name="shield_money">यात सोपे पैसे, बक्षीस किंवा नोकरीचे वचन आहे. कोणतीही फी देऊ नका, माहिती देऊ नका.</string>
+    <string name="shield_family">कोणी नवीन नंबरवरून घरचे असल्याचे सांगत आहे. आधी जुन्या नंबरवर घरच्यांना फोन करा.</string>
+    <string name="shield_other">लिंक उघडू नका, कोड सांगू नका, पैसे पाठवू नका.</string>
+    <string name="shield_family_told">तुमच्या घरच्यांना कळवले आहे. मेसेज तुमच्या फोनवरच राहिला.</string>
+    <string name="shield_ask_title">त्यांचे मेसेज सुरक्षित करायचे?</string>
+    <string name="shield_ask_text">साथी या फोनवर येणाऱ्या एसएमएस आणि व्हॉट्सअॅप मेसेजमधील फसवणूक ओळखून त्यांना सावध करू शकतो. मेसेज फोनवरच तपासले जातात आणि कुठेही जात नाहीत. पुढच्या स्क्रीनवर साथीला सूचना वाचण्याची परवानगी द्या.</string>
+    <string name="shield_allow">परवानगी द्या</string>
+    <string name="shield_not_now">आत्ता नाही</string>
 </resources>

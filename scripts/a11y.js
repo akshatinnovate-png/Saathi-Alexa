@@ -16,6 +16,7 @@ import { createHaq } from '../src/features/haq.js';
 import { createSangat } from '../src/features/sangat.js';
 import { createRaksha } from '../src/features/raksha.js';
 import { createSetup } from '../src/features/setup.js';
+import { createScamShield } from '../src/features/scamShield.js';
 
 const require = createRequire(import.meta.url);
 const axeSource = readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
@@ -36,6 +37,7 @@ const app = createApp({
   sangat: createSangat({ store: services.store, services, llm: null }),
   raksha: createRaksha({ services }),
   setup: createSetup({ services }),
+  scamShield: createScamShield({ services }),
   simulatorFor: async () => ({ turn: (...a) => simulator.turn(...a), answer: (...a) => simulator.answer(...a), reset: () => {} }),
   assistantFor: async () => assistant,
 });
@@ -82,6 +84,7 @@ const scenarios = [
   { name: 'Walk the house, drawing by hand', path: '/scan.html', click: '#start-draw' },
   { name: 'Family app, care: health tab', path: '/family.html#care/health', wait: '#scan-card:not(.tab-off)' },
   { name: 'Family app, care: safety tab', path: '/family.html#care/raksha', wait: '#raksha-card:not(.tab-off)' },
+  { name: 'Family app, Scam Shield', path: '/family.html#care/shield', wait: '#shield-card:not(.tab-off)' },
   { name: 'Family app, care: help and benefits tab', path: '/family.html#care/sangat', wait: '#sangat-card:not(.tab-off)' },
   { name: 'Family app, care: extras tab', path: '/family.html#care/extras', wait: '#tab-extras[aria-selected=true]' },
   { name: 'Family app, care on a phone', path: '/family.html#care/didis', width: 390, wait: '#didis-card:not(.tab-off)' },
