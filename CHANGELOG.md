@@ -1,7 +1,7 @@
 # Changelog
 
 
-## [Unreleased]
+## [1.5.0] - 2026-11-11
 
 ### Scam Shield: Gemma on her phone
 - The Saathi Android app checks incoming texts and WhatsApp messages for scams on her phone. A fast rules check runs first; unclear messages go to **Gemma running on the phone** (MediaPipe LLM Inference).
